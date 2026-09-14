@@ -1,0 +1,32 @@
+{
+  "name": "@agentdock-ai/react",
+  "version": "0.1.0",
+  "description": "React primitives for consuming AgentDock event streams",
+  "license": "MIT",
+  "type": "module",
+  "files": ["dist"],
+  "sideEffects": false,
+  "engines": { "node": ">=20" },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@agentdock-ai/contracts": "^0.1.0"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.0.0"
+  }
+}
