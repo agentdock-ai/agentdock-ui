@@ -85,8 +85,11 @@ function ToolMessage({
       data-tool-status={tool.status}
     >
       <div className={cn("ad-message-body", classNames?.body)}>
-        <div className={cn("ad-tool-card", classNames?.toolCard)}>
-          <div className={cn("ad-tool-top", classNames?.toolTop)}>
+        <details
+          className={cn("ad-tool-card", classNames?.toolCard)}
+          open={tool.status === "failed"}
+        >
+          <summary className={cn("ad-tool-top ad-tool-summary", classNames?.toolTop)}>
             <span
               className={cn("ad-tool-icon", classNames?.toolIcon)}
               aria-hidden="true"
@@ -110,7 +113,7 @@ function ToolMessage({
             >
               {toolStatusLabel(tool.status)}
             </span>
-          </div>
+          </summary>
           <details className={cn("ad-tool-detail", classNames?.toolDetail)}>
             <summary>Input</summary>
             <pre>{JSON.stringify(tool.input, null, 2)}</pre>
@@ -137,7 +140,7 @@ function ToolMessage({
               <pre>{tool.error}</pre>
             </details>
           )}
-        </div>
+        </details>
       </div>
     </article>
   );

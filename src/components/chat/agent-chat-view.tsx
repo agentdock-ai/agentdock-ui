@@ -93,7 +93,6 @@ export function AgentChatView({
         className={classNames?.composer}
         inputClassName={classNames?.composerInput}
         footerClassName={classNames?.composerFooter}
-        hintClassName={classNames?.composerHint}
         submitClassName={classNames?.composerSubmit}
         onChange={setInput}
         onSubmit={submitMessage}

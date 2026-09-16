@@ -31,10 +31,11 @@
     "./components/chat": {
       "types": "./dist/components/chat/index.d.ts",
       "import": "./dist/components/chat/index.js"
-    }
+    },
+    "./styles.css": "./dist/styles.css"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-styles.mjs",
     "dev": "vite --config vite.config.ts",
     "dev:build": "vite build --config vite.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",

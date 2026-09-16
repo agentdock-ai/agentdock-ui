@@ -13,7 +13,6 @@ export interface AgentChatComposerProps {
   className?: string;
   inputClassName?: string;
   footerClassName?: string;
-  hintClassName?: string;
   submitClassName?: string;
   onChange: (value: string) => void;
   onSubmit: () => void | Promise<void>;
@@ -28,7 +27,6 @@ export function AgentChatComposer({
   className,
   inputClassName,
   footerClassName,
-  hintClassName,
   submitClassName,
   onChange,
   onSubmit,
@@ -69,7 +67,6 @@ export function AgentChatComposer({
         </Form.Control>
       </Form.Field>
       <div className={cn("ad-composer-footer", footerClassName)}>
-        <span className={hintClassName}>Enter to send · Shift + Enter for a new line</span>
         <Form.Submit asChild>
           <Button
             type="submit"

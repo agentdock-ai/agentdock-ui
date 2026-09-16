@@ -8,6 +8,7 @@ import { AgentStore } from "../src/core/agent-store.js";
 import { consumeAgentStream } from "../src/core/consume-agent-stream.js";
 import { decodeAgentEventStream } from "../src/core/decode-agent-event-stream.js";
 import { AgentProvider } from "../src/react/agent-provider.js";
+import "../src/styles.css";
 import "./style.css";
 
 const store = new AgentStore();
@@ -311,6 +312,7 @@ function Playground() {
         </p>
       )}
       <AgentChatView
+        className="playground-chat"
         disabled={!configured}
         onSubmit={send}
         placeholder={

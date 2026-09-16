@@ -23,6 +23,5 @@ export interface AgentChatClassNames {
   composer?: string;
   composerInput?: string;
   composerFooter?: string;
-  composerHint?: string;
   composerSubmit?: string;
 }
