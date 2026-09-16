@@ -1,6 +1,6 @@
 import React, { useEffect, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
-import { AgentChatView } from "../src/components/agent-chat-view.js";
+import { AgentChatView } from "../src/components/chat/agent-chat-view.js";
 import { AgentDockTheme } from "../src/components/ui/theme.js";
 import { AgentStore } from "../src/core/agent-store.js";
 import { consumeAgentStream } from "../src/core/consume-agent-stream.js";
@@ -222,7 +222,7 @@ function Playground() {
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <AgentDockTheme mode="system">
+    <AgentDockTheme mode="light">
       <AgentProvider store={store}>
         <Playground />
       </AgentProvider>

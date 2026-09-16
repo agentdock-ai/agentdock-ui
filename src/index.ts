@@ -14,4 +14,7 @@ export {
   type AgentProviderProps,
 } from "./react/agent-provider.js";
 export { useAgentState } from "./react/use-agent-state.js";
+export { decodeAgentEventStream, type DecodeAgentEventStreamOptions } from "./core/decode-agent-event-stream.js";
 export type { AgentEvent } from "@agentdock-ai/contracts";
+
+export * from "./components/index.js";

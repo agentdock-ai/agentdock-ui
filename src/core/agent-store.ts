@@ -8,29 +8,48 @@ import {
 
 export type AgentStreamStatus = "idle" | "consuming" | "closed" | "error";
 
+const MAX_RETAINED_RUNS = 100;
+const MAX_RETAINED_EVENTS = 500;
+
 export interface AgentStoreSnapshot {
   /** State for the latest run, reduced by the canonical AgentDock contract. */
   agent: AgentReducerState;
   /** Per-run snapshots, retained so a multi-turn chat keeps its history. */
   runs: readonly AgentReducerState[];
-  /** Messages aggregated in run order for chat rendering. */
+  /** Flattened message projection used directly by chat components. */
   messages: readonly AgentReducerMessage[];
-  /** Transport lifecycle, kept separate from agent run lifecycle. */
+  /** Raw events retained for diagnostics and replay-style debugging. */
+  events: readonly AgentEvent[];
+  /** Transport lifecycle, separate from the agent run lifecycle. */
   streamStatus: AgentStreamStatus;
   streamError: unknown | null;
 }
 
 export type AgentStoreListener = () => void;
 
-/** Shared external store for one chat session. */
-export class AgentStore {
-  private snapshot: AgentStoreSnapshot = {
+function createInitialSnapshot(): AgentStoreSnapshot {
+  return {
     agent: createAgentReducerState(),
     runs: [],
     messages: [],
+    events: [],
     streamStatus: "idle",
     streamError: null,
   };
+}
+
+function isTerminalRun(status: AgentReducerState["status"]): boolean {
+  return status === "completed" || status === "failed" || status === "cancelled";
+}
+
+/**
+ * Frontend state for one AgentDock session.
+ *
+ * The store only reduces events for rendering. It does not run models,
+ * execute tools, make requests, or persist data.
+ */
+export class AgentStore {
+  private snapshot: AgentStoreSnapshot = createInitialSnapshot();
   private readonly listeners = new Set<AgentStoreListener>();
 
   getSnapshot = (): AgentStoreSnapshot => this.snapshot;
@@ -42,24 +61,21 @@ export class AgentStore {
 
   applyEvent(event: AgentEvent): void {
     const previous = this.snapshot.agent;
-    const startsNextRun =
-      (previous.status === "completed" ||
-        previous.status === "failed" ||
-        previous.status === "cancelled") &&
-      event.type === "run.started";
-    const base = startsNextRun ? createAgentReducerState() : previous;
-    const agent = reduceAgentEvent(base, event);
-    if (agent === previous) return;
+    const startsNewRun = isTerminalRun(previous.status) && event.type === "run.started";
+    const nextAgent = reduceAgentEvent(
+      startsNewRun ? createAgentReducerState() : previous,
+      event,
+    );
 
-    const runs =
-      startsNextRun || this.snapshot.runs.length === 0
-        ? [...this.snapshot.runs, agent]
-        : [...this.snapshot.runs.slice(0, -1), agent];
+    if (nextAgent === previous) return;
+
+    const runs = this.replaceLatestRun(nextAgent, startsNewRun);
     this.update({
       ...this.snapshot,
-      agent,
+      agent: nextAgent,
       runs,
       messages: runs.flatMap((run) => run.messages),
+      events: [...this.snapshot.events, event].slice(-MAX_RETAINED_EVENTS),
     });
   }
 
@@ -67,17 +83,32 @@ export class AgentStore {
     streamStatus: AgentStreamStatus,
     streamError: unknown | null = null,
   ): void {
+    if (
+      this.snapshot.streamStatus === streamStatus &&
+      this.snapshot.streamError === streamError
+    ) {
+      return;
+    }
     this.update({ ...this.snapshot, streamStatus, streamError });
   }
 
   reset(): void {
-    this.update({
-      agent: createAgentReducerState(),
-      runs: [],
-      messages: [],
-      streamStatus: "idle",
-      streamError: null,
-    });
+    this.update(createInitialSnapshot());
+  }
+
+  private replaceLatestRun(
+    nextAgent: AgentReducerState,
+    startsNewRun: boolean,
+  ): AgentReducerState[] {
+    const currentRuns = this.snapshot.runs;
+
+    if (startsNewRun || currentRuns.length === 0) {
+      return [...currentRuns, nextAgent].slice(-MAX_RETAINED_RUNS);
+    }
+
+    return currentRuns.map((run, index) =>
+      index === currentRuns.length - 1 ? nextAgent : run,
+    );
   }
 
   private update(snapshot: AgentStoreSnapshot): void {
