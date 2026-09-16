@@ -35,6 +35,15 @@ const models: Record<Provider, { id: string; label: string }[]> = {
   ],
 };
 const customModel = "__custom";
+const PLAYGROUND_STORAGE_KEY = "agentdock.playground.connection.v1";
+
+interface PersistedPlaygroundConfig {
+  version: 1;
+  provider: Provider;
+  model: string;
+  apiKey?: string;
+  savedAt: string;
+}
 
 interface Health {
   configured?: boolean;
@@ -46,11 +55,51 @@ function isProvider(value: unknown): value is Provider {
   return value === "openrouter" || value === "openai" || value === "ollama";
 }
 
+function readPersistedConfig(): PersistedPlaygroundConfig | null {
+  try {
+    const raw = window.localStorage.getItem(PLAYGROUND_STORAGE_KEY);
+    if (!raw) return null;
+    const value = JSON.parse(raw) as Partial<PersistedPlaygroundConfig>;
+    if (
+      value.version !== 1 ||
+      !isProvider(value.provider) ||
+      typeof value.model !== "string" ||
+      !value.model.trim()
+    ) {
+      return null;
+    }
+    return {
+      version: 1,
+      provider: value.provider,
+      model: value.model.trim(),
+      apiKey: typeof value.apiKey === "string" ? value.apiKey.trim() : undefined,
+      savedAt: typeof value.savedAt === "string" ? value.savedAt : new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function persistConfig(
+  config: Omit<PersistedPlaygroundConfig, "version" | "savedAt">,
+): void {
+  try {
+    window.localStorage.setItem(
+      PLAYGROUND_STORAGE_KEY,
+      JSON.stringify({ ...config, version: 1, savedAt: new Date().toISOString() }),
+    );
+  } catch {
+    // Local storage can be unavailable in privacy-restricted browser contexts.
+  }
+}
+
 function Playground() {
   const [provider, setProvider] = useState<Provider>("openrouter");
   const [modelOption, setModelOption] = useState(models.openrouter[0]!.id);
   const [customModelName, setCustomModelName] = useState("");
   const [key, setKey] = useState("");
+  const [savedApiKey, setSavedApiKey] = useState("");
+  const [savedKeyAvailable, setSavedKeyAvailable] = useState(false);
   const [configured, setConfigured] = useState(false);
   const [envKeys, setEnvKeys] = useState<Partial<Record<Provider, boolean>>>(
     {},
@@ -63,25 +112,54 @@ function Playground() {
 
   useEffect(() => {
     let live = true;
-    fetch("/api/health")
-      .then((response) => response.json())
-      .then((health: Health) => {
+    async function initialize() {
+      const persisted = readPersistedConfig();
+      try {
+        const response = await fetch("/api/health");
+        const health = (await response.json()) as Health;
         if (!live) return;
-        const p = isProvider(health.provider) ? health.provider : "openrouter";
-        const m = health.model ?? models.openrouter[0]!.id;
+
+        const p = persisted?.provider ?? (isProvider(health.provider) ? health.provider : "openrouter");
+        const m = persisted?.model ?? health.model ?? models.openrouter[0]!.id;
+        const knownModel = models[p].some((option) => option.id === m);
         setProvider(p);
-        setModelOption(
-          models[p].some((option) => option.id === m) ? m : customModel,
-        );
-        setCustomModelName(
-          models[p].some((option) => option.id === m) ? "" : m,
-        );
-        setConfigured(Boolean(health.configured));
+        setModelOption(knownModel ? m : customModel);
+        setCustomModelName(knownModel ? "" : m);
         setEnvKeys(health.credentialsAvailable ?? {});
-      })
-      .catch(() => {
-        if (live) setError("Could not reach the local agent.");
-      });
+        setSavedApiKey(persisted?.apiKey ?? "");
+        setSavedKeyAvailable(Boolean(persisted?.apiKey));
+
+        if (persisted) {
+          setConnecting(true);
+          const configureResponse = await fetch("/api/configure", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              provider: persisted.provider,
+              model: persisted.model,
+              apiKey: persisted.apiKey ?? "",
+            }),
+          });
+          if (!configureResponse.ok) {
+            const body = (await configureResponse.json().catch(() => ({}))) as { error?: string };
+            throw new Error(body.error ?? "The saved provider connection could not be restored.");
+          }
+          if (!live) return;
+          setConfigured(true);
+          setKey("");
+        } else {
+          setConfigured(Boolean(health.configured));
+        }
+      } catch (cause) {
+        if (live) {
+          setConfigured(false);
+          setError(cause instanceof Error ? cause.message : "Could not reach the local agent.");
+        }
+      } finally {
+        if (live) setConnecting(false);
+      }
+    }
+    void initialize();
     return () => {
       live = false;
     };
@@ -92,6 +170,8 @@ function Playground() {
     setModelOption(models[next][0]!.id);
     setCustomModelName("");
     setKey("");
+    setSavedApiKey("");
+    setSavedKeyAvailable(false);
     setConfigured(false);
     setError("");
   }
@@ -101,17 +181,27 @@ function Playground() {
     if (!model || connecting) return;
     setConnecting(true);
     setError("");
+    const connectionKey = key.trim() || savedApiKey;
     try {
       const response = await fetch("/api/configure", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, model, apiKey: key }),
+        body: JSON.stringify({ provider, model, apiKey: connectionKey }),
       });
       const body = (await response.json().catch(() => ({}))) as {
         error?: string;
       };
       if (!response.ok)
         throw new Error(body.error ?? "Could not connect this provider.");
+      persistConfig({
+        provider,
+        model,
+        ...(selectedProvider.requiresKey && connectionKey
+          ? { apiKey: connectionKey }
+          : {}),
+      });
+      setSavedApiKey(selectedProvider.requiresKey ? connectionKey : "");
+      setSavedKeyAvailable(selectedProvider.requiresKey && Boolean(connectionKey));
       setKey("");
       setConfigured(true);
     } catch (cause) {
@@ -146,7 +236,10 @@ function Playground() {
   }
 
   const keyMissing =
-    selectedProvider.requiresKey && !key.trim() && !envKeys[provider];
+    selectedProvider.requiresKey &&
+    !key.trim() &&
+    !savedKeyAvailable &&
+    !envKeys[provider];
   return (
     <main className="playground">
       <form className="provider-form" onSubmit={connect}>
@@ -194,7 +287,13 @@ function Playground() {
             type="password"
             autoComplete="off"
             spellCheck={false}
-            placeholder={envKeys[provider] ? "API key from .env" : "API key"}
+            placeholder={
+              envKeys[provider]
+                ? "API key from .env"
+                : savedKeyAvailable
+                  ? "Saved API key"
+                  : "API key"
+            }
             value={key}
             onChange={(event) => {
               setKey(event.target.value);
