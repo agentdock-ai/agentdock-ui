@@ -29,6 +29,32 @@ async function* eventSource(events: AgentEvent[]): AsyncIterable<AgentEvent> {
 }
 
 describe("consumeAgentStream", () => {
+  it("keeps the submitted user message when the assistant stream starts", async () => {
+    const store = new AgentStore();
+
+    store.appendUserMessage("Create a file");
+    expect(store.getSnapshot().messages).toEqual([
+      {
+        messageId: expect.stringMatching(/^user-/),
+        role: "user",
+        content: [{ type: "text", text: "Create a file" }],
+      },
+    ]);
+
+    await consumeAgentStream(
+      store,
+      eventSource([
+        runEvent("run-1", "event-1", 1, "run.started"),
+        runEvent("run-1", "event-2", 2, "run.completed"),
+      ]),
+    );
+
+    expect(store.getSnapshot().messages[0]?.role).toBe("user");
+    expect(store.getSnapshot().messages[0]?.content).toEqual([
+      { type: "text", text: "Create a file" },
+    ]);
+  });
+
   it("reduces supplied events into the shared store and closes the stream", async () => {
     const store = new AgentStore();
 

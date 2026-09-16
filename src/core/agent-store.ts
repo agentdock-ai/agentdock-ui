@@ -92,6 +92,39 @@ export class AgentStore {
     this.update({ ...this.snapshot, streamStatus, streamError });
   }
 
+  /** Add the submitted prompt immediately, before the backend stream emits assistant events. */
+  appendUserMessage(text: string): void {
+    const value = text.trim();
+    if (!value) return;
+
+    const current = this.snapshot.agent;
+    const startsNewRun =
+      this.snapshot.runs.length === 0 || isTerminalRun(current.status);
+    const nextAgent = startsNewRun
+      ? createAgentReducerState()
+      : { ...current, messages: [...current.messages] };
+    nextAgent.messages = [
+      ...nextAgent.messages,
+      {
+        messageId: `user-${crypto.randomUUID()}`,
+        role: "user",
+        content: [{ type: "text", text: value }],
+      },
+    ];
+
+    const runs = startsNewRun
+      ? [...this.snapshot.runs, nextAgent].slice(-MAX_RETAINED_RUNS)
+      : this.snapshot.runs.map((run, index) =>
+          index === this.snapshot.runs.length - 1 ? nextAgent : run,
+        );
+    this.update({
+      ...this.snapshot,
+      agent: nextAgent,
+      runs,
+      messages: runs.flatMap((run) => run.messages),
+    });
+  }
+
   reset(): void {
     this.update(createInitialSnapshot());
   }

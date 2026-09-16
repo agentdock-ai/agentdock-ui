@@ -42,6 +42,7 @@ export function AgentChatView({
     const value = input.trim();
     if (!value || busy) return;
     setInput("");
+    store.appendUserMessage(value);
     store.setStreamStatus("consuming");
     try {
       await onSubmit(value);
