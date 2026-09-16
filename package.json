@@ -4,19 +4,41 @@
   "description": "React primitives for consuming AgentDock event streams",
   "license": "MIT",
   "type": "module",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "sideEffects": false,
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=22"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./components": {
+      "types": "./dist/components/index.d.ts",
+      "import": "./dist/components/index.js"
+    },
+    "./components/ui": {
+      "types": "./dist/components/ui/index.d.ts",
+      "import": "./dist/components/ui/index.js"
+    },
+    "./components/message": {
+      "types": "./dist/components/message/index.d.ts",
+      "import": "./dist/components/message/index.js"
+    },
+    "./components/chat": {
+      "types": "./dist/components/chat/index.d.ts",
+      "import": "./dist/components/chat/index.js"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "dev": "vite --config vite.config.ts",
+    "dev:build": "vite build --config vite.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
     "@agentdock-ai/contracts": "^0.1.0"
@@ -25,8 +47,16 @@
     "react": ">=18"
   },
   "devDependencies": {
+    "@agentdock-ai/agentdock": "^0.1.0",
+    "@agentdock-ai/models": "^0.1.0",
+    "@types/node": "^26.5.1",
     "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "typescript": "^5.8.0",
+    "vite": "^8.3.0",
     "vitest": "^3.0.0"
   }
 }

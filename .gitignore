@@ -2,3 +2,9 @@ node_modules/
 dist/
 coverage/
 .yarn/cache/
+.env
+.env.*
+!.env.example
+playground/.sandbox/*
+!playground/.sandbox/.gitkeep
+.sandbox/
