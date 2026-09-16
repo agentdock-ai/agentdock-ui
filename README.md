@@ -141,7 +141,7 @@ Authenticate every request before it can read or continue a session. Never send 
 
 The package is organized into three public layers:
 
-- @agentdock-ai/react/components/ui contains native primitives, class-name composition, and theme tokens.
+- @agentdock-ai/react/components/ui contains Radix/shadcn-style Button, Input, Textarea, and Form primitives, class-name composition, and theme tokens.
 - @agentdock-ai/react/components/message contains Message, UserMessage, AssistantMessage, ToolMessage, and MessageContent.
 - @agentdock-ai/react/components/chat contains AgentChatView, the composer, header, typing indicator, and tool activity.
 

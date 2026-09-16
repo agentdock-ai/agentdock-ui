@@ -6,47 +6,31 @@ import { Message } from "../message/message.js";
 import { cn } from "../ui/class-names.js";
 import { agentDockThemeStyle, type AgentDockThemeConfig } from "../ui/theme.js";
 import { AgentChatComposer } from "./agent-chat-composer.js";
-import { AgentChatHeader } from "./agent-chat-header.js";
 import { AgentToolActivity } from "./agent-tool-activity.js";
 import { AgentTypingIndicator } from "./agent-typing-indicator.js";
 import type { AgentChatClassNames } from "./types.js";
 
 export interface AgentChatViewProps {
-  title?: string;
-  subtitle?: string;
   placeholder?: string;
   disabled?: boolean;
-  showHeader?: boolean;
   className?: string;
   style?: CSSProperties;
   classNames?: AgentChatClassNames;
   theme?: AgentDockThemeConfig;
   onSubmit: (input: string) => void | Promise<void>;
+  onInterrupt?: () => void | Promise<void>;
   renderContentPart?: (part: ContentPart, index: number) => ReactNode;
 }
 
-function statusLabel(status: string, streamStatus: string): string {
-  if (streamStatus === "error") return "Stream error";
-  if (streamStatus === "consuming" && status === "idle") return "Connecting";
-  if (status === "running") return "Responding";
-  if (status === "waiting") return "Waiting for approval";
-  if (status === "completed") return "Ready";
-  if (status === "failed") return "Run failed";
-  if (status === "cancelled") return "Cancelled";
-  return "Ready";
-}
-
 export function AgentChatView({
-  title = "AgentDock Assistant",
-  subtitle = "Connected to the AgentDock event stream",
   placeholder = "Message your agent…",
   disabled = false,
-  showHeader = true,
   className,
   style,
   classNames,
   theme,
   onSubmit,
+  onInterrupt,
   renderContentPart,
 }: AgentChatViewProps) {
   const store = useAgentStore();
@@ -66,7 +50,15 @@ export function AgentChatView({
     }
   }
 
-  const status = statusLabel(agent.status, streamStatus);
+  async function interruptMessage() {
+    if (disabled || !onInterrupt) return;
+    try {
+      await onInterrupt();
+    } catch (error) {
+      store.setStreamStatus("error", error);
+    }
+  }
+
   return (
     <section
       className={cn("ad-chat", className, classNames?.root)}
@@ -74,21 +66,6 @@ export function AgentChatView({
       data-agentdock-theme={theme?.mode}
       aria-label="Agent chat"
     >
-      {showHeader && (
-        <AgentChatHeader
-          title={title}
-          subtitle={subtitle}
-          status={status}
-          busy={busy}
-          error={streamStatus === "error"}
-          className={classNames?.header}
-          avatarClassName={classNames?.headerAvatar}
-          contentClassName={classNames?.headerContent}
-          titleClassName={classNames?.headerTitle}
-          subtitleClassName={classNames?.headerSubtitle}
-          statusClassName={classNames?.status}
-        />
-      )}
       <div className={cn("ad-chat-scroll", classNames?.scroll)} aria-live="polite">
         {messages.length === 0 ? (
           <div className={cn("ad-empty-state", classNames?.emptyState)} data-slot="empty-state">
@@ -119,6 +96,7 @@ export function AgentChatView({
         submitClassName={classNames?.composerSubmit}
         onChange={setInput}
         onSubmit={submitMessage}
+        onInterrupt={interruptMessage}
       />
     </section>
   );

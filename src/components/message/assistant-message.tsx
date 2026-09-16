@@ -1,3 +1,4 @@
+import { Bot } from "lucide-react";
 import { MessageContent } from "./message-content.js";
 import type { MessageComponentProps } from "./types.js";
 import { cn } from "../ui/class-names.js";
@@ -15,7 +16,7 @@ export function AssistantMessage({
 }: AssistantMessageProps) {
   return (
     <article className={cn("ad-message ad-message-assistant", className, classNames?.root)} data-slot="assistant-message">
-      <div className={cn("ad-message-avatar", classNames?.avatar)} aria-hidden="true">A</div>
+      <div className={cn("ad-message-avatar", classNames?.avatar)} aria-hidden="true"><Bot /></div>
       <div className={cn("ad-message-body", classNames?.body)}>
         <div className={cn("ad-message-label", classNames?.label)}>{label}</div>
         <MessageContent

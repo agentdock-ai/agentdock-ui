@@ -5,6 +5,7 @@ import type {
   ToolErrorRecord,
   ToolResultRecord,
 } from "@agentdock-ai/contracts";
+import { Wrench } from "lucide-react";
 import { cn } from "../ui/class-names.js";
 
 export interface AgentToolActivityItem {
@@ -56,7 +57,7 @@ export function AgentToolActivity({
       {tools.map(({ call, runId, result, error, progress }) => (
         <article className={cn("ad-tool-card", classNames?.card)} key={(runId ?? "run") + "-" + call.toolCallId}>
           <div className={cn("ad-tool-top", classNames?.top)}>
-            <span className={cn("ad-tool-icon", classNames?.icon)}>⌘</span>
+            <span className={cn("ad-tool-icon", classNames?.icon)} aria-hidden="true"><Wrench /></span>
             <div className={cn("ad-tool-info", classNames?.info)}>
               <strong>{call.name}</strong>
               <span>{error ? "Failed" : result ? "Completed" : progress ? "In progress" : "Started"}</span>

@@ -2,6 +2,8 @@ import React, { useEffect, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { AgentChatView } from "../src/components/chat/agent-chat-view.js";
 import { AgentDockTheme } from "../src/components/ui/theme.js";
+import { Button } from "../src/components/ui/button.js";
+import { Input } from "../src/components/ui/input.js";
 import { AgentStore } from "../src/core/agent-store.js";
 import { consumeAgentStream } from "../src/core/consume-agent-stream.js";
 import { decodeAgentEventStream } from "../src/core/decode-agent-event-stream.js";
@@ -176,7 +178,7 @@ function Playground() {
           <option value={customModel}>Custom model…</option>
         </select>
         {modelOption === customModel && (
-          <input
+          <Input
             aria-label="Model ID"
             placeholder="Model ID"
             value={customModelName}
@@ -187,7 +189,7 @@ function Playground() {
           />
         )}
         {selectedProvider.requiresKey && (
-          <input
+          <Input
             aria-label={`${selectedProvider.label} API key`}
             type="password"
             autoComplete="off"
@@ -200,9 +202,9 @@ function Playground() {
             }}
           />
         )}
-        <button type="submit" disabled={connecting || !model || keyMissing}>
+        <Button type="submit" disabled={connecting || !model || keyMissing}>
           {connecting ? "Connecting…" : configured ? "Connected" : "Connect"}
-        </button>
+        </Button>
       </form>
       {error && (
         <p className="configuration-error" role="alert">

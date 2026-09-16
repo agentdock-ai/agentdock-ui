@@ -1,5 +1,7 @@
 import type { ContentPart } from "@agentdock-ai/contracts";
 import type { ReactNode } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export interface MessageContentProps {
   content: readonly ContentPart[];
@@ -7,11 +9,60 @@ export interface MessageContentProps {
   className?: string;
 }
 
+const markdownComponents: Components = {
+  a({ children, ...props }) {
+    return (
+      <a {...props} target="_blank" rel="noreferrer">
+        {children}
+      </a>
+    );
+  },
+};
+
+function MarkdownText({ text }: { text: string }) {
+  return (
+    <div className="ad-markdown">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        skipHtml
+        components={markdownComponents}
+      >
+        {text}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+function renderDefaultContent(content: readonly ContentPart[]): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  let text = "";
+  let textStartIndex = 0;
+
+  const flushText = () => {
+    if (!text) return;
+    nodes.push(<MarkdownText key={`text-${textStartIndex}`} text={text} />);
+    text = "";
+  };
+
+  content.forEach((part, index) => {
+    if (part.type === "text") {
+      if (!text) textStartIndex = index;
+      text += part.text;
+      return;
+    }
+    flushText();
+    nodes.push(defaultRenderContentPart(part, index));
+  });
+
+  flushText();
+  return nodes;
+}
+
 export function defaultRenderContentPart(
   part: ContentPart,
   index: number,
 ): ReactNode {
-  if (part.type === "text") return <span key={index}>{part.text}</span>;
+  if (part.type === "text") return <MarkdownText key={index} text={part.text} />;
   if (part.type === "citation") {
     return <a key={index} href={part.url} target="_blank" rel="noreferrer">{part.title ?? part.url}</a>;
   }
@@ -38,12 +89,14 @@ export function defaultRenderContentPart(
 
 export function MessageContent({
   content,
-  renderContentPart = defaultRenderContentPart,
+  renderContentPart,
   className,
 }: MessageContentProps) {
   return (
     <div className={className} data-slot="message-content">
-      {content.map((part, index) => renderContentPart(part, index))}
+      {renderContentPart
+        ? content.map((part, index) => renderContentPart(part, index))
+        : renderDefaultContent(content)}
     </div>
   );
 }

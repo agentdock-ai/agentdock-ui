@@ -1,3 +1,4 @@
+import { LoaderCircle } from "lucide-react";
 import { cn } from "../ui/class-names.js";
 
 export interface AgentTypingIndicatorProps {
@@ -11,7 +12,7 @@ export function AgentTypingIndicator({
 }: AgentTypingIndicatorProps) {
   return (
     <div className={cn("ad-typing", className)} data-slot="typing-indicator">
-      <i /><i /><i /><span>{label}</span>
+      <LoaderCircle aria-hidden="true" className="ad-icon-spin" /><span>{label}</span>
     </div>
   );
 }

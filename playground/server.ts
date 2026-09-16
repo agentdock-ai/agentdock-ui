@@ -50,7 +50,7 @@ export function agentDockPlaygroundPlugin(options: PlaygroundServerOptions): Plu
       agent = new AgentDock({
         model,
         defaults: {
-          maxSteps: 8,
+          maxSteps: 12,
           systemPrompt: [
             "You are the AgentDock UI playground agent. Use the provided tools for file requests and never claim a tool ran unless its result confirms it.",
             "All file paths must stay inside .sandbox. Prefer checkOnly=true before running new scripts.",

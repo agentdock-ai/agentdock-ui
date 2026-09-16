@@ -2,12 +2,6 @@ import type { MessageClassNames } from "../message/types.js";
 
 export interface AgentChatClassNames {
   root?: string;
-  header?: string;
-  headerAvatar?: string;
-  headerContent?: string;
-  headerTitle?: string;
-  headerSubtitle?: string;
-  status?: string;
   scroll?: string;
   messageList?: string;
   message?: MessageClassNames;
