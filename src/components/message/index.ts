@@ -7,4 +7,13 @@ export {
   defaultRenderContentPart,
   type MessageContentProps,
 } from "./message-content.js";
-export type { MessageClassNames, MessageComponentProps } from "./types.js";
+export { selectRenderMessages, type RenderMessageSource } from "./select-render-messages.js";
+export type {
+  MessageClassNames,
+  MessageComponentProps,
+  RenderMessage,
+  RenderMessageRole,
+  RenderMessageState,
+  RenderTool,
+  RenderToolStatus,
+} from "./types.js";

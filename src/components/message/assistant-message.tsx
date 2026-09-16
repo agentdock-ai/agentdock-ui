@@ -1,30 +1,27 @@
-import { Bot } from "lucide-react";
-import { MessageContent } from "./message-content.js";
+import { Message } from "./message.js";
 import type { MessageComponentProps } from "./types.js";
-import { cn } from "../ui/class-names.js";
+import type { RenderMessage } from "./types.js";
+
+export type AssistantMessageProps = MessageComponentProps;
 
 export function AssistantMessage({
   message,
   className,
   classNames,
   renderContentPart,
-}: MessageComponentProps) {
+}: AssistantMessageProps) {
+  const renderMessage: RenderMessage = {
+    id: message.messageId,
+    role: "assistant",
+    content: message.content,
+    state: "complete",
+  };
   return (
-    <article
-      className={cn(
-        "ad-message ad-message-assistant",
-        className,
-        classNames?.root,
-      )}
-      data-slot="assistant-message"
-    >
-      <div className={cn("ad-message-body", classNames?.body)}>
-        <MessageContent
-          className={cn("ad-message-content", classNames?.content)}
-          content={message.content}
-          renderContentPart={renderContentPart}
-        />
-      </div>
-    </article>
+    <Message
+      message={renderMessage}
+      className={className}
+      classNames={classNames}
+      renderContentPart={renderContentPart}
+    />
   );
 }

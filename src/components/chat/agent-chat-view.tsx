@@ -3,10 +3,10 @@ import type { ContentPart } from "@agentdock-ai/contracts";
 import { useAgentStore } from "../../react/agent-provider.js";
 import { useAgentState } from "../../react/use-agent-state.js";
 import { Message } from "../message/message.js";
+import { selectRenderMessages } from "../message/select-render-messages.js";
 import { cn } from "../ui/class-names.js";
 import { agentDockThemeStyle, type AgentDockThemeConfig } from "../ui/theme.js";
 import { AgentChatComposer } from "./agent-chat-composer.js";
-import { AgentToolActivity } from "./agent-tool-activity.js";
 import { AgentTypingIndicator } from "./agent-typing-indicator.js";
 import type { AgentChatClassNames } from "./types.js";
 
@@ -34,8 +34,9 @@ export function AgentChatView({
   renderContentPart,
 }: AgentChatViewProps) {
   const store = useAgentStore();
-  const { agent, messages, runs, streamStatus, streamError } = useAgentState();
+  const { agent, runs, events, streamStatus, streamError } = useAgentState();
   const [input, setInput] = useState("");
+  const messages = selectRenderMessages({ runs, events });
   const busy = disabled || streamStatus === "consuming" || agent.status === "running" || agent.status === "waiting";
 
   async function submitMessage() {
@@ -77,12 +78,11 @@ export function AgentChatView({
         ) : (
           <div className={cn("ad-message-list", classNames?.messageList)}>
             {messages.map((message) => (
-              <Message key={message.messageId} message={message} classNames={classNames?.message} renderContentPart={renderContentPart} />
+              <Message key={message.id} message={message} classNames={classNames?.message} renderContentPart={renderContentPart} />
             ))}
             {!disabled && busy && <AgentTypingIndicator className={classNames?.typing} />}
           </div>
         )}
-        <AgentToolActivity runs={runs} classNames={{ root: classNames?.toolSection, label: classNames?.toolSectionLabel, card: classNames?.toolCard, top: classNames?.toolTop, icon: classNames?.toolIcon, info: classNames?.toolInfo, state: classNames?.toolState, detail: classNames?.toolDetail, progress: classNames?.toolProgress }} />
         {streamError != null && <div className={cn("ad-error", classNames?.error)} role="alert">{String(streamError)}</div>}
       </div>
       <AgentChatComposer
