@@ -1,0 +1,32 @@
+{
+  "name": "@agentdock-ai/playground",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "vite --config vite.config.ts",
+    "build": "vite build --config vite.config.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --config vitest.config.ts"
+  },
+  "dependencies": {
+    "@agentdock-ai/agentdock": "^0.1.0",
+    "@agentdock-ai/contracts": "^0.1.0",
+    "@agentdock-ai/models": "^0.1.0",
+    "@agentdock-ai/react": "0.1.0",
+    "@agentdock-ai/ui-core": "0.1.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.1",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "^5.8.0",
+    "vite": "^8.3.0",
+    "vitest": "^3.0.0"
+  }
+}

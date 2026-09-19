@@ -1,68 +1,24 @@
 {
-  "name": "@agentdock-ai/react",
+  "name": "agentdock-ui-workspace",
   "version": "0.1.0",
-  "description": "React primitives for consuming AgentDock event streams",
-  "license": "MIT",
+  "private": true,
   "type": "module",
-  "files": [
-    "dist"
-  ],
-  "sideEffects": false,
+  "license": "MIT",
   "engines": {
     "node": ">=22"
   },
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "./components": {
-      "types": "./dist/components/index.d.ts",
-      "import": "./dist/components/index.js"
-    },
-    "./components/ui": {
-      "types": "./dist/components/ui/index.d.ts",
-      "import": "./dist/components/ui/index.js"
-    },
-    "./components/message": {
-      "types": "./dist/components/message/index.d.ts",
-      "import": "./dist/components/message/index.js"
-    },
-    "./components/chat": {
-      "types": "./dist/components/chat/index.d.ts",
-      "import": "./dist/components/chat/index.js"
-    },
-    "./styles.css": "./dist/styles.css"
-  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node scripts/copy-styles.mjs",
-    "dev": "vite --config vite.config.ts",
-    "dev:build": "vite build --config vite.config.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --config vitest.config.ts"
-  },
-  "dependencies": {
-    "@agentdock-ai/contracts": "^0.1.0",
-    "@radix-ui/react-slot": "^1.3.3",
-    "lucide-react": "^1.46.0",
-    "radix-ui": "^1.6.7",
-    "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
-  },
-  "peerDependencies": {
-    "react": ">=18"
-  },
-  "devDependencies": {
-    "@agentdock-ai/agentdock": "^0.1.0",
-    "@agentdock-ai/models": "^0.1.0",
-    "@types/node": "^26.5.1",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^6.1.1",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "typescript": "^5.8.0",
-    "vite": "^8.3.0",
-    "vitest": "^3.0.0"
+    "build:packages": "yarn workspace @agentdock-ai/ui-core build && yarn workspace @agentdock-ai/react build",
+    "build": "yarn build:packages && yarn workspace @agentdock-ai/playground build",
+    "typecheck": "yarn build:packages && yarn workspace @agentdock-ai/ui-core typecheck && yarn workspace @agentdock-ai/react typecheck && yarn workspace @agentdock-ai/playground typecheck",
+    "lint": "yarn typecheck",
+    "test": "yarn workspace @agentdock-ai/ui-core test && yarn workspace @agentdock-ai/react test && yarn workspace @agentdock-ai/playground test",
+    "dev": "yarn workspace @agentdock-ai/playground dev",
+    "playground:dev": "yarn workspace @agentdock-ai/playground dev",
+    "playground:build": "yarn build:packages && yarn workspace @agentdock-ai/playground build"
   }
 }

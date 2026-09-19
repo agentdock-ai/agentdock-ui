@@ -5,6 +5,7 @@ coverage/
 .env
 .env.*
 !.env.example
-playground/.sandbox/*
-!playground/.sandbox/.gitkeep
 .sandbox/
+apps/playground/.sandbox/*
+!apps/playground/.sandbox/
+!apps/playground/.sandbox/.gitkeep

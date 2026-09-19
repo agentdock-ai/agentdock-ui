@@ -1,0 +1,29 @@
+{
+  "name": "@agentdock-ai/ui-core",
+  "version": "0.1.0",
+  "description": "Framework-independent state and stream primitives for AgentDock UI",
+  "license": "MIT",
+  "type": "module",
+  "files": ["dist"],
+  "sideEffects": false,
+  "engines": { "node": ">=22" },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --config vitest.config.ts"
+  },
+  "dependencies": {
+    "@agentdock-ai/contracts": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.1",
+    "typescript": "^5.8.0",
+    "vitest": "^3.0.0"
+  }
+}
