@@ -12,6 +12,7 @@ export function AssistantMessage({
 }: AssistantMessageProps) {
   const renderMessage: RenderMessage = {
     id: message.messageId,
+    runId: null,
     role: "assistant",
     content: message.content,
     state: "complete",

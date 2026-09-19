@@ -11,6 +11,7 @@ export function UserMessage({
 }: UserMessageProps) {
   const renderMessage = {
     id: message.messageId,
+    runId: null,
     role: "user" as const,
     content: message.content,
     state: "complete" as const,

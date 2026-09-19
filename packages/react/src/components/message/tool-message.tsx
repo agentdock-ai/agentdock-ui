@@ -43,6 +43,7 @@ export function ToolMessage({
       };
   const renderMessage: RenderMessage = {
     id: message.messageId,
+    runId: null,
     role: "tool",
     content: [],
     state: "complete",

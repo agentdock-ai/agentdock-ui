@@ -3,7 +3,6 @@ import type { ContentPart } from "@agentdock-ai/ui-core";
 import { useAgentStore } from "../../react/agent-provider.js";
 import { useAgentState } from "../../react/use-agent-state.js";
 import { Message } from "../message/message.js";
-import { selectRenderMessages } from "@agentdock-ai/ui-core";
 import { cn } from "../ui/class-names.js";
 import { agentDockThemeStyle, type AgentDockThemeConfig } from "../ui/theme.js";
 import { AgentChatComposer } from "./agent-chat-composer.js";
@@ -34,9 +33,9 @@ export function AgentChatView({
   renderContentPart,
 }: AgentChatViewProps) {
   const store = useAgentStore();
-  const { agent, runs, events, streamStatus, streamError } = useAgentState();
+  const { agent, renderModel, streamStatus, streamError } = useAgentState();
   const [input, setInput] = useState("");
-  const messages = selectRenderMessages({ runs, events });
+  const messages = renderModel.messages;
   const busy = disabled || streamStatus === "consuming" || agent.status === "running" || agent.status === "waiting";
 
   async function submitMessage() {

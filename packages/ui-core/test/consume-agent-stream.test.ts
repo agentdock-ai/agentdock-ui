@@ -71,6 +71,8 @@ describe("consumeAgentStream", () => {
     expect(store.getSnapshot().runs).toHaveLength(1);
     expect(store.getSnapshot().streamStatus).toBe("closed");
     expect(store.getSnapshot().streamError).toBeNull();
+    expect(store.getSnapshot().renderModel.turns[0]?.state).toBe("completed");
+    expect(store.getSnapshot().renderModel.messages).toEqual([]);
   });
 
   it("retains prior runs when a later turn begins in the same chat", async () => {
@@ -110,5 +112,7 @@ describe("consumeAgentStream", () => {
     ).rejects.toThrow("Agent event stream must begin with run.started.");
     expect(store.getSnapshot().streamStatus).toBe("error");
     expect(store.getSnapshot().streamError).toBeInstanceOf(Error);
+    expect(store.getSnapshot().renderModel.transportError?.scope).toBe("transport");
+    expect(store.getSnapshot().agent.status).toBe("idle");
   });
 });

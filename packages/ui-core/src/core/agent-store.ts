@@ -5,6 +5,8 @@ import {
   type AgentReducerMessage,
   type AgentReducerState,
 } from "@agentdock-ai/contracts";
+import { selectRenderModel } from "../select-render-messages.js";
+import type { RenderModel } from "../render-model.js";
 
 export type AgentStreamStatus = "idle" | "consuming" | "closed" | "error";
 
@@ -23,12 +25,14 @@ export interface AgentStoreSnapshot {
   /** Transport lifecycle, separate from the agent run lifecycle. */
   streamStatus: AgentStreamStatus;
   streamError: unknown | null;
+  /** Normalized state for framework consumers; raw events remain diagnostic only. */
+  renderModel: RenderModel;
 }
 
 export type AgentStoreListener = () => void;
 
 function createInitialSnapshot(): AgentStoreSnapshot {
-  return {
+  const snapshot: Omit<AgentStoreSnapshot, "renderModel"> = {
     agent: createAgentReducerState(),
     runs: [],
     messages: [],
@@ -36,6 +40,7 @@ function createInitialSnapshot(): AgentStoreSnapshot {
     streamStatus: "idle",
     streamError: null,
   };
+  return { ...snapshot, renderModel: selectRenderModel(snapshot) };
 }
 
 function isTerminalRun(status: AgentReducerState["status"]): boolean {
@@ -145,7 +150,10 @@ export class AgentStore {
   }
 
   private update(snapshot: AgentStoreSnapshot): void {
-    this.snapshot = snapshot;
+    this.snapshot = {
+      ...snapshot,
+      renderModel: selectRenderModel(snapshot),
+    };
     for (const listener of this.listeners) listener();
   }
 }

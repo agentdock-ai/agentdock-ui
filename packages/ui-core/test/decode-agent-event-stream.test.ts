@@ -42,4 +42,11 @@ describe("decodeAgentEventStream", () => {
       for await (const _event of decodeAgentEventStream(body)) { /* consume */ }
     }).rejects.toThrow("OpenRouter request failed.");
   });
+
+  it("rejects malformed event frames at the decoder boundary", async () => {
+    const body = readable(['{"type":"message.started","messageId":"missing-envelope"}\n']);
+    await expect(async () => {
+      for await (const _event of decodeAgentEventStream(body)) { /* validate */ }
+    }).rejects.toThrow("Unsupported Agent event protocol version: undefined.");
+  });
 });

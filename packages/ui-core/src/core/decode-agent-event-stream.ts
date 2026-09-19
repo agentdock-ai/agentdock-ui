@@ -1,4 +1,4 @@
-import type { AgentEvent } from "@agentdock-ai/contracts";
+import { cloneAgentEvent, type AgentEvent } from "@agentdock-ai/contracts";
 
 export interface DecodeAgentEventStreamOptions {
   signal?: AbortSignal;
@@ -46,5 +46,5 @@ function parseEventLine(line: string): AgentEvent {
     const message = "message" in parsed ? parsed.message : "Agent stream failed.";
     throw new Error(typeof message === "string" ? message : "Agent stream failed.");
   }
-  return parsed as AgentEvent;
+  return cloneAgentEvent(parsed);
 }

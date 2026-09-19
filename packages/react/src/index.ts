@@ -3,6 +3,7 @@ export {
   consumeAgentStream,
   decodeAgentEventStream,
   selectRenderMessages,
+  selectRenderModel,
 } from "@agentdock-ai/ui-core";
 export type {
   AgentStoreListener,
@@ -10,7 +11,20 @@ export type {
   AgentStreamStatus,
   ConsumeAgentStreamOptions,
   DecodeAgentEventStreamOptions,
+  RenderApproval,
+  RenderApprovalAction,
+  RenderApprovalKind,
+  RenderApprovalState,
+  RenderError,
+  RenderErrorScope,
   RenderMessageSource,
+  RenderModel,
+  RenderReasoning,
+  RenderReasoningState,
+  RenderStreamStatus,
+  RenderTransportError,
+  RenderTurn,
+  RenderTurnState,
 } from "@agentdock-ai/ui-core";
 export {
   AgentProvider,

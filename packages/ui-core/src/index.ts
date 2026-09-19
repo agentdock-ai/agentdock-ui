@@ -14,14 +14,28 @@ export {
 } from "./core/decode-agent-event-stream.js";
 export {
   selectRenderMessages,
+  selectRenderModel,
   type RenderMessageSource,
 } from "./select-render-messages.js";
 export type {
+  RenderApproval,
+  RenderApprovalAction,
+  RenderApprovalKind,
+  RenderApprovalState,
+  RenderError,
+  RenderErrorScope,
   RenderMessage,
   RenderMessageRole,
   RenderMessageState,
+  RenderModel,
+  RenderReasoning,
+  RenderReasoningState,
   RenderTool,
   RenderToolStatus,
+  RenderTransportError,
+  RenderStreamStatus,
+  RenderTurn,
+  RenderTurnState,
 } from "./render-model.js";
 export type {
   AgentEvent,
