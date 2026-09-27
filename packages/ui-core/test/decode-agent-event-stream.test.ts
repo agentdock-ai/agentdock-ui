@@ -28,25 +28,50 @@ describe("decodeAgentEventStream", () => {
   it("decodes NDJSON events across chunk boundaries and CRLF lines", async () => {
     const serialized = JSON.stringify(event);
     const decoded = [];
-    for await (const value of decodeAgentEventStream(readable([
-      `${serialized.slice(0, 13)}`,
-      `${serialized.slice(13)}\r\n${serialized}`,
-    ]))) decoded.push(value);
+    for await (const value of decodeAgentEventStream(
+      readable([
+        `${serialized.slice(0, 13)}`,
+        `${serialized.slice(13)}\r\n${serialized}`,
+      ]),
+    ))
+      decoded.push(value);
+
+    expect(decoded).toEqual([event, event]);
+  });
+
+  it("decodes SSE data frames across chunk boundaries", async () => {
+    const serialized = JSON.stringify(event);
+    const decoded = [];
+    for await (const value of decodeAgentEventStream(
+      readable([
+        `: keepalive\r\ndata: ${serialized.slice(0, 17)}`,
+        `${serialized.slice(17)}\r\n\r\ndata: ${serialized}\n\n`,
+      ]),
+    ))
+      decoded.push(value);
 
     expect(decoded).toEqual([event, event]);
   });
 
   it("turns transport error frames into readable stream errors", async () => {
-    const body = readable([`${JSON.stringify({ type: "agentdock.transport.error", message: "OpenRouter request failed." })}\n`]);
+    const body = readable([
+      `${JSON.stringify({ type: "agentdock.transport.error", message: "OpenRouter request failed." })}\n`,
+    ]);
     await expect(async () => {
-      for await (const _event of decodeAgentEventStream(body)) { /* consume */ }
+      for await (const _event of decodeAgentEventStream(body)) {
+        /* consume */
+      }
     }).rejects.toThrow("OpenRouter request failed.");
   });
 
   it("rejects malformed event frames at the decoder boundary", async () => {
-    const body = readable(['{"type":"message.started","messageId":"missing-envelope"}\n']);
+    const body = readable([
+      '{"type":"message.started","messageId":"missing-envelope"}\n',
+    ]);
     await expect(async () => {
-      for await (const _event of decodeAgentEventStream(body)) { /* validate */ }
+      for await (const _event of decodeAgentEventStream(body)) {
+        /* validate */
+      }
     }).rejects.toThrow("Unsupported Agent event protocol version: undefined.");
   });
 });

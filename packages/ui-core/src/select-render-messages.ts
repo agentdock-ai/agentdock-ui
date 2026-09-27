@@ -229,15 +229,14 @@ function reasoningForMessage(
 }
 
 function toolStatus(
-  toolCallId: string,
   hasResult: boolean,
   resultIsError: boolean,
   hasError: boolean,
-  approvalToolCallId: string | undefined,
+  isApproval: boolean,
 ): RenderToolStatus {
   if (hasError || resultIsError) return "failed";
   if (hasResult) return "complete";
-  if (approvalToolCallId === toolCallId) return "approval";
+  if (isApproval) return "approval";
   return "running";
 }
 
@@ -250,21 +249,11 @@ function toolErrorFromResult(output: JsonValue): string {
   }
 }
 
-function unresolvedToolCallId(run: AgentReducerState): string | undefined {
-  return [...run.toolCalls]
-    .reverse()
-    .find(
-      (call) =>
-        !run.toolResults.some((result) => result.toolCallId === call.toolCallId) &&
-        !run.toolErrors.some((error) => error.toolCallId === call.toolCallId),
-    )?.toolCallId;
-}
-
 function buildTool(
   run: AgentReducerState,
   index: RunEventIndex,
   toolCallId: string,
-  approvalToolCallId: string | undefined,
+  isApproval: boolean,
 ): RenderTool | undefined {
   const call = run.toolCalls.find((item) => item.toolCallId === toolCallId);
   if (!call) return undefined;
@@ -275,11 +264,10 @@ function buildTool(
   const result = run.toolResults.find((item) => item.toolCallId === toolCallId);
   const error = run.toolErrors.find((item) => item.toolCallId === toolCallId);
   const status = toolStatus(
-    toolCallId,
     Boolean(result),
     result?.isError === true,
     Boolean(error),
-    approvalToolCallId,
+    isApproval,
   );
 
   return {
@@ -338,6 +326,9 @@ function buildApproval(
       label: action.name,
       kind: actionKind(action.name),
       input: action.input,
+      ...("toolCallId" in action && typeof action.toolCallId === "string"
+        ? { toolCallId: action.toolCallId }
+        : {}),
     })),
     state: resolved ? "resolved" : "pending",
     decisions: resolved?.decisions ?? [],
@@ -356,6 +347,17 @@ function runError(index: RunEventIndex): RenderError | undefined {
     scope: "run",
     code: index.runError.code,
   };
+}
+
+function approvalForToolCall(
+  approval: RenderApproval | undefined,
+  toolCallId: string,
+): RenderApproval | undefined {
+  if (approval?.kind !== "tool-approval") return undefined;
+  const actions = approval.actions.filter(
+    (action) => action.toolCallId === toolCallId,
+  );
+  return actions.length > 0 ? { ...approval, actions } : undefined;
 }
 
 function sameContent(left: readonly ContentPart[], right: readonly ContentPart[]): boolean {
@@ -391,28 +393,21 @@ function renderRun(
     : run.interruptResolution
       ? buildApproval(index, run.interruptResolution.interruptId)
       : undefined;
-  const approvalToolCallId =
-    approval?.kind === "tool-approval"
-      ? unresolvedToolCallId(run) ?? run.toolCalls.at(-1)?.toolCallId
-      : undefined;
   const entries: RenderEntry[] = [];
   const representedToolIds = new Set<string>();
 
   run.messages.forEach((message, messageIndex) => {
     const toolId = message.role === "tool" ? toolIdFromMessage(message) : undefined;
+    const messageApproval = toolId
+      ? approvalForToolCall(approval, toolId)
+      : undefined;
     const tool = toolId
-      ? buildTool(run, index, toolId, approvalToolCallId)
+      ? buildTool(run, index, toolId, Boolean(messageApproval))
       : undefined;
     if (toolId) representedToolIds.add(toolId);
     const content = contentWithoutProtocolParts(message);
     const reasoning = reasoningForMessage(message, run, index);
     if (message.role === "assistant" && content.length === 0 && !reasoning) return;
-    const messageApproval =
-      toolId &&
-      approval?.kind === "tool-approval" &&
-      (toolId === approvalToolCallId || approval.state === "resolved")
-        ? approval
-        : undefined;
     entries.push({
       message: {
         id: message.messageId,
@@ -437,7 +432,8 @@ function renderRun(
 
   run.toolCalls.forEach((call, toolIndex) => {
     if (representedToolIds.has(call.toolCallId)) return;
-    const tool = buildTool(run, index, call.toolCallId, approvalToolCallId);
+    const callApproval = approvalForToolCall(approval, call.toolCallId);
+    const tool = buildTool(run, index, call.toolCallId, Boolean(callApproval));
     if (!tool) return;
     entries.push({
       message: {
@@ -452,18 +448,23 @@ function renderRun(
               ? "streaming"
               : "complete",
         tool,
-        ...(approval &&
-        approval.kind === "tool-approval" &&
-        (call.toolCallId === approvalToolCallId || approval.state === "resolved")
-          ? { approval }
-          : {}),
+        ...(callApproval ? { approval: callApproval } : {}),
       },
       order: index.toolSequence.get(call.toolCallId) ?? 20_000 + toolIndex,
       tieBreaker: run.messages.length + toolIndex,
     });
   });
 
-  if (approval?.kind === "custom") {
+  if (
+    approval &&
+    (approval.kind === "custom" ||
+      (approval.kind === "tool-approval" &&
+        !approval.actions.some((action) =>
+          run.toolCalls.some(
+            (call) => call.toolCallId === action.toolCallId,
+          ),
+        )))
+  ) {
     entries.push({
       message: {
         id: `interrupt-${run.runId ?? runIndex}-${approval.interruptId}`,
@@ -516,22 +517,25 @@ function renderRun(
         message.role === "assistant" &&
         sameContent(message.content, index.completionContent ?? []),
     );
+    const finalContent = index.completionContent.filter(
+      (part) =>
+        part.type !== "tool-call" &&
+        part.type !== "tool-result" &&
+        part.type !== "reasoning",
+    );
     if (existingAssistant && !alreadyRendered) {
-      const finalContent = index.completionContent.filter(
-        (part) => part.type !== "tool-call" && part.type !== "tool-result" && part.type !== "reasoning",
-      );
       existingAssistant.message = {
         ...existingAssistant.message,
         content: finalContent,
         state: existingAssistant.message.state === "error" ? "error" : "complete",
       };
-    } else if (!alreadyRendered) {
+    } else if (!alreadyRendered && finalContent.length > 0) {
       entries.push({
         message: {
           id: `run-content-${run.runId ?? runIndex}`,
           runId: run.runId,
           role: "assistant",
-          content: index.completionContent,
+          content: finalContent,
           state: "complete",
         },
         order: 50_000,
@@ -579,14 +583,152 @@ function transportError(
   };
 }
 
+function samePart(left: ContentPart, right: ContentPart): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function mergeProgress(
+  previous: readonly ContentPart[],
+  current: readonly ContentPart[],
+): readonly ContentPart[] {
+  if (previous.length === 0) return current;
+  if (current.length === 0) return previous;
+
+  const maximumOverlap = Math.min(previous.length, current.length);
+  for (let overlap = maximumOverlap; overlap > 0; overlap -= 1) {
+    const previousSuffix = previous.slice(previous.length - overlap);
+    const currentPrefix = current.slice(0, overlap);
+    if (previousSuffix.every((part, index) => samePart(part, currentPrefix[index]!))) {
+      return [...previous, ...current.slice(overlap)];
+    }
+  }
+  return [...previous, ...current];
+}
+
+function mergeRenderTool(
+  previous: RenderTool,
+  current: RenderTool,
+): RenderTool {
+  return {
+    ...previous,
+    ...current,
+    progress: mergeProgress(previous.progress, current.progress),
+    ...(current.output !== undefined
+      ? { output: current.output }
+      : previous.output !== undefined
+        ? { output: previous.output }
+        : {}),
+    ...(current.error !== undefined
+      ? { error: current.error }
+      : previous.error !== undefined
+        ? { error: previous.error }
+        : {}),
+    ...(current.errorCode !== undefined
+      ? { errorCode: current.errorCode }
+      : previous.errorCode !== undefined
+        ? { errorCode: previous.errorCode }
+        : {}),
+    ...(current.startedAt ?? previous.startedAt
+      ? { startedAt: current.startedAt ?? previous.startedAt }
+      : {}),
+    ...(current.completedAt ?? previous.completedAt
+      ? { completedAt: current.completedAt ?? previous.completedAt }
+      : {}),
+  };
+}
+
+function mergeRenderMessage(
+  previous: RenderMessage,
+  current: RenderMessage,
+): RenderMessage {
+  return {
+    ...previous,
+    ...current,
+    content: current.content.length > 0 ? current.content : previous.content,
+    ...(current.reasoning
+      ? { reasoning: current.reasoning }
+      : previous.reasoning
+        ? { reasoning: previous.reasoning }
+        : {}),
+    ...(current.tool
+      ? { tool: previous.tool ? mergeRenderTool(previous.tool, current.tool) : current.tool }
+      : previous.tool
+        ? { tool: previous.tool }
+        : {}),
+    ...(current.approval
+      ? { approval: current.approval }
+      : previous.approval
+        ? { approval: previous.approval }
+        : {}),
+    ...(current.error
+      ? { error: current.error }
+      : previous.error
+        ? { error: previous.error }
+        : {}),
+  };
+}
+
+function mergeRenderTurn(
+  previous: RenderTurn,
+  current: RenderTurn,
+): RenderTurn {
+  const previousMessages = new Map(previous.messages.map((message) => [message.id, message] as const));
+  const messages = current.messages.map((message) => {
+    const prior = previousMessages.get(message.id);
+    return prior ? mergeRenderMessage(prior, message) : message;
+  });
+  const currentMessageIds = new Set(current.messages.map((message) => message.id));
+  messages.push(
+    ...previous.messages.filter((message) => !currentMessageIds.has(message.id)),
+  );
+  return {
+    ...previous,
+    ...current,
+    messages,
+    ...(current.usage ?? previous.usage
+      ? { usage: current.usage ?? previous.usage }
+      : { usage: null }),
+    ...(current.limit ?? previous.limit
+      ? { limit: current.limit ?? previous.limit }
+      : { limit: null }),
+    ...(current.finishReason ?? previous.finishReason
+      ? { finishReason: current.finishReason ?? previous.finishReason }
+      : { finishReason: null }),
+    ...(current.cancellationReason ?? previous.cancellationReason
+      ? { cancellationReason: current.cancellationReason ?? previous.cancellationReason }
+      : { cancellationReason: null }),
+    ...(current.startedAt ?? previous.startedAt
+      ? { startedAt: current.startedAt ?? previous.startedAt }
+      : {}),
+    ...(current.completedAt ?? previous.completedAt
+      ? { completedAt: current.completedAt ?? previous.completedAt }
+      : {}),
+    ...(current.error
+      ? { error: current.error }
+      : previous.error
+        ? { error: previous.error }
+        : {}),
+  };
+}
+
 /** Convert canonical reducer snapshots into the framework-independent render model. */
 export function selectRenderModel({
   runs,
   events,
+  history = [],
   streamStatus = "idle",
   streamError = null,
 }: RenderMessageSource): RenderModel {
-  const turns = runs.map((run, index) => renderRun(run, events, index));
+  const historicalById = new Map(
+    history
+      .filter((turn) => turn.runId !== null)
+      .map((turn) => [turn.runId, turn] as const),
+  );
+  const turns = runs.map((run, index) => {
+    const current = renderRun(run, events, index);
+    const historical = current.runId === null ? undefined : historicalById.get(current.runId);
+    return historical ? mergeRenderTurn(historical, current) : current;
+  });
   const normalizedTransportError = transportError(streamStatus, streamError);
   return {
     turns,

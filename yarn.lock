@@ -2,40 +2,14 @@
 # yarn lockfile v1
 
 
-"@agentdock-ai/agentdock@^0.1.0":
-  version "0.1.0"
-  resolved "https://registry.yarnpkg.com/@agentdock-ai/agentdock/-/agentdock-0.1.0.tgz#1c58eda619c19133b43dbcac1201d3c976f02597"
-  integrity sha512-2uiU4JpF30Yw54J89dZGAbplS08t6izR+1WacP25xdlLAxoE9di/m1NxnzjfsGlbmBi4ZYq0v9jxaLvihZEyaw==
-  dependencies:
-    "@agentdock-ai/checkpoint" "^0.1.0"
-    "@agentdock-ai/contracts" "^0.1.0"
-    "@langchain/core" "^1.2.9"
-    "@langchain/langgraph" "^1.4.13"
-    "@langchain/langgraph-checkpoint" "^1.1.5"
-    langchain "^1.5.10"
-    zod "^4.5.4"
-
-"@agentdock-ai/checkpoint@^0.1.0":
-  version "0.1.0"
-  resolved "https://registry.yarnpkg.com/@agentdock-ai/checkpoint/-/checkpoint-0.1.0.tgz#e636bbb2c54f6cf8600648e98a36c708fc7685c6"
-  integrity sha512-rt3/QyjQyVqOyhWTXXSuUqlTTStIRiOdJq/TZUL33/dZnetv6kMBb5oS2VrWk3TR1hlvL88ZX2sgGKwV7Qwoew==
-  dependencies:
-    "@langchain/langgraph-checkpoint" "^1.1.5"
+"@agentdock-ai/agentdock@link:../agentdock/packages/agentdock":
+  version "0.0.0"
+  uid ""
 
 "@agentdock-ai/contracts@^0.1.0":
   version "0.1.0"
   resolved "https://registry.yarnpkg.com/@agentdock-ai/contracts/-/contracts-0.1.0.tgz#693f651bba555bb565feb9a63ad64d17459ef449"
   integrity sha512-N5Zd1EZOFjf8bCJ6piEHdnvdnQgjqLcRSicd9OzGmM7gmPlRUAngzJ7XhzCDpunfbJGMCbnCavH7H3Besesanw==
-
-"@agentdock-ai/models@^0.1.0":
-  version "0.1.0"
-  resolved "https://registry.yarnpkg.com/@agentdock-ai/models/-/models-0.1.0.tgz#1c82d52b246eee8eb39cd8c3141bea8b71c98dcf"
-  integrity sha512-Ku8DcOrK4SrFbSktXEWiXEXmu/kmD+51Sy1cMBwyGuE5KcBLqsvmKJXnNe0guyj9gwKLp9AciZAjGj0Xhh838A==
-  dependencies:
-    "@langchain/core" "^1.2.9"
-    "@langchain/ollama" "^1.3.0"
-    "@langchain/openai" "^1.5.10"
-    "@langchain/openrouter" "^0.4.10"
 
 "@cfworker/json-schema@^4.0.2":
   version "4.1.1"

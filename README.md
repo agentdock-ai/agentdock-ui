@@ -46,12 +46,14 @@ npm install @agentdock-ai/react
 The package expects React 18 or newer. Your Agentdock backend is installed separately:
 
 ```bash
-npm install @agentdock-ai/agentdock @agentdock-ai/models
+npm install @agentdock-ai/agentdock @agentdock-ai/contracts langchain @langchain/langgraph
 ```
+
+Install the LangChain provider integration and checkpointer your application uses as separate dependencies.
 
 ## Quick start
 
-Your server endpoint should run Agentdock and return one canonical Agentdock event as newline-delimited JSON (`application/x-ndjson`) for each line. The UI package handles the browser side:
+Your server endpoint should return AgentDock contract events as Server-Sent Events (`text/event-stream`). The backend application builds its graph with LangGraph and can use `serveAgent(...).pipe(response, run)` to write that stream. The UI package handles the browser side:
 
 ```tsx
 "use client";
@@ -83,10 +85,7 @@ function Chat() {
       throw new Error("The agent request failed.");
     }
 
-    await consumeAgentStream(
-      store,
-      decodeAgentEventStream(response.body),
-    );
+    await consumeAgentStream(store, decodeAgentEventStream(response.body));
   }
 
   return <AgentChatView onSubmit={submit} />;
@@ -119,9 +118,9 @@ export function App() {
 
 Keep the following responsibilities in your application server:
 
-- provider credentials and model configuration;
+- provider credentials, model configuration, and tools;
 - authentication and authorization;
-- Agentdock tools, approvals, sessions, and persistence;
+- approval policy, thread identity, and checkpoint persistence;
 - the endpoint that starts a run and returns the event stream.
 
 Keep the following in the UI package:
@@ -147,7 +146,7 @@ The package is organized into three public layers:
 
 Use AgentDockTheme for global CSS variables, or pass the same theme configuration directly to AgentChatView:
 
-~~~tsx
+```tsx
 <AgentDockTheme mode="system" tokens={{ primary: "#7c3aed" }}>
   <AgentChatView
     classNames={{
@@ -161,7 +160,7 @@ Use AgentDockTheme for global CSS variables, or pass the same theme configuratio
     onSubmit={submit}
   />
 </AgentDockTheme>
-~~~
+```
 
 The theme exposes --ad-* variables such as --ad-primary, --ad-surface, --ad-foreground, and --ad-border. They can be mapped to Tailwind or application brand tokens in global CSS. Every surface also emits a data-slot attribute for selector-based styling.
 
@@ -186,8 +185,8 @@ The playground reads local provider settings from `.env`. Copy `.env.example` an
 
 ## Related packages
 
-- [Agentdock runtime](https://github.com/agentdock-ai/agentdock) — runs agents, tools, approvals, sessions, and persistence.
-- [Agentdock documentation](https://github.com/agentdock-ai/docs) — simple guides for the runtime and its model API.
+- [Agentdock serving package](https://github.com/agentdock-ai/agentdock) — adapts a compiled LangGraph graph to the AgentDock event stream.
+- [Agentdock documentation](https://github.com/agentdock-ai/docs) — guides for building and serving LangGraph agents.
 - [Agentdock UI on npm](https://www.npmjs.com/package/@agentdock-ai/react)
 
 ## License

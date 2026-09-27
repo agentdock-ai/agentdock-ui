@@ -10,9 +10,6 @@ import type { RenderModel } from "../render-model.js";
 
 export type AgentStreamStatus = "idle" | "consuming" | "closed" | "error";
 
-const MAX_RETAINED_RUNS = 100;
-const MAX_RETAINED_EVENTS = 500;
-
 export interface AgentStoreSnapshot {
   /** State for the latest run, reduced by the canonical AgentDock contract. */
   agent: AgentReducerState;
@@ -22,6 +19,8 @@ export interface AgentStoreSnapshot {
   messages: readonly AgentReducerMessage[];
   /** Raw events retained for diagnostics and replay-style debugging. */
   events: readonly AgentEvent[];
+  /** Render snapshots retained independently of the diagnostic event cap. */
+  renderHistory: readonly RenderModel["turns"][number][];
   /** Transport lifecycle, separate from the agent run lifecycle. */
   streamStatus: AgentStreamStatus;
   streamError: unknown | null;
@@ -37,6 +36,7 @@ function createInitialSnapshot(): AgentStoreSnapshot {
     runs: [],
     messages: [],
     events: [],
+    renderHistory: [],
     streamStatus: "idle",
     streamError: null,
   };
@@ -80,7 +80,10 @@ export class AgentStore {
       agent: nextAgent,
       runs,
       messages: runs.flatMap((run) => run.messages),
-      events: [...this.snapshot.events, event].slice(-MAX_RETAINED_EVENTS),
+      // Keep the complete in-page diagnostic event log for now. The store is
+      // recreated on refresh, so durable history belongs to AgentDock's
+      // session/checkpoint layer rather than this browser-side snapshot.
+      events: [...this.snapshot.events, event],
     });
   }
 
@@ -118,7 +121,7 @@ export class AgentStore {
     ];
 
     const runs = startsNewRun
-      ? [...this.snapshot.runs, nextAgent].slice(-MAX_RETAINED_RUNS)
+      ? [...this.snapshot.runs, nextAgent]
       : this.snapshot.runs.map((run, index) =>
           index === this.snapshot.runs.length - 1 ? nextAgent : run,
         );
@@ -141,7 +144,7 @@ export class AgentStore {
     const currentRuns = this.snapshot.runs;
 
     if (startsNewRun || currentRuns.length === 0) {
-      return [...currentRuns, nextAgent].slice(-MAX_RETAINED_RUNS);
+      return [...currentRuns, nextAgent];
     }
 
     return currentRuns.map((run, index) =>
@@ -150,9 +153,33 @@ export class AgentStore {
   }
 
   private update(snapshot: AgentStoreSnapshot): void {
+    const currentModel = selectRenderModel({
+      ...snapshot,
+      history: snapshot.renderHistory,
+    });
+    const retainedRunIds = new Set(
+      snapshot.runs
+        .map((run) => run.runId)
+        .filter((runId): runId is string => runId !== null),
+    );
+    const historyByRunId = new Map(
+      snapshot.renderHistory.map((turn) => [turn.runId, turn] as const),
+    );
+    for (const turn of currentModel.turns) {
+      if (turn.runId !== null) {
+        historyByRunId.set(turn.runId, turn);
+      }
+    }
+    const renderHistory = [...historyByRunId.values()].filter(
+      (turn) => turn.runId !== null && retainedRunIds.has(turn.runId),
+    );
     this.snapshot = {
       ...snapshot,
-      renderModel: selectRenderModel(snapshot),
+      renderHistory,
+      renderModel: selectRenderModel({
+        ...snapshot,
+        history: renderHistory,
+      }),
     };
     for (const listener of this.listeners) listener();
   }

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   createAgentReducerState,
   type AgentEvent,
-  type AgentEventInput,
   type AgentReducerState,
 } from "@agentdock-ai/contracts";
 import { selectRenderMessages } from "../src/select-render-messages.js";
@@ -10,7 +9,7 @@ import { selectRenderMessages } from "../src/select-render-messages.js";
 function event(
   runId: string,
   logicalSequence: number,
-  input: AgentEventInput,
+  input: Record<string, unknown>,
 ): AgentEvent {
   return {
     protocolVersion: 1,
@@ -65,6 +64,96 @@ describe("selectRenderMessages", () => {
     expect(messages.map((message) => message.role)).toEqual(["user", "assistant", "tool"]);
     expect(messages[1]?.state).toBe("streaming");
     expect(messages[2]?.tool?.status).toBe("running");
+  });
+
+  it("links each approval card to the exact tool call in a concurrent batch", () => {
+    const run = runState();
+    const firstCall = {
+      toolCallId: "call-first",
+      name: "same_tool",
+      input: { value: 1 },
+    };
+    const secondCall = {
+      toolCallId: "call-second",
+      name: "same_tool",
+      input: { value: 1 },
+    };
+    run.status = "waiting";
+    run.toolCalls = [firstCall, secondCall];
+    const batchInterrupt = {
+      kind: "tool-approval",
+      interruptId: "interrupt-batch",
+      prompt: "Approve both calls.",
+      actions: [
+        {
+          id: "call-second",
+          toolCallId: "call-second",
+          name: "same_tool",
+          input: { value: 1 },
+        },
+        {
+          id: "call-first",
+          toolCallId: "call-first",
+          name: "same_tool",
+          input: { value: 1 },
+        },
+      ],
+    } as unknown as NonNullable<AgentReducerState["interrupt"]>;
+    run.interrupt = batchInterrupt;
+    const messages = selectRenderMessages({
+      runs: [run],
+      events: [
+        event("run-1", 1, { type: "tool.called", toolCall: firstCall }),
+        event("run-1", 2, { type: "tool.called", toolCall: secondCall }),
+        event("run-1", 3, {
+          type: "interrupt.required",
+          interrupt: batchInterrupt,
+        }),
+      ],
+    });
+    const tools = messages.filter((message) => message.role === "tool");
+
+    expect(tools.map((message) => [
+      message.tool?.toolCallId,
+      message.tool?.status,
+      message.approval?.actions.map((action) => action.toolCallId),
+    ])).toEqual([
+      ["call-first", "approval", ["call-first"]],
+      ["call-second", "approval", ["call-second"]],
+    ]);
+  });
+
+  it("does not infer a missing approval link from a single active tool", () => {
+    const run = runState();
+    run.status = "waiting";
+    const unlinkedInterrupt = {
+      kind: "tool-approval",
+      interruptId: "interrupt-unlinked",
+      prompt: "Approve.",
+      actions: [{ id: "approval-1", name: "create_file", input: {} }],
+    } as unknown as NonNullable<AgentReducerState["interrupt"]>;
+    run.interrupt = unlinkedInterrupt;
+    const messages = selectRenderMessages({
+      runs: [run],
+      events: [
+        event("run-1", 1, {
+          type: "tool.called",
+          toolCall: run.toolCalls[0]!,
+        }),
+        event("run-1", 2, {
+          type: "interrupt.required",
+          interrupt: unlinkedInterrupt,
+        }),
+      ],
+    });
+    const tool = messages.find((message) => message.role === "tool");
+    const standaloneApproval = messages.find(
+      (message) => message.approval?.interruptId === "interrupt-unlinked",
+    );
+
+    expect(tool?.tool?.status).toBe("running");
+    expect(tool?.approval).toBeUndefined();
+    expect(standaloneApproval?.approval?.actions).toHaveLength(1);
   });
 
   it("marks completed assistant and tool messages as complete", () => {

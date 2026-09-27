@@ -30,6 +30,7 @@ export interface RenderApprovalAction {
   label: string;
   kind: "approve" | "deny" | "custom";
   input: JsonValue;
+  toolCallId?: string;
 }
 
 export interface RenderApproval {
@@ -79,6 +80,8 @@ export interface RenderMessage {
 export interface RenderMessageSource {
   runs: readonly import("@agentdock-ai/contracts").AgentReducerState[];
   events: readonly AgentEvent[];
+  /** Durable turn snapshots may be supplied when diagnostic events are evicted. */
+  history?: readonly RenderTurn[];
   streamStatus?: RenderStreamStatus;
   streamError?: unknown | null;
 }

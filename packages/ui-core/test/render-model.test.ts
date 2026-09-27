@@ -3,7 +3,6 @@ import {
   createAgentReducerState,
   reduceAgentEvents,
   type AgentEvent,
-  type AgentEventInput,
   type AgentReducerState,
   type ContentPart,
 } from "@agentdock-ai/contracts";
@@ -17,7 +16,7 @@ const sessionId = "session-1";
 
 function event(
   logicalSequence: number,
-  input: AgentEventInput,
+  input: Record<string, unknown>,
   options: { eventId?: string; runId?: string } = {},
 ): AgentEvent {
   return {
@@ -213,8 +212,12 @@ describe("ui-core render model", () => {
       interruptId: "interrupt-1",
       prompt: "Allow deletion?",
       actions: [
-        { id: "yes", name: "Approve", input: { approved: true } },
-        { id: "no", name: "Deny", input: { approved: false } },
+        {
+          id: "tool-approval",
+          toolCallId: "tool-approval",
+          name: "delete_file",
+          input: { path: "x" },
+        },
       ],
     };
     const pendingEvents = [
@@ -230,10 +233,7 @@ describe("ui-core render model", () => {
         interruptId: "interrupt-1",
         kind: "tool-approval",
         state: "pending",
-        actions: [
-          { id: "yes", kind: "approve" },
-          { id: "no", kind: "deny" },
-        ],
+        actions: [{ id: "tool-approval", toolCallId: "tool-approval" }],
       },
     });
 
@@ -244,6 +244,87 @@ describe("ui-core render model", () => {
     const resolved = selectRenderMessages({ runs: [stateFor(resolvedEvents)], events: resolvedEvents })[0];
     expect(resolved?.id).toBe(pending?.id);
     expect(resolved?.approval).toMatchObject({ state: "resolved", decisions: [{ approved: true }] });
+  });
+
+  it("renders one resolved approval after the approved tool completes", () => {
+    const call = { toolCallId: "tool-resolved", name: "delete_file", input: { path: "x" } };
+    const events = [
+      event(1, { type: "run.started" }),
+      event(2, { type: "tool.called", toolCall: call }),
+      event(3, {
+        type: "interrupt.required",
+        interrupt: {
+          kind: "tool-approval",
+          interruptId: "resolved-approval",
+          prompt: "Allow deletion?",
+          actions: [
+            {
+              id: "tool-resolved",
+              toolCallId: "tool-resolved",
+              name: "delete_file",
+              input: true,
+            },
+          ],
+        },
+      }),
+      event(4, {
+        type: "interrupt.resolved",
+        interruptId: "resolved-approval",
+        decisions: [{ approved: true }],
+      }),
+      event(5, { type: "tool.completed", result: { ...call, output: { deleted: true } } }),
+      event(6, { type: "run.completed", finishReason: "stop", content: [] }),
+    ];
+    const messages = selectRenderMessages({ runs: [stateFor(events)], events });
+
+    expect(messages.filter((message) => message.approval)).toHaveLength(1);
+    expect(messages[0]).toMatchObject({
+      tool: { toolCallId: "tool-resolved", status: "complete" },
+      approval: { interruptId: "resolved-approval", state: "resolved" },
+    });
+  });
+
+  it("renders one standalone resolved approval when its tool cannot be identified", () => {
+    const calls = [
+      { toolCallId: "tool-a", name: "first", input: {} },
+      { toolCallId: "tool-b", name: "second", input: {} },
+    ];
+    const events = [
+      event(1, { type: "run.started" }),
+      event(2, { type: "tool.called", toolCall: calls[0]! }),
+      event(3, { type: "tool.called", toolCall: calls[1]! }),
+      event(4, {
+        type: "interrupt.required",
+        interrupt: {
+          kind: "tool-approval",
+          interruptId: "ambiguous-resolved-approval",
+          prompt: "Choose which action to allow.",
+          actions: [
+            {
+              id: "allow",
+              toolCallId: "missing-tool-call",
+              name: "Allow",
+              input: true,
+            },
+          ],
+        },
+      }),
+      event(5, {
+        type: "interrupt.resolved",
+        interruptId: "ambiguous-resolved-approval",
+        decisions: [{ approved: true }],
+      }),
+      event(6, { type: "tool.completed", result: { ...calls[0]!, output: { ok: true } } }),
+      event(7, { type: "tool.completed", result: { ...calls[1]!, output: { ok: true } } }),
+    ];
+    const messages = selectRenderMessages({ runs: [stateFor(events)], events });
+
+    expect(messages.filter((message) => message.approval)).toHaveLength(1);
+    expect(messages.filter((message) => message.tool?.status === "approval")).toHaveLength(0);
+    expect(messages.find((message) => message.approval)).toMatchObject({
+      id: "interrupt-run-1-ambiguous-resolved-approval",
+      approval: { state: "resolved" },
+    });
   });
 
   it("renders a stable custom interrupt fallback", () => {
@@ -385,5 +466,114 @@ describe("ui-core render model", () => {
       usage: { totalTokens: 12 },
       messages: [{ id: "run-content-run-1", content: finalContent, state: "complete" }],
     });
+  });
+
+  it("does not duplicate a tool when run.completed repeats tool protocol parts", () => {
+    const call = { toolCallId: "tool-final", name: "create_file", input: { path: "x" } };
+    const toolContent: ContentPart[] = [
+      { type: "tool-call", toolCall: call },
+      { type: "tool-result", result: { ...call, output: { ok: true } } },
+    ];
+    const events = [
+      event(1, { type: "run.started" }),
+      event(2, { type: "tool.called", toolCall: call }),
+      event(3, { type: "tool.completed", result: { ...call, output: { ok: true } } }),
+      event(4, { type: "run.completed", finishReason: "stop", content: toolContent }),
+    ];
+    const messages = selectRenderMessages({ runs: [stateFor(events)], events });
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.role).toBe("tool");
+    expect(messages[0]?.tool?.output).toEqual({ ok: true });
+    expect(messages.some((message) => message.id.startsWith("run-content-"))).toBe(false);
+  });
+
+  it("renders ambiguous tool approval at the turn level instead of guessing a tool", () => {
+    const calls = [
+      { toolCallId: "tool-a", name: "first", input: {} },
+      { toolCallId: "tool-b", name: "second", input: {} },
+    ];
+    const events = [
+      event(1, { type: "run.started" }),
+      event(2, { type: "tool.called", toolCall: calls[0]! }),
+      event(3, { type: "tool.called", toolCall: calls[1]! }),
+      event(4, {
+        type: "interrupt.required",
+        interrupt: {
+          kind: "tool-approval",
+          interruptId: "ambiguous-approval",
+          prompt: "Choose which action to allow.",
+          actions: [
+            {
+              id: "allow",
+              toolCallId: "tool-history",
+              name: "delete_file",
+              input: true,
+            },
+          ],
+        },
+      }),
+    ];
+    const messages = selectRenderMessages({ runs: [stateFor(events)], events });
+    const approvalMessage = messages.find((message) => message.approval);
+
+    expect(messages.filter((message) => message.role === "tool")).toHaveLength(2);
+    expect(messages.filter((message) => message.tool?.status === "approval")).toHaveLength(0);
+    expect(approvalMessage).toMatchObject({
+      id: "interrupt-run-1-ambiguous-approval",
+      approval: { kind: "tool-approval", state: "pending" },
+    });
+  });
+
+  it("uses a durable turn snapshot when event diagnostics are no longer available", () => {
+    const call = { toolCallId: "tool-history", name: "delete_file", input: { path: "old.txt" } };
+    const fullEvents = [
+      event(1, { type: "run.started" }),
+      event(2, { type: "tool.called", toolCall: call }),
+      event(3, {
+        type: "interrupt.required",
+        interrupt: {
+          kind: "tool-approval",
+          interruptId: "history-approval",
+          prompt: "Allow deleting old.txt?",
+          actions: [
+            {
+              id: "allow",
+              toolCallId: "tool-history",
+              name: "delete_file",
+              input: true,
+            },
+          ],
+        },
+      }),
+      event(4, { type: "interrupt.resolved", interruptId: "history-approval", decisions: [true] }),
+      event(5, { type: "tool.completed", result: { ...call, output: { deleted: true } } }),
+      event(6, {
+        type: "run.completed",
+        finishReason: "stop",
+        content: [
+          { type: "text", text: "Deleted." },
+          { type: "tool-call", toolCall: call },
+          { type: "tool-result", result: { ...call, output: { deleted: true } } },
+        ],
+      }),
+    ];
+    const state = stateFor(fullEvents);
+    const complete = selectRenderModel({ runs: [state], events: fullEvents });
+    const evicted = selectRenderModel({
+      runs: [state],
+      events: [fullEvents.at(-1)!],
+      history: complete.turns,
+    });
+
+    expect(evicted.turns[0]?.messages.find((message) => message.tool)?.approval).toMatchObject({
+      interruptId: "history-approval",
+      detail: "Allow deleting old.txt?",
+      state: "resolved",
+    });
+    expect(evicted.messages.some((message) => message.content.some(
+      (part) => part.type === "text" && part.text === "Deleted.",
+    ))).toBe(true);
+    expect(evicted.messages.filter((message) => message.tool?.toolCallId === "tool-history")).toHaveLength(1);
   });
 });

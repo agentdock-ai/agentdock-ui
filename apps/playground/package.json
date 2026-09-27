@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "license": "MIT",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite --config vite.config.ts",
     "build": "vite build --config vite.config.ts",
@@ -12,13 +14,19 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@agentdock-ai/agentdock": "^0.1.0",
+    "@agentdock-ai/agentdock": "link:../../../agentdock/packages/agentdock",
     "@agentdock-ai/contracts": "^0.1.0",
-    "@agentdock-ai/models": "^0.1.0",
+    "@langchain/core": "^1.2.9",
+    "@langchain/langgraph": "^1.4.13",
+    "@langchain/ollama": "^1.3.0",
+    "@langchain/openai": "^1.5.10",
+    "@langchain/openrouter": "^0.4.10",
     "@agentdock-ai/react": "0.1.0",
     "@agentdock-ai/ui-core": "0.1.0",
+    "langchain": "^1.5.10",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/node": "^26.5.1",
