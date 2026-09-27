@@ -19,7 +19,7 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@agentdock-ai/contracts": "^0.1.0"
+    "@agentdock-ai/contracts": "^0.2.0"
   },
   "devDependencies": {
     "@types/node": "^26.5.1",

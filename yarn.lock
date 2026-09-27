@@ -6,10 +6,13 @@
   version "0.0.0"
   uid ""
 
-"@agentdock-ai/contracts@^0.1.0":
-  version "0.1.0"
-  resolved "https://registry.yarnpkg.com/@agentdock-ai/contracts/-/contracts-0.1.0.tgz#693f651bba555bb565feb9a63ad64d17459ef449"
-  integrity sha512-N5Zd1EZOFjf8bCJ6piEHdnvdnQgjqLcRSicd9OzGmM7gmPlRUAngzJ7XhzCDpunfbJGMCbnCavH7H3Besesanw==
+"@agentdock-ai/contracts@^0.2.0":
+  version "0.0.0"
+  uid ""
+
+"@agentdock-ai/contracts@link:../agentdock/packages/contracts":
+  version "0.0.0"
+  uid ""
 
 "@cfworker/json-schema@^4.0.2":
   version "4.1.1"

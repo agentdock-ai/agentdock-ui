@@ -11,6 +11,9 @@
     "packages/*",
     "apps/*"
   ],
+  "resolutions": {
+    "@agentdock-ai/contracts": "link:../agentdock/packages/contracts"
+  },
   "scripts": {
     "build:packages": "yarn workspace @agentdock-ai/ui-core build && yarn workspace @agentdock-ai/react build",
     "build": "yarn build:packages && yarn workspace @agentdock-ai/playground build",
