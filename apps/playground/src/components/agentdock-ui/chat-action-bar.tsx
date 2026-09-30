@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy } from "lucide-react";
+import { ChatIcon } from "./icon";
 import { Button } from "./ui/button";
 export function ChatActionBar({ text }: { text: string }) {
   const [status, setStatus] = useState("");
@@ -24,9 +25,9 @@ export function ChatActionBar({ text }: { text: string }) {
         }}
       >
         {status === "Copied" ? (
-          <Check size={14} aria-hidden="true" />
+          <ChatIcon icon={Check} size={14} aria-hidden="true" />
         ) : (
-          <Copy size={14} aria-hidden="true" />
+          <ChatIcon icon={Copy} size={14} aria-hidden="true" />
         )}
       </Button>
       <span role="status">{status}</span>

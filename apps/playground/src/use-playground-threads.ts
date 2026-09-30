@@ -22,7 +22,14 @@ export function usePlaygroundThreads() {
         setThreads((current) =>
           current.map((thread) =>
             thread.id === active.id && thread.title === "New chat"
-              ? { ...thread, title: request.text.trim().slice(0, 64) }
+              ? {
+                  ...thread,
+                  title: (
+                    request.text.trim() ||
+                    request.attachments?.[0]?.name ||
+                    "New chat"
+                  ).slice(0, 64),
+                }
               : thread,
           ),
         );

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { ChatAdapter } from "./chat-adapter.js";
+import type { ChatAdapter, ChatAttachment } from "./chat-adapter.js";
 import { useAgentStore } from "./agent-provider.js";
 import { createChatActions, idleChatActions } from "./chat-actions.js";
 
@@ -21,8 +21,8 @@ export function useAgentActions(adapter: ChatAdapter) {
     ...state,
     canCancel: Boolean(adapter.cancelRun),
     canRespond: Boolean(adapter.respondToInterrupt),
-    sendMessage: (text: string) =>
-      actions.current?.sendMessage(text) ?? Promise.resolve(false),
+    sendMessage: (text: string, attachments?: readonly ChatAttachment[]) =>
+      actions.current?.sendMessage(text, attachments) ?? Promise.resolve(false),
     cancelRun: () => actions.current?.cancelRun() ?? Promise.resolve(false),
     respondToInterrupt: (
       interruptId: string,

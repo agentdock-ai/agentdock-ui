@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
+import { ChatIcon } from "./icon.js";
 import {
   Collapsible,
   CollapsibleContent,
@@ -11,7 +12,8 @@ export function Reasoning({ text, active }: { text: string; active: boolean }) {
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="min-w-0">
       <CollapsibleTrigger className="flex min-h-6 max-w-full items-center gap-1.5 rounded-sm font-mono text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
-        <ChevronRight
+        <ChatIcon
+          icon={ChevronRight}
           size={12}
           aria-hidden="true"
           className={`${open ? "rotate-90" : ""} ${active ? "text-primary" : ""}`}

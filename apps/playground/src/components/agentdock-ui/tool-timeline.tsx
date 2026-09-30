@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
+import { ChatIcon } from "./icon";
 import type { RenderToolCallItem } from "@agentdock-ai/ui-core";
 import {
   Collapsible,
@@ -25,7 +26,8 @@ export function ToolTimeline({
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="min-w-0 px-2">
       <CollapsibleTrigger className="flex min-h-6 items-center gap-1 rounded-sm font-mono text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
-        <ChevronRight
+        <ChatIcon
+          icon={ChevronRight}
           size={12}
           aria-hidden="true"
           className={open ? "rotate-90" : ""}

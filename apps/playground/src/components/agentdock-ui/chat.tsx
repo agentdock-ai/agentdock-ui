@@ -12,6 +12,7 @@ import { MessageList } from "./message-list";
 import { EmptyState, Suggestions } from "./empty-state";
 import { Composer } from "./composer";
 import { ErrorState } from "./error-state";
+import { useChatAttachments } from "./use-chat-attachments";
 
 export function Chat(props: ChatProps) {
   return (
@@ -33,6 +34,7 @@ function ChatSurface({
   const { renderModel: model, agent, streamStatus } = useAgentState();
   const actions = useAgentActions(adapter);
   const [draft, setDraft] = useState("");
+  const attachments = useChatAttachments(adapter.attachments);
   const active =
     actions.busy ||
     (streamStatus === "consuming" &&
@@ -53,10 +55,24 @@ function ChatSurface({
     .filter((m) => m.role === "user")
     .at(-1)?.id;
   async function submit(text: string) {
-    if (disabled || active || waiting || !text.trim()) return;
+    if (
+      disabled ||
+      active ||
+      waiting ||
+      attachments.blocked ||
+      (!text.trim() && attachments.items.length === 0)
+    )
+      return;
+    const sent = attachments.take();
     setDraft("");
-    const successful = await actions.sendMessage(text);
-    if (!successful) setDraft((current) => current || text);
+    const successful = await actions.sendMessage(
+      text,
+      sent.flatMap((item) => (item.attachment ? [item.attachment] : [])),
+    );
+    if (!successful) {
+      setDraft((current) => current || text);
+      attachments.restore(sent);
+    }
   }
   const status = actions.cancelling
     ? "Stopping…"
@@ -105,6 +121,13 @@ function ChatSurface({
             cancelling={actions.cancelling}
             disabled={disabled}
             placeholder={placeholder}
+            attachments={attachments.items}
+            attachmentAccept={adapter.attachments?.accept}
+            attachmentError={attachments.error}
+            attachmentBlocked={attachments.blocked}
+            onFiles={adapter.attachments ? attachments.add : undefined}
+            onRemoveAttachment={attachments.remove}
+            onRetryAttachment={attachments.retry}
           />
           {empty && suggestions && (
             <Suggestions

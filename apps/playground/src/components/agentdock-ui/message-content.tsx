@@ -1,4 +1,5 @@
 import { FileText, ExternalLink } from "lucide-react";
+import { ChatIcon } from "./icon";
 import type { RenderContentBlock } from "@agentdock-ai/ui-core";
 import { StreamingText } from "./streaming-text";
 import { Reasoning } from "./reasoning";
@@ -47,6 +48,24 @@ export function MessageContent({
             </details>
           );
         const url = safeUrl(block.url);
+        if (block.type === "image" && url)
+          return (
+            <a
+              key={block.id}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open attached image"
+              className="block w-fit max-w-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <img
+                src={url}
+                alt="Attached image"
+                loading="lazy"
+                className="max-h-48 max-w-full rounded-lg border border-border object-contain"
+              />
+            </a>
+          );
         const label =
           block.type === "citation"
             ? block.title || "View source"
@@ -58,7 +77,12 @@ export function MessageContent({
             key={block.id}
             className="flex max-w-full items-center gap-2 rounded-lg border border-border px-3 py-2.5 text-sm text-muted-foreground"
           >
-            <FileText size={16} aria-hidden="true" className="shrink-0" />
+            <ChatIcon
+              icon={FileText}
+              size={16}
+              aria-hidden="true"
+              className="shrink-0"
+            />
             {url ? (
               <a
                 href={url}
@@ -67,7 +91,8 @@ export function MessageContent({
                 className="flex min-w-0 items-center gap-2 rounded-sm underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span className="[overflow-wrap:anywhere]">{label}</span>
-                <ExternalLink
+                <ChatIcon
+                  icon={ExternalLink}
                   size={13}
                   className="shrink-0"
                   aria-hidden="true"

@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { ChevronRight, CircleAlert, LoaderCircle, Wrench } from "lucide-react";
+import { ChatIcon } from "./icon";
 import type { RenderToolCallItem } from "@agentdock-ai/ui-core";
 import {
   Collapsible,
@@ -36,7 +37,8 @@ export function ToolCall({ item }: { item: RenderToolCallItem }) {
         aria-label={`${tool.name} ${status}`}
         className="flex min-h-7 w-full min-w-0 items-center gap-2 rounded-sm py-0.5 text-left font-mono text-xs leading-5 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [@media(pointer:coarse)]:min-h-10"
       >
-        <Icon
+        <ChatIcon
+          icon={Icon}
           size={14}
           aria-hidden="true"
           className={`shrink-0 ${failed ? "text-destructive" : ""} ${active ? "motion-safe:animate-spin" : ""}`}
@@ -59,7 +61,8 @@ export function ToolCall({ item }: { item: RenderToolCallItem }) {
             {status}
           </span>
         )}
-        <ChevronRight
+        <ChatIcon
+          icon={ChevronRight}
           size={12}
           aria-hidden="true"
           className={`shrink-0 ${open ? "rotate-90" : ""}`}

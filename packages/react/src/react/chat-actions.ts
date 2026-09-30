@@ -3,7 +3,11 @@ import {
   type AgentStore,
   type JsonValue,
 } from "@agentdock-ai/ui-core";
-import type { AgentEventStream, ChatAdapter } from "./chat-adapter.js";
+import type {
+  AgentEventStream,
+  ChatAdapter,
+  ChatAttachment,
+} from "./chat-adapter.js";
 
 export interface ChatActionState {
   busy: boolean;
@@ -69,18 +73,31 @@ export function createChatActions(
     }
   }
   return {
-    async sendMessage(text: string) {
+    async sendMessage(
+      text: string,
+      attachments: readonly ChatAttachment[] = [],
+    ) {
       const value = text.trim();
       if (
-        !value ||
+        (!value && attachments.length === 0) ||
+        (attachments.length > 0 && !adapter.attachments) ||
         active ||
         disposed ||
         (store.getSnapshot().agent.status === "waiting" &&
           store.getSnapshot().streamStatus !== "stopped")
       )
         return false;
-      store.appendUserMessage(value);
-      return consume((signal) => adapter.sendMessage({ text: value, signal }));
+      store.appendUserMessage(
+        value,
+        attachments.map((item) => item.content),
+      );
+      return consume((signal) =>
+        adapter.sendMessage({
+          text: value,
+          ...(attachments.length ? { attachments } : {}),
+          signal,
+        }),
+      );
     },
     async respondToInterrupt(
       interruptId: string,

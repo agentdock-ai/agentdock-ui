@@ -4,6 +4,7 @@ import {
   type AgentEvent,
   type AgentReducerMessage,
   type AgentReducerState,
+  type ContentPart,
 } from "@agentdock-ai/contracts";
 import { selectRenderModel } from "../select-render-messages.js";
 import type { RenderModel } from "../render-model.js";
@@ -112,9 +113,12 @@ export class AgentStore {
   }
 
   /** Add the submitted prompt immediately, before the backend stream emits assistant events. */
-  appendUserMessage(text: string): void {
+  appendUserMessage(
+    text: string,
+    attachments: readonly ContentPart[] = [],
+  ): void {
     const value = text.trim();
-    if (!value) return;
+    if (!value && attachments.length === 0) return;
 
     const current = this.snapshot.agent;
     const startsNewRun =
@@ -130,7 +134,10 @@ export class AgentStore {
       {
         messageId: `user-${crypto.randomUUID()}`,
         role: "user",
-        content: [{ type: "text", text: value }],
+        content: [
+          ...(value ? [{ type: "text" as const, text: value }] : []),
+          ...structuredClone([...attachments]),
+        ],
       },
     ];
 

@@ -4,6 +4,11 @@ Editable Chat source lives in `registry/agentdock-ui`. The browser consumes only
 
 The consuming app owns authentication, authorization, endpoint URLs, thread identity, request bodies, provider configuration and business rules. Chat never fetches an endpoint or imports a provider runtime.
 
+File/image controls are enabled only by the optional `ChatAdapter.attachments`
+capability. The copied picker, previews and upload draft hook call the app's upload
+method; the app owns accept/size/count limits, storage and attachment IDs sent with
+the message. Canonical file/image content remains the transcript representation.
+
 ## Build and review
 
 From the workspace root:

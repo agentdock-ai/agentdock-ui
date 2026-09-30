@@ -81,6 +81,24 @@ export function createChatAdapter({
 
 Provide optional `cancelRun` and `respondToInterrupt` only when the consuming app supports them. Approval inputs stay opaque and are returned unchanged. Chat has no endpoint prop.
 
+### Optional files and images
+
+Provide `adapter.attachments` to enable the compact file/image controls, drag/drop,
+paste, previews, upload status, retry and removal. Text-only adapters show no upload
+controls. The app supplies `accept`, `maxFiles`, `maxFileSize` and
+`upload({ file, signal })`, which returns a `ChatAttachment` with an app-owned ID,
+name, byte size and canonical file/image display content. Uploads start when files
+are selected. Send is blocked until each attachment is ready; removing a pending
+file aborts its upload.
+
+`sendMessage({ text, attachments, signal })` receives the uploaded descriptors.
+The consuming app builds its request from these IDs and owns storage, authorization,
+retention and conversion to model input. Attachment-only messages are supported.
+The playground accepts text/code files (256 KB total per message) and PNG/JPEG/GIF/
+WebP images (5 MB per file), up to five attachments. Its local in-memory storage
+expires after 30 minutes. PDF/Office parsing and durable storage belong to the host;
+image understanding requires a model that supports images.
+
 The app owns authentication, authorization, endpoint URLs, thread identity, request construction, secrets, provider selection and business rules. The browser consumes canonical AgentDock events only. LangGraph, LangChain and provider events must be normalized on the server.
 
 ## V1 surface

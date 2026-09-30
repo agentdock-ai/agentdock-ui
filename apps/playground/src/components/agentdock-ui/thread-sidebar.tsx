@@ -1,6 +1,7 @@
 "use client";
 import { useState, type ReactNode } from "react";
 import { Plus, Search } from "lucide-react";
+import { ChatIcon } from "./icon";
 export interface ChatThread {
   id: string;
   title: string;
@@ -34,11 +35,11 @@ export function ThreadSidebar({
           onClick={onNew}
           className="flex min-h-8 w-full items-center gap-2 rounded-lg border border-border bg-background px-2.5 text-left outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <Plus size={14} aria-hidden="true" />
+          <ChatIcon icon={Plus} size={14} aria-hidden="true" />
           New thread
         </button>
         <label className="flex min-h-8 items-center gap-2 rounded-lg border border-border bg-background px-2.5 text-muted-foreground">
-          <Search size={14} aria-hidden="true" />
+          <ChatIcon icon={Search} size={14} aria-hidden="true" />
           <input
             aria-label="Search threads"
             value={search}

@@ -32,7 +32,12 @@ export {
   type AgentProviderProps,
 } from "./react/agent-provider.js";
 export { useAgentState } from "./react/use-agent-state.js";
-export type { AgentEventStream, ChatAdapter } from "./react/chat-adapter.js";
+export type {
+  AgentEventStream,
+  ChatAdapter,
+  ChatAttachment,
+  ChatAttachmentAdapter,
+} from "./react/chat-adapter.js";
 export type { AgentEvent } from "@agentdock-ai/ui-core";
 
 export { useAgentActions } from "./react/use-agent-actions.js";

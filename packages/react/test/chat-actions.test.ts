@@ -7,12 +7,59 @@ import {
   complete,
 } from "../../../scripts/fixtures/events.js";
 import type { AgentEvent } from "@agentdock-ai/ui-core";
+import type { ChatAttachment } from "../src/react/chat-adapter.js";
 
 async function* stream(events: readonly AgentEvent[]) {
   yield* events;
 }
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 describe("ChatAdapter actions", () => {
+  it("sends uploaded attachments and records canonical content without synthetic events", async () => {
+    const store = new AgentStore();
+    const attachment: ChatAttachment = {
+      id: "file-1",
+      name: "notes.txt",
+      size: 12,
+      content: { type: "file", fileId: "file-1", name: "notes.txt" },
+    };
+    let received: unknown;
+    const actions = createChatActions(
+      store,
+      {
+        attachments: { upload: async () => attachment },
+        sendMessage: (input) => {
+          received = input.attachments;
+          return stream(scenarios.conversation);
+        },
+      },
+      () => {},
+    );
+    expect(await actions.sendMessage("", [attachment])).toBe(true);
+    expect(received).toEqual([attachment]);
+    expect(store.getSnapshot().messages[0]?.content).toEqual([
+      attachment.content,
+    ]);
+    expect(store.getSnapshot().events).toEqual(scenarios.conversation);
+  });
+  it("rejects attachments when the app has no upload capability", async () => {
+    const store = new AgentStore();
+    const actions = createChatActions(
+      store,
+      { sendMessage: () => stream([]) },
+      () => {},
+    );
+    expect(
+      await actions.sendMessage("", [
+        {
+          id: "f",
+          name: "f.txt",
+          size: 0,
+          content: { type: "file", fileId: "f" },
+        },
+      ]),
+    ).toBe(false);
+    expect(store.getSnapshot().messages).toHaveLength(0);
+  });
   it("sends through the app and rejects overlapping submissions", async () => {
     const store = new AgentStore();
     const calls: string[] = [];

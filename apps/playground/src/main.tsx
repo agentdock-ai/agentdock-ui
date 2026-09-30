@@ -5,6 +5,7 @@ import { ChatWorkspace } from "./components/agentdock-ui/chat-workspace";
 import { ThreadSidebar } from "./components/agentdock-ui/thread-sidebar";
 import { usePlaygroundThreads } from "./use-playground-threads.js";
 import { Settings2, Sun, Moon } from "lucide-react";
+import { ChatIcon } from "./components/agentdock-ui/icon";
 import "./style.css";
 
 const providers = [
@@ -263,7 +264,7 @@ function Playground() {
               onClick={() => setConnectionOpen(!connectionOpen)}
               className="workspace-action"
             >
-              <Settings2 size={15} />
+              <ChatIcon icon={Settings2} size={15} />
             </button>
             <button
               type="button"
@@ -271,7 +272,7 @@ function Playground() {
               onClick={() => setDark(!dark)}
               className="workspace-action"
             >
-              {dark ? <Sun size={15} /> : <Moon size={15} />}
+              {dark ? <ChatIcon icon={Sun} size={15} /> : <ChatIcon icon={Moon} size={15} />}
             </button>
           </>
         }

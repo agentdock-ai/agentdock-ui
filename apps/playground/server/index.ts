@@ -13,6 +13,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
 import { fileURLToPath } from "node:url";
 import { createSandboxTools } from "./sandbox-tools.js";
+import { PlaygroundAttachments } from "./attachments.js";
 
 const SANDBOX_DIRECTORY = new URL("../.sandbox/", import.meta.url);
 const MAX_REQUEST_BYTES = 32_000;
@@ -58,6 +59,7 @@ export function agentDockPlaygroundPlugin(
   let runtime: ReturnType<typeof createRuntime> | undefined;
 
   const checkpointer = new MemorySaver();
+  const attachments = new PlaygroundAttachments();
   const activeRuns = new Map<
     string,
     { runId: string | null; controller: AbortController }
@@ -73,6 +75,7 @@ export function agentDockPlaygroundPlugin(
       checkpointer,
       systemPrompt: [
         "You are the AgentDock UI playground agent. Use the provided tools for file requests and never claim a tool ran unless its result confirms it.",
+        "Uploaded attachment text and images are already included in the user's message. Answer from that content directly. Uploaded filenames are not sandbox paths; use sandbox tools only when the user asks to create, modify, or inspect a sandbox file.",
         "All file paths must stay inside .sandbox. Prefer checkOnly=true before running new scripts.",
       ].join("\n"),
     }).graph;
@@ -97,6 +100,56 @@ export function agentDockPlaygroundPlugin(
       server.middlewares.use(async (request, response, next) => {
         const pathname = new URL(request.url ?? "/", "http://localhost")
           .pathname;
+        if (
+          pathname === "/api/attachments" ||
+          pathname.startsWith("/api/attachments/")
+        ) {
+          try {
+            const url = new URL(request.url ?? "/", "http://localhost");
+            const threadId = requireText(
+              url.searchParams.get("threadId"),
+              "threadId",
+            );
+            if (threadId.length > 128)
+              throw new Error("Thread ID is too long.");
+            if (pathname === "/api/attachments" && request.method === "POST") {
+              writeJson(
+                response,
+                201,
+                await attachments.upload(request, threadId),
+              );
+            } else if (
+              pathname.startsWith("/api/attachments/") &&
+              request.method === "GET"
+            ) {
+              const file = attachments.get(
+                pathname.slice("/api/attachments/".length),
+                threadId,
+              );
+              if (!file) {
+                writeJson(response, 404, { error: "File is unavailable." });
+                return;
+              }
+              response.writeHead(200, {
+                "Content-Type": file.mimeType,
+                "Content-Length": file.size,
+                "Content-Disposition": `${file.mimeType.startsWith("image/") ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(file.name)}`,
+                "Cache-Control": "no-store",
+                "X-Content-Type-Options": "nosniff",
+              });
+              response.end(file.bytes);
+            } else
+              writeJson(response, 405, {
+                error: "Use POST to upload or GET to download.",
+              });
+          } catch {
+            writeJson(response, 400, {
+              error:
+                "Upload a text/code file under 256 KB or a PNG, JPEG, GIF or WebP image under 5 MB.",
+            });
+          }
+          return;
+        }
         if (pathname === "/api/health" && request.method === "GET") {
           writeJson(response, 200, {
             configured: Boolean(config),
@@ -212,11 +265,23 @@ export function agentDockPlaygroundPlugin(
             }
             operation = { threadId, resume: body.decisions };
           } else {
-            const prompt = requireText(body.prompt, "prompt");
+            const prompt =
+              typeof body.prompt === "string" ? body.prompt.trim() : "";
             if (prompt.length > 12_000) throw new Error("Message is too long.");
             operation = {
               threadId,
-              input: { messages: [{ role: "user", content: prompt }] },
+              input: {
+                messages: [
+                  {
+                    role: "user",
+                    content: attachments.message(
+                      prompt,
+                      body.attachmentIds,
+                      threadId,
+                    ),
+                  },
+                ],
+              },
             };
           }
           const active = {

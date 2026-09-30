@@ -1,4 +1,5 @@
 import { Check, ShieldCheck } from "lucide-react";
+import { ChatIcon } from "./icon.js";
 import type { JsonValue, RenderApproval } from "@agentdock-ai/ui-core";
 import { ErrorState } from "./error-state.js";
 import { Button } from "../ui/button.js";
@@ -24,9 +25,9 @@ export function ApprovalCard({
       <div className="flex items-center gap-2.5">
         <span className="flex size-6 items-center justify-center rounded-lg bg-muted">
           {resolved ? (
-            <Check size={14} aria-hidden="true" />
+            <ChatIcon icon={Check} size={14} aria-hidden="true" />
           ) : (
-            <ShieldCheck size={14} aria-hidden="true" />
+            <ChatIcon icon={ShieldCheck} size={14} aria-hidden="true" />
           )}
         </span>
         <h3 className="text-[13px] font-medium">

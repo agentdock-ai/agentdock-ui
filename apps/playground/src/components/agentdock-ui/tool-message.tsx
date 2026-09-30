@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { ChevronRight, Terminal } from "lucide-react";
+import { ChatIcon } from "./icon";
 import type { RenderMessageItem } from "@agentdock-ai/ui-core";
 import {
   Collapsible,
@@ -21,12 +22,13 @@ export function ToolMessage({ message }: { message: RenderMessageItem }) {
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="min-w-0">
       <CollapsibleTrigger className="flex min-h-7 w-full items-center gap-2 rounded-lg px-2 text-left font-mono text-xs text-muted-foreground outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring">
-        <ChevronRight
+        <ChatIcon
+          icon={ChevronRight}
           aria-hidden="true"
           size={14}
           className={open ? "rotate-90" : ""}
         />
-        <Terminal aria-hidden="true" size={14} />
+        <ChatIcon icon={Terminal} aria-hidden="true" size={14} />
         <span>Tool output</span>
       </CollapsibleTrigger>
       <CollapsibleContent>

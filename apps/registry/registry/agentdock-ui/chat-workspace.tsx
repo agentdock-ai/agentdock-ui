@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { MessagesSquare, PanelLeft, X } from "lucide-react";
+import { ChatIcon } from "./icon.js";
 import { cn } from "./utils.js";
 export function ChatWorkspace({
   children,
@@ -25,7 +26,7 @@ export function ChatWorkspace({
   const brandRow = (
     <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-4 text-[13px]">
       <span className="flex items-center gap-2">
-        <MessagesSquare size={16} aria-hidden="true" />
+        <ChatIcon icon={MessagesSquare} size={16} aria-hidden="true" />
         {brand}
       </span>
       <button
@@ -34,7 +35,7 @@ export function ChatWorkspace({
         onClick={() => setExpanded(false)}
         className="flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <PanelLeft size={14} />
+        <ChatIcon icon={PanelLeft} size={14} />
       </button>
     </div>
   );
@@ -69,7 +70,7 @@ export function ChatWorkspace({
                 expanded && "md:hidden",
               )}
             >
-              <PanelLeft size={15} />
+              <ChatIcon icon={PanelLeft} size={15} />
             </button>
             <span className="truncate text-[13px]">{title}</span>
           </div>
@@ -93,7 +94,7 @@ export function ChatWorkspace({
               onClick={() => mobile.current?.close()}
               className="flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <X size={15} />
+              <ChatIcon icon={X} size={15} />
             </button>
           </div>
           <div
