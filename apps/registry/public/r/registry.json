@@ -1,0 +1,18 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "agentdock-ui",
+  "items": [
+    {
+      "name": "chat-radix",
+      "type": "registry:block",
+      "title": "AgentDock Chat",
+      "description": "A compact chat panel connected to an app-owned ChatAdapter."
+    },
+    {
+      "name": "chat-base",
+      "type": "registry:block",
+      "title": "AgentDock Chat",
+      "description": "A compact chat panel connected to an app-owned ChatAdapter."
+    }
+  ]
+}

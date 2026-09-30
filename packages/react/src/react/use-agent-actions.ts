@@ -1,0 +1,36 @@
+import { useEffect, useRef, useState } from "react";
+import type { ChatAdapter } from "./chat-adapter.js";
+import { useAgentStore } from "./agent-provider.js";
+import { createChatActions, idleChatActions } from "./chat-actions.js";
+
+/** Keep the adapter stable for an operation. Replacing it aborts the old local stream. */
+export function useAgentActions(adapter: ChatAdapter) {
+  const store = useAgentStore();
+  const [state, setState] = useState(idleChatActions);
+  const actions = useRef<ReturnType<typeof createChatActions> | null>(null);
+  useEffect(() => {
+    const current = createChatActions(store, adapter, setState);
+    actions.current = current;
+    setState(idleChatActions);
+    return () => {
+      current.dispose();
+      if (actions.current === current) actions.current = null;
+    };
+  }, [store, adapter]);
+  return {
+    ...state,
+    canCancel: Boolean(adapter.cancelRun),
+    canRespond: Boolean(adapter.respondToInterrupt),
+    sendMessage: (text: string) =>
+      actions.current?.sendMessage(text) ?? Promise.resolve(false),
+    cancelRun: () => actions.current?.cancelRun() ?? Promise.resolve(false),
+    respondToInterrupt: (
+      interruptId: string,
+      decisions: Parameters<
+        NonNullable<ChatAdapter["respondToInterrupt"]>
+      >[0]["decisions"],
+    ) =>
+      actions.current?.respondToInterrupt(interruptId, decisions) ??
+      Promise.resolve(false),
+  };
+}

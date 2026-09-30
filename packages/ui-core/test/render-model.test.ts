@@ -12,7 +12,6 @@ import {
 } from "../src/select-render-messages.js";
 
 const runId = "run-1";
-const sessionId = "session-1";
 
 function event(
   logicalSequence: number,
@@ -20,10 +19,9 @@ function event(
   options: { eventId?: string; runId?: string } = {},
 ): AgentEvent {
   return {
-    protocolVersion: 1,
+    protocolVersion: 2,
     eventId: options.eventId ?? `event-${logicalSequence}`,
     runId: options.runId ?? runId,
-    sessionId,
     logicalSequence,
     phaseId: "phase-1",
     sequence: logicalSequence,
@@ -395,7 +393,7 @@ describe("ui-core render model", () => {
       streamError: new Error("Connection dropped."),
     });
 
-    expect(model.transportError).toMatchObject({ scope: "transport", detail: "Connection dropped." });
+    expect(model.transportError).toMatchObject({ scope: "transport", detail: "The connection ended unexpectedly. Your messages are still here." });
     expect(model.turns[0]?.error).toBeUndefined();
     expect(model.turns[0]?.state).toBe("completed");
   });

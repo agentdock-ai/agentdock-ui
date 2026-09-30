@@ -12,16 +12,24 @@
     "apps/*"
   ],
   "resolutions": {
-    "@agentdock-ai/contracts": "link:../agentdock/packages/contracts"
+    "@agentdock-ai/contracts": "link:../agentdock/packages/contracts",
+    "@langchain/langgraph": "1.4.13"
   },
   "scripts": {
     "build:packages": "yarn workspace @agentdock-ai/ui-core build && yarn workspace @agentdock-ai/react build",
     "build": "yarn build:packages && yarn workspace @agentdock-ai/playground build",
-    "typecheck": "yarn build:packages && yarn workspace @agentdock-ai/ui-core typecheck && yarn workspace @agentdock-ai/react typecheck && yarn workspace @agentdock-ai/playground typecheck",
+    "typecheck": "yarn build:packages && yarn workspace @agentdock-ai/ui-core typecheck && yarn workspace @agentdock-ai/react typecheck && yarn workspace @agentdock-ai/playground typecheck && yarn workspace @agentdock-ai/registry typecheck && yarn workspace agentdock-ui typecheck",
     "lint": "yarn typecheck",
-    "test": "yarn workspace @agentdock-ai/ui-core test && yarn workspace @agentdock-ai/react test && yarn workspace @agentdock-ai/playground test",
+    "test": "yarn workspace @agentdock-ai/ui-core test && yarn workspace @agentdock-ai/react test && yarn workspace @agentdock-ai/playground test && yarn workspace agentdock-ui test",
     "dev": "yarn workspace @agentdock-ai/playground dev",
     "playground:dev": "yarn workspace @agentdock-ai/playground dev",
-    "playground:build": "yarn build:packages && yarn workspace @agentdock-ai/playground build"
+    "playground:build": "yarn build:packages && yarn workspace @agentdock-ai/playground build",
+    "registry:build": "yarn workspace @agentdock-ai/registry build",
+    "registry:verify": "yarn workspace @agentdock-ai/registry verify",
+    "cli:build": "yarn workspace agentdock-ui build",
+    "fixture:verify": "node scripts/consumer-fixture/verify.mjs"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.9"
   }
 }

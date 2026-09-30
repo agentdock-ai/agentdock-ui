@@ -1,4 +1,8 @@
-import { serveAgent, agentEventStateSchema } from "@agentdock-ai/agentdock";
+import {
+  Agentdock,
+  withAgentEventState,
+  type ServableCompiledGraph,
+} from "@agentdock-ai/agentdock";
 import { ChatOllama } from "@langchain/ollama";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatOpenRouter } from "@langchain/openrouter";
@@ -54,6 +58,10 @@ export function agentDockPlaygroundPlugin(
   let runtime: ReturnType<typeof createRuntime> | undefined;
 
   const checkpointer = new MemorySaver();
+  const activeRuns = new Map<
+    string,
+    { runId: string | null; controller: AbortController }
+  >();
 
   function createRuntime() {
     if (!config) throw new Error("Connect a provider before starting a run.");
@@ -61,14 +69,21 @@ export function agentDockPlaygroundPlugin(
     const graph = createAgent({
       model,
       tools: createSandboxTools(fileURLToPath(SANDBOX_DIRECTORY)),
-      stateSchema: agentEventStateSchema,
+      stateSchema: withAgentEventState({}),
       checkpointer,
       systemPrompt: [
         "You are the AgentDock UI playground agent. Use the provided tools for file requests and never claim a tool ran unless its result confirms it.",
         "All file paths must stay inside .sandbox. Prefer checkOnly=true before running new scripts.",
       ].join("\n"),
     }).graph;
-    return serveAgent(graph, { recursionLimit: 12 });
+    // The linked backend and playground resolve distinct LangGraph installations.
+    // Only checkpoint config types cross that local package seam; keep graph input inference.
+    const servingGraph = graph as Omit<
+      typeof graph,
+      "getState" | "updateState"
+    > &
+      Pick<ServableCompiledGraph, "getState" | "updateState">;
+    return new Agentdock(servingGraph, { recursionLimit: 12 });
   }
 
   function getRuntime() {
@@ -143,33 +158,113 @@ export function agentDockPlaygroundPlugin(
           }
           return;
         }
-        if (pathname !== "/api/agent/stream") return next();
+        if (
+          pathname !== "/api/agent/stream" &&
+          pathname !== "/api/agent/cancel"
+        )
+          return next();
         if (request.method !== "POST") {
-          writeJson(response, 405, {
-            error: "Use POST to start an agent run.",
-          });
+          writeJson(response, 405, { error: "Use POST." });
           return;
         }
-
+        // Local development server only. Production apps must authorize their own thread identities.
         try {
+          const body = await readRequestJson(request);
+          const threadId = requireText(
+            body.threadId ?? body.sessionId,
+            "threadId",
+          );
+          if (threadId.length > 128) throw new Error("Thread ID is too long.");
+          if (pathname === "/api/agent/cancel") {
+            const active = activeRuns.get(threadId);
+            if (!active || active.runId !== body.runId) {
+              writeJson(response, 409, { error: "No matching active run." });
+              return;
+            }
+            active.controller.abort();
+            writeJson(response, 200, { cancelled: true });
+            return;
+          }
           if (!config) {
             writeJson(response, 503, {
               error: "Connect a provider before starting a run.",
             });
             return;
           }
-          const body = await readRequestJson(request);
-          const prompt = requireText(body.prompt, "prompt");
-          const sessionId = requireText(body.sessionId, "sessionId");
-          if (prompt.length > 12_000 || sessionId.length > 128)
-            throw new Error("Request values exceed their allowed length.");
-          await getRuntime().pipe(response, {
-            threadId: sessionId,
-            input: { messages: [{ role: "user", content: prompt }] },
-          });
-        } catch (error) {
+          if (activeRuns.has(threadId)) {
+            writeJson(response, 409, { error: "A run is already active." });
+            return;
+          }
+          const agent = getRuntime();
+          let operation;
+          if (body.interruptId !== undefined) {
+            const pending = await agent.getResumeState(threadId);
+            if (
+              !pending ||
+              pending.runId !== body.runId ||
+              pending.interrupt?.interruptId !== body.interruptId ||
+              !Array.isArray(body.decisions)
+            ) {
+              writeJson(response, 409, {
+                error: "The interrupt is no longer available.",
+              });
+              return;
+            }
+            operation = { threadId, resume: body.decisions };
+          } else {
+            const prompt = requireText(body.prompt, "prompt");
+            if (prompt.length > 12_000) throw new Error("Message is too long.");
+            operation = {
+              threadId,
+              input: { messages: [{ role: "user", content: prompt }] },
+            };
+          }
+          const active = {
+            runId: null as string | null,
+            controller: new AbortController(),
+          };
+          activeRuns.set(threadId, active);
+          const disconnected = () => {
+            if (!response.writableEnded) active.controller.abort();
+          };
+          response.on("close", disconnected);
+          try {
+            for await (const event of agent.stream({
+              ...operation,
+              signal: active.controller.signal,
+            })) {
+              if (response.destroyed) break;
+              active.runId = event.runId;
+              if (!response.headersSent)
+                response.writeHead(200, {
+                  "Content-Type": "text/event-stream",
+                  "Cache-Control": "no-cache",
+                  Connection: "keep-alive",
+                });
+              const writable = response.write(
+                `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
+              );
+              if (!writable)
+                await new Promise<void>((resolve) => {
+                  const done = () => {
+                    response.off("drain", done);
+                    response.off("close", done);
+                    resolve();
+                  };
+                  response.once("drain", done);
+                  response.once("close", done);
+                });
+            }
+            if (!response.destroyed) response.end();
+          } finally {
+            activeRuns.delete(threadId);
+            response.off("close", disconnected);
+          }
+        } catch {
           if (!response.headersSent)
-            writeJson(response, 400, { error: safeMessage(error) });
+            writeJson(response, 400, {
+              error: "The agent request could not be completed.",
+            });
           else if (!response.destroyed) response.end();
         }
       });

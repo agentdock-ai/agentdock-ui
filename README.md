@@ -23,172 +23,92 @@
   </p>
 </div>
 
-`@agentdock-ai/react` is the UI layer for [Agentdock](https://github.com/agentdock-ai/agentdock). It turns the event stream from your Agentdock backend into a ready chat surface and a typed client-side store.
+AgentDock UI V1 is a compact, editable chat panel backed by the canonical AgentDock event contract. `@agentdock-ai/react` supplies the headless store, provider, hooks and adapter types. Styled components are copied into your application from the registry.
 
-The package is designed for real applications: your server owns the model call, authentication, tools, sessions, and API keys. The browser package only consumes the stream you give it. It never calls a model provider or makes a hidden backend request.
+## Install Chat
 
-## What you get
+The intended released installer command is:
 
-- **`AgentChatView`** — a ready chat surface with messages, status, tool calls, progress, results, and errors.
-- **Message components** — compose `Message`, `UserMessage`, `AssistantMessage`, `ToolMessage`, and `MessageContent` directly when you need a custom chat layout.
-- **`AgentProvider`** — one shared store for a chat tree or application area.
-- **`useAgentState` and `useAgentStore`** — read state or control the store from your own components.
-- **`decodeAgentEventStream`** — decode newline-delimited Agentdock events from a `fetch()` response.
-- **`consumeAgentStream`** — apply typed events to the store with optional cancellation.
-- **Custom rendering** — replace the default content renderer for files, citations, media, or custom parts.
-
-## Install
-
-```bash
-npm install @agentdock-ai/react
+```sh
+npx agentdock-ui add chat
 ```
 
-The package expects React 18 or newer. Your Agentdock backend is installed separately:
+V1 is implemented locally; publishing is a separate release step. To use this checkout:
 
-```bash
-npm install @agentdock-ai/agentdock @agentdock-ai/contracts langchain @langchain/langgraph
-```
-
-Install the LangChain provider integration and checkpointer your application uses as separate dependencies.
-
-## Quick start
-
-Your server endpoint should return AgentDock contract events as Server-Sent Events (`text/event-stream`). The backend application builds its graph with LangGraph and can use `serveAgent(...).pipe(response, run)` to write that stream. The UI package handles the browser side:
-
-```tsx
-"use client";
-
-import {
-  AgentChatView,
-  AgentDockTheme,
-  AssistantMessage,
-  Message,
-  MessageContent,
-  UserMessage,
-  AgentProvider,
-  consumeAgentStream,
-  decodeAgentEventStream,
-  useAgentStore,
-} from "@agentdock-ai/react";
-
-function Chat() {
-  const store = useAgentStore();
-
-  async function submit(input: string) {
-    const response = await fetch("/api/agent", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ input }),
-    });
-
-    if (!response.ok || !response.body) {
-      throw new Error("The agent request failed.");
-    }
-
-    await consumeAgentStream(store, decodeAgentEventStream(response.body));
-  }
-
-  return <AgentChatView onSubmit={submit} />;
-}
-
-export function App() {
-  return (
-    <AgentProvider>
-      <Chat />
-    </AgentProvider>
-  );
-}
-```
-
-`AgentChatView` has sensible defaults and can be configured without replacing the component:
-
-```tsx
-<AgentChatView
-  title="Support assistant"
-  subtitle="Online"
-  placeholder="Ask a question"
-  renderContentPart={(part, index) => (
-    <span key={index}>{part.type === "text" ? part.text : part.type}</span>
-  )}
-  onSubmit={submit}
-/>
-```
-
-## Production boundary
-
-Keep the following responsibilities in your application server:
-
-- provider credentials, model configuration, and tools;
-- authentication and authorization;
-- approval policy, thread identity, and checkpoint persistence;
-- the endpoint that starts a run and returns the event stream.
-
-Keep the following in the UI package:
-
-- rendering the conversation and tool activity;
-- decoding and applying canonical events;
-- displaying run status and stream errors;
-- composing your own controls around the shared store.
-
-Authenticate every request before it can read or continue a session. Never send provider keys to the browser.
-
-## Styling and customization
-
-`AgentChatView` renders class names prefixed with `ad-`, so your application can style the component with its own CSS. Its message rows are composed from `Message`, `UserMessage`, `AssistantMessage`, and `ToolMessage`; `MessageContent` owns the default content-part renderer. Use `renderContentPart` when the default display for a content part is not enough. The lower-level store and hooks let you build a completely custom interface while keeping the same Agentdock event contract.
-
-## Component layers and theming
-
-The package is organized into three public layers:
-
-- @agentdock-ai/react/components/ui contains Radix/shadcn-style Button, Input, Textarea, and Form primitives, class-name composition, and theme tokens.
-- @agentdock-ai/react/components/message contains Message, UserMessage, AssistantMessage, ToolMessage, and MessageContent.
-- @agentdock-ai/react/components/chat contains AgentChatView, the composer, header, typing indicator, and tool activity.
-
-Use AgentDockTheme for global CSS variables, or pass the same theme configuration directly to AgentChatView:
-
-```tsx
-<AgentDockTheme mode="system" tokens={{ primary: "#7c3aed" }}>
-  <AgentChatView
-    classNames={{
-      root: "rounded-xl",
-      message: {
-        root: "my-message",
-        content: "prose prose-sm",
-      },
-      composer: "border-violet-300",
-    }}
-    onSubmit={submit}
-  />
-</AgentDockTheme>
-```
-
-The theme exposes --ad-* variables such as --ad-primary, --ad-surface, --ad-foreground, and --ad-border. They can be mapped to Tailwind or application brand tokens in global CSS. Every surface also emits a data-slot attribute for selector-based styling.
-
-## Local development
-
-This repository includes a Vite playground that runs the real Agentdock runtime and streams events through the same public API:
-
-```bash
+```sh
 yarn install
-yarn dev
+yarn build:packages
+yarn registry:build
+yarn cli:build
+node packages/cli/dist/index.js add chat --cwd /path/to/app --yes
 ```
 
-Useful checks before publishing a change:
+The host must have React, TypeScript, Tailwind CSS, a TypeScript alias and shadcn semantic tokens. Existing `components.json` selects Radix or Base UI primitives. The installer can create a missing configuration from an existing host theme/alias. `--dry-run` is read-only; repeated installs preserve consumer edits. Use `--overwrite` only when you intend to replace those edits.
 
-```bash
+## App-owned adapter
+
+```tsx
+import { Chat } from "@/components/agentdock-ui/chat";
+import { decodeAgentEventStream, type ChatAdapter } from "@agentdock-ai/react";
+
+// Construct this in the consuming app using its own request and auth rules.
+export function createChatAdapter({
+  endpoint,
+  threadId,
+  request,
+}: {
+  endpoint: string;
+  threadId: string;
+  request: typeof fetch;
+}): ChatAdapter {
+  return {
+    async *sendMessage({ text, signal }) {
+      const response = await request(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ prompt: text, threadId }),
+        signal,
+      });
+      if (!response.ok || !response.body) throw new Error("Request failed.");
+      yield* decodeAgentEventStream(response.body, { signal });
+    },
+  };
+}
+
+// Keep this adapter stable for the lifetime of the app's current conversation.
+<Chat adapter={chatAdapter} />;
+```
+
+Provide optional `cancelRun` and `respondToInterrupt` only when the consuming app supports them. Approval inputs stay opaque and are returned unchanged. Chat has no endpoint prop.
+
+The app owns authentication, authorization, endpoint URLs, thread identity, request construction, secrets, provider selection and business rules. The browser consumes canonical AgentDock events only. LangGraph, LangChain and provider events must be normalized on the server.
+
+## V1 surface
+
+An optional app-owned workspace/sidebar surrounds the standalone Chat. The panel includes readable messages, safe Markdown, streaming, optional reasoning, compact tool disclosures, approvals, scoped errors, cancellation, an anchored composer and scroll-to-latest. Light/dark colors use host shadcn semantic tokens. No AgentDock theme provider or stylesheet is required.
+
+Components are small and editable under `components/agentdock-ui`. The runtime also exposes `AgentProvider`, `AgentStore`, `useAgentState`, `useAgentStore`, `useAgentActions`, stream decoding and render selectors for custom interfaces.
+
+## Migration
+
+The runtime root is headless. Legacy styled exports remain under `@agentdock-ai/react/components`, with the existing narrower component and stylesheet subpaths retained throughout V1. Legacy source and CSS are preserved. See [the migration guide](AGENTDOCK_UI_V1_MIGRATION.md).
+
+## Development and validation
+
+```sh
+yarn dev                  # Real AgentDock playground
+
 yarn typecheck
 yarn test
 yarn build
+yarn registry:verify
+yarn fixture:verify       # Clean Vite/Radix and Next.js/Base UI consumers
 ```
 
-The playground reads local provider settings from `.env`. Copy `.env.example` and keep credentials on the local server.
+The playground keeps provider setup and transport in the consuming app. It supports local Ollama and server-configured OpenAI/OpenRouter credentials. The fixture review app is available with `yarn workspace @agentdock-ai/registry dev`; its controls are development harness UI.
 
-## Related packages
-
-- [Agentdock serving package](https://github.com/agentdock-ai/agentdock) — adapts a compiled LangGraph graph to the AgentDock event stream.
-- [Agentdock documentation](https://github.com/agentdock-ai/docs) — guides for building and serving LangGraph agents.
-- [Agentdock UI on npm](https://www.npmjs.com/package/@agentdock-ai/react)
+[Implementation checklist](AGENTDOCK_UI_V1_CHECKLIST.md) · [Review record](AGENTDOCK_UI_V1_REVIEW.md) · [Registry](apps/registry/README.md) · [Installer](packages/cli/README.md)
 
 ## License
 
-MIT. You can use Agentdock UI in open-source and commercial applications. Your application remains responsible for its own provider, infrastructure, security, and dependency obligations.
+MIT.

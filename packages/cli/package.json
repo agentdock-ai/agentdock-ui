@@ -1,0 +1,23 @@
+{
+  "name": "agentdock-ui",
+  "version": "0.1.0",
+  "description": "Source-copy installer for AgentDock UI components",
+  "license": "MIT",
+  "type": "module",
+  "private": false,
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "agentdock-ui": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts-build.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.1",
+    "typescript": "^5.8.0"
+  }
+}

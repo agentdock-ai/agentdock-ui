@@ -1,29 +1,158 @@
+@import "tailwindcss";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@custom-variant dark (&:where(.dark, .dark *));
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+}
 :root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #202435;
-  background: #f7f8fc;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.21 0 0);
+  --card: oklch(1 0 0);
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.46 0 0);
+  --primary: oklch(0.21 0 0);
+  --primary-foreground: oklch(0.99 0 0);
+  --border: oklch(0.9 0 0);
+  --ring: oklch(0.56 0 0);
+  --destructive: oklch(0.55 0.2 25);
+}
+.dark {
+  color-scheme: dark;
+  --background: oklch(0.16 0 0);
+  --foreground: oklch(0.93 0 0);
+  --card: oklch(0.19 0 0);
+  --muted: oklch(0.23 0 0);
+  --muted-foreground: oklch(0.7 0 0);
+  --primary: oklch(0.93 0 0);
+  --primary-foreground: oklch(0.18 0 0);
+  --border: oklch(0.3 0 0);
+  --ring: oklch(0.65 0 0);
+  --destructive: oklch(0.72 0.17 25);
+}
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+}
+body {
+  font-family: var(--font-sans);
+  background: var(--background);
+  color: var(--foreground);
+}
+* {
+  box-sizing: border-box;
 }
 
-* { box-sizing: border-box; }
-body { min-width: 360px; margin: 0; }
-.playground { width: min(100%, 820px); margin: 0 auto; padding: 14px 16px; }
-.provider-form { display: grid; grid-template-columns: 130px minmax(145px, 1fr) minmax(170px, 1fr) auto; gap: 7px; margin-bottom: 10px; }
+.playground {
+  height: 100dvh;
+  padding: 8px;
+  background: var(--background);
+}
+.workspace-action {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted-foreground);
+  background: transparent;
+  cursor: pointer;
+}
+.workspace-action:hover {
+  color: var(--foreground);
+  background: var(--muted);
+}
+.workspace-action:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.provider-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
 .provider-form select,
-.provider-form input { min-width: 0; height: 35px; padding: 0 10px; border: 1px solid #e3e4e9; border-radius: 7px; outline: none; background: #fff; color: #30323a; font: inherit; font-size: 12px; }
-.provider-form select:focus,
-.provider-form input:focus { border-color: #9691e8; box-shadow: 0 0 0 2px #766be51a; }
-.provider-form input::placeholder { color: #a1a3ac; }
-.provider-form button { min-width: 79px; height: 35px; padding: 0 12px; border: 0; border-radius: 7px; background: #6258d8; color: #fff; font-size: 11px; cursor: pointer; }
-.provider-form button:disabled { opacity: .48; cursor: not-allowed; }
-.configuration-error { margin: 0 0 9px; color: #bd454d; font-size: 11px; }
-.playground-chat { height: calc(100dvh - 73px); max-height: 900px; }
-
-@media (max-width: 680px) {
-  .playground { padding: 10px; }
-  .provider-form { grid-template-columns: 1fr 1fr; }
-  .provider-form input,
-  .provider-form button { width: 100%; }
-  .playground-chat { height: calc(100dvh - 110px); min-height: 420px; }
+.provider-form input {
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 12px;
+}
+.provider-form input {
+  flex: 1;
+  max-width: 280px;
+  min-width: 140px;
+}
+.provider-form input::placeholder {
+  color: var(--muted-foreground);
+}
+.provider-form button {
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.provider-form button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.provider-form :is(button, input, select):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.configuration-error {
+  margin: 0;
+  padding: 8px 16px;
+  color: var(--destructive);
+  font-size: 12px;
+}
+.playground-chat {
+  flex: 1;
+  min-height: 0;
+}
+@media (max-width: 640px) {
+  .playground {
+    padding: 4px;
+  }
+  .provider-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .provider-form input {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
 }

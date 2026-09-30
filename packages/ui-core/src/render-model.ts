@@ -14,9 +14,11 @@ export type RenderReasoningState = "streaming" | "complete";
 export type RenderApprovalKind = "tool-approval" | "custom";
 export type RenderApprovalState = "pending" | "resolved";
 export type RenderErrorScope = "transport" | "run" | "tool";
-export type RenderTurnState = Exclude<AgentReducerState["status"], "cancelled"> | "stopped";
+export type RenderTurnState =
+  Exclude<AgentReducerState["status"], "cancelled"> | "stopped";
 
-export type RenderStreamStatus = "idle" | "consuming" | "closed" | "error";
+export type RenderStreamStatus =
+  "idle" | "consuming" | "closed" | "error" | "stopped";
 
 export interface RenderReasoning {
   text: string;
@@ -92,6 +94,10 @@ export interface RenderTurn {
   sessionId: string | null;
   state: RenderTurnState;
   messages: readonly RenderMessage[];
+  /** Ordered V1 transcript; messages remains the legacy compatibility view. */
+  items: readonly RenderTurnItem[];
+  /** Local transport state, separate from canonical run lifecycle. */
+  transportState?: RenderStreamStatus;
   usage: AgentReducerState["usage"];
   limit: AgentReducerState["limit"];
   finishReason: string | null;
@@ -100,6 +106,58 @@ export interface RenderTurn {
   completedAt?: string;
   error?: RenderError;
 }
+
+export type RenderContentBlock = {
+  id: string;
+  position: number;
+  state: RenderMessageState;
+  startedAt?: string;
+  completedAt?: string;
+} & Exclude<ContentPart, { type: "tool-call" | "tool-result" }>;
+
+interface RenderItemBase {
+  id: string;
+  runId: string | null;
+  phaseId: string | null;
+  position: number;
+}
+
+export interface RenderMessageItem extends RenderItemBase {
+  type: "message";
+  messageId: string;
+  role: RenderMessageRole;
+  state: RenderMessageState;
+  blocks: readonly RenderContentBlock[];
+}
+
+export interface RenderToolCallItem extends RenderItemBase {
+  type: "tool-call";
+  tool: RenderTool;
+  active: boolean;
+}
+
+export interface RenderToolTimelineItem extends RenderItemBase {
+  type: "tool-timeline";
+  tools: readonly RenderToolCallItem[];
+}
+
+export interface RenderApprovalItem extends RenderItemBase {
+  type: "approval";
+  approval: RenderApproval;
+  toolCallId?: string;
+}
+
+export interface RenderErrorItem extends RenderItemBase {
+  type: "error";
+  error: RenderError;
+}
+
+export type RenderTurnItem =
+  | RenderMessageItem
+  | RenderToolCallItem
+  | RenderToolTimelineItem
+  | RenderApprovalItem
+  | RenderErrorItem;
 
 export interface RenderTransportError {
   title: string;

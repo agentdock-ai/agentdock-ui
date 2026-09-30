@@ -12,11 +12,10 @@ function event(
   input: Record<string, unknown>,
 ): AgentEvent {
   return {
-    protocolVersion: 1,
+    protocolVersion: 2,
     eventId: `event-${logicalSequence}`,
     runId,
-    sessionId: "session-1",
-    logicalSequence,
+      logicalSequence,
     phaseId: "phase-1",
     sequence: logicalSequence,
     timestamp: new Date(logicalSequence * 1000).toISOString(),

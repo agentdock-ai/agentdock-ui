@@ -3,10 +3,9 @@ import { decodeAgentEventStream } from "../src/core/decode-agent-event-stream.js
 import type { AgentEvent } from "@agentdock-ai/contracts";
 
 const event: AgentEvent = {
-  protocolVersion: 1,
+  protocolVersion: 2,
   eventId: "event-1",
   runId: "run-1",
-  sessionId: "session-1",
   logicalSequence: 1,
   phaseId: "phase-1",
   sequence: 1,

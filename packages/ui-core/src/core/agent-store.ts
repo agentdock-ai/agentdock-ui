@@ -8,7 +8,8 @@ import {
 import { selectRenderModel } from "../select-render-messages.js";
 import type { RenderModel } from "../render-model.js";
 
-export type AgentStreamStatus = "idle" | "consuming" | "closed" | "error";
+export type AgentStreamStatus =
+  "idle" | "consuming" | "closed" | "error" | "stopped";
 
 export interface AgentStoreSnapshot {
   /** State for the latest run, reduced by the canonical AgentDock contract. */
@@ -44,7 +45,9 @@ function createInitialSnapshot(): AgentStoreSnapshot {
 }
 
 function isTerminalRun(status: AgentReducerState["status"]): boolean {
-  return status === "completed" || status === "failed" || status === "cancelled";
+  return (
+    status === "completed" || status === "failed" || status === "cancelled"
+  );
 }
 
 /**
@@ -66,7 +69,15 @@ export class AgentStore {
 
   applyEvent(event: AgentEvent): void {
     const previous = this.snapshot.agent;
-    const startsNewRun = isTerminalRun(previous.status) && event.type === "run.started";
+    const knownRun = this.snapshot.runs.find(
+      (run) => run.runId === event.runId,
+    );
+    if (knownRun?.eventIds.includes(event.eventId)) {
+      reduceAgentEvent(knownRun, event); // Reject conflicting replays using the contract.
+      return;
+    }
+    const startsNewRun =
+      isTerminalRun(previous.status) && event.type === "run.started";
     const nextAgent = reduceAgentEvent(
       startsNewRun ? createAgentReducerState() : previous,
       event,
@@ -107,7 +118,10 @@ export class AgentStore {
 
     const current = this.snapshot.agent;
     const startsNewRun =
-      this.snapshot.runs.length === 0 || isTerminalRun(current.status);
+      this.snapshot.runs.length === 0 ||
+      isTerminalRun(current.status) ||
+      this.snapshot.streamStatus === "stopped" ||
+      this.snapshot.streamStatus === "error";
     const nextAgent = startsNewRun
       ? createAgentReducerState()
       : { ...current, messages: [...current.messages] };

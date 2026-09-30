@@ -10,11 +10,10 @@ function runEvent(
   type: "run.started" | "run.completed",
 ): AgentEvent {
   const base = {
-    protocolVersion: 1 as const,
+    protocolVersion: 2 as const,
     eventId,
     runId,
-    sessionId: "session-1",
-    logicalSequence,
+      logicalSequence,
     phaseId: "phase-1",
     sequence: logicalSequence,
     timestamp: new Date(logicalSequence * 1000).toISOString(),
@@ -35,11 +34,10 @@ function inputEvent(
   input: AgentEventInput,
 ): AgentEvent {
   return {
-    protocolVersion: 1,
+    protocolVersion: 2,
     eventId,
     runId,
-    sessionId: "session-1",
-    logicalSequence,
+      logicalSequence,
     phaseId: "phase-1",
     sequence: logicalSequence,
     timestamp: new Date(logicalSequence * 1000).toISOString(),

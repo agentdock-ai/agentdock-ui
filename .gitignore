@@ -9,3 +9,5 @@ coverage/
 apps/playground/.sandbox/*
 !apps/playground/.sandbox/
 !apps/playground/.sandbox/.gitkeep
+
+scripts/consumer-fixture/.generated/

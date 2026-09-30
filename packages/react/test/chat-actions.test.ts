@@ -1,0 +1,180 @@
+import { describe, expect, it } from "vitest";
+import { AgentStore } from "@agentdock-ai/ui-core";
+import { createChatActions } from "../src/react/chat-actions.js";
+import {
+  scenarios,
+  sequence,
+  complete,
+} from "../../../scripts/fixtures/events.js";
+import type { AgentEvent } from "@agentdock-ai/ui-core";
+
+async function* stream(events: readonly AgentEvent[]) {
+  yield* events;
+}
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+describe("ChatAdapter actions", () => {
+  it("sends through the app and rejects overlapping submissions", async () => {
+    const store = new AgentStore();
+    const calls: string[] = [];
+    const actions = createChatActions(
+      store,
+      {
+        sendMessage: ({ text }) => {
+          calls.push(text);
+          return stream(scenarios.conversation);
+        },
+      },
+      () => {},
+    );
+    const first = actions.sendMessage(" Hello ");
+    expect(await actions.sendMessage("Second")).toBe(false);
+    expect(await first).toBe(true);
+    expect(calls).toEqual(["Hello"]);
+    expect(store.getSnapshot().agent.status).toBe("completed");
+  });
+  it("records synchronous adapter failure without leaking exception text", async () => {
+    const store = new AgentStore();
+    const actions = createChatActions(
+      store,
+      {
+        sendMessage() {
+          throw new Error("Authorization: secret");
+        },
+      },
+      () => {},
+    );
+    expect(await actions.sendMessage("Keep this draft")).toBe(false);
+    expect(
+      store.getSnapshot().renderModel.transportError?.detail,
+    ).not.toContain("secret");
+    expect(store.getSnapshot().messages[0]?.content).toEqual([
+      { type: "text", text: "Keep this draft" },
+    ]);
+  });
+  it("passes opaque approval inputs and continues the same turn", async () => {
+    const store = new AgentStore();
+    let received: unknown;
+    scenarios.approval.forEach((event) => store.applyEvent(event));
+    const actions = createChatActions(
+      store,
+      {
+        sendMessage: () => stream([]),
+        respondToInterrupt: (input) => {
+          received = input.decisions;
+          return stream(
+            sequence(
+              [
+                {
+                  type: "interrupt.resolved",
+                  interruptId: input.interruptId,
+                  decisions: [...input.decisions],
+                },
+                complete("Done"),
+              ],
+              input.runId,
+              "phase-2",
+              scenarios.approval.length,
+            ),
+          );
+        },
+      },
+      () => {},
+    );
+    expect(await actions.respondToInterrupt("stale", [{}])).toBe(false);
+    expect(
+      await actions.respondToInterrupt("decision-1", [{ opaque: 42 }]),
+    ).toBe(true);
+    expect(received).toEqual([{ opaque: 42 }]);
+    expect(store.getSnapshot().runs).toHaveLength(1);
+    expect(store.getSnapshot().agent.interrupt).toBeNull();
+  });
+  it("has no fake stop capability and aborts local consumption promptly on unmount", async () => {
+    const store = new AgentStore();
+    let signal: AbortSignal | undefined;
+    const actions = createChatActions(
+      store,
+      {
+        sendMessage(input) {
+          signal = input.signal;
+          return {
+            [Symbol.asyncIterator]() {
+              return { next: () => new Promise(() => {}) };
+            },
+          };
+        },
+      },
+      () => {},
+    );
+    const pending = actions.sendMessage("Hello");
+    expect(await actions.cancelRun()).toBe(false);
+    actions.dispose();
+    await pending;
+    expect(signal?.aborted).toBe(true);
+    expect(store.getSnapshot().streamStatus).toBe("stopped");
+    expect(store.getSnapshot().agent.status).toBe("idle");
+  });
+  it("calls real cancellation, retains partial output and accepts a later run", async () => {
+    const store = new AgentStore();
+    let cancelled = "";
+    let first = true;
+    const actions = createChatActions(
+      store,
+      {
+        async *sendMessage() {
+          if (first) {
+            first = false;
+            yield* scenarios.streaming;
+            await new Promise(() => {});
+          } else
+            yield* sequence(
+              [{ type: "run.started" }, complete("Next")],
+              "next",
+            );
+        },
+        async cancelRun({ runId }) {
+          cancelled = runId;
+        },
+      },
+      () => {},
+    );
+    const pending = actions.sendMessage("Start");
+    await tick();
+    expect(await actions.cancelRun()).toBe(true);
+    await pending;
+    expect(cancelled).toBe("fixture-run");
+    expect(store.getSnapshot().agent.status).toBe("running");
+    expect(store.getSnapshot().renderModel.turns[0]?.items[1]).toMatchObject({
+      state: "stopped",
+    });
+    expect(await actions.sendMessage("Continue")).toBe(true);
+    expect(store.getSnapshot().runs).toHaveLength(2);
+  });
+});
+
+it("keeps a failed cancellation scoped and the active stream usable", async () => {
+  const store = new AgentStore();
+  let current:
+    import("../src/react/chat-actions.js").ChatActionState | undefined;
+  const actions = createChatActions(
+    store,
+    {
+      async *sendMessage() {
+        yield* scenarios.streaming;
+        await new Promise(() => {});
+      },
+      async cancelRun() {
+        throw new Error("Provider secret");
+      },
+    },
+    (state) => {
+      current = state;
+    },
+  );
+  const pending = actions.sendMessage("Start");
+  await tick();
+  expect(await actions.cancelRun()).toBe(false);
+  expect(current?.actionError?.scope).toBe("cancel");
+  expect(store.getSnapshot().streamStatus).toBe("consuming");
+  actions.dispose();
+  await pending;
+});

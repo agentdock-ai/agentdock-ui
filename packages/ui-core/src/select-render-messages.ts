@@ -1,3 +1,4 @@
+import { projectTurnItems } from "./project-turn-items.js";
 import type {
   AgentEvent,
   AgentReducerMessage,
@@ -31,8 +32,14 @@ interface RunEventIndex {
   toolStartedAt: Map<string, string>;
   toolCompletedAt: Map<string, string>;
   toolProgress: Map<string, ContentPart[]>;
-  interruptRequired: Map<string, Extract<AgentEvent, { type: "interrupt.required" }>>;
-  interruptResolved: Map<string, Extract<AgentEvent, { type: "interrupt.resolved" }>>;
+  interruptRequired: Map<
+    string,
+    Extract<AgentEvent, { type: "interrupt.required" }>
+  >;
+  interruptResolved: Map<
+    string,
+    Extract<AgentEvent, { type: "interrupt.resolved" }>
+  >;
   runStartedAt?: string;
   terminalAt?: string;
   runError?: Extract<AgentEvent, { type: "run.failed" }>;
@@ -121,7 +128,8 @@ function indexRunEvents(
       case "tool.called":
         index.toolSequence.set(
           event.toolCall.toolCallId,
-          index.toolSequence.get(event.toolCall.toolCallId) ?? event.logicalSequence,
+          index.toolSequence.get(event.toolCall.toolCallId) ??
+            event.logicalSequence,
         );
         index.toolStartedAt.set(
           event.toolCall.toolCallId,
@@ -219,7 +227,7 @@ function reasoningForMessage(
       ? { startedAt: index.reasoningStartedAt.get(message.messageId) }
       : index.messageStartedAt.has(message.messageId)
         ? { startedAt: index.messageStartedAt.get(message.messageId) }
-      : {}),
+        : {}),
     ...(index.messageCompletedAt.has(message.messageId)
       ? { completedAt: index.messageCompletedAt.get(message.messageId) }
       : index.terminalAt
@@ -299,13 +307,6 @@ function toolIdFromMessage(message: AgentReducerMessage): string | undefined {
   return undefined;
 }
 
-function actionKind(name: string): RenderApprovalAction["kind"] {
-  const normalized = name.toLowerCase();
-  if (/(approve|allow|accept|yes)/.test(normalized)) return "approve";
-  if (/(deny|reject|decline|no)/.test(normalized)) return "deny";
-  return "custom";
-}
-
 function buildApproval(
   index: RunEventIndex,
   interruptId: string,
@@ -324,7 +325,7 @@ function buildApproval(
     actions: required.interrupt.actions.map((action) => ({
       id: action.id,
       label: action.name,
-      kind: actionKind(action.name),
+      kind: "custom",
       input: action.input,
       ...("toolCallId" in action && typeof action.toolCallId === "string"
         ? { toolCallId: action.toolCallId }
@@ -360,11 +361,18 @@ function approvalForToolCall(
   return actions.length > 0 ? { ...approval, actions } : undefined;
 }
 
-function sameContent(left: readonly ContentPart[], right: readonly ContentPart[]): boolean {
+function sameContent(
+  left: readonly ContentPart[],
+  right: readonly ContentPart[],
+): boolean {
   const normalize = (parts: readonly ContentPart[]) => {
     const normalized: ContentPart[] = [];
     for (const part of parts) {
-      if (part.type === "tool-call" || part.type === "tool-result" || part.type === "reasoning") {
+      if (
+        part.type === "tool-call" ||
+        part.type === "tool-result" ||
+        part.type === "reasoning"
+      ) {
         continue;
       }
       const previous = normalized.at(-1);
@@ -397,7 +405,8 @@ function renderRun(
   const representedToolIds = new Set<string>();
 
   run.messages.forEach((message, messageIndex) => {
-    const toolId = message.role === "tool" ? toolIdFromMessage(message) : undefined;
+    const toolId =
+      message.role === "tool" ? toolIdFromMessage(message) : undefined;
     const messageApproval = toolId
       ? approvalForToolCall(approval, toolId)
       : undefined;
@@ -407,7 +416,8 @@ function renderRun(
     if (toolId) representedToolIds.add(toolId);
     const content = contentWithoutProtocolParts(message);
     const reasoning = reasoningForMessage(message, run, index);
-    if (message.role === "assistant" && content.length === 0 && !reasoning) return;
+    if (message.role === "assistant" && content.length === 0 && !reasoning)
+      return;
     entries.push({
       message: {
         id: message.messageId,
@@ -460,9 +470,7 @@ function renderRun(
     (approval.kind === "custom" ||
       (approval.kind === "tool-approval" &&
         !approval.actions.some((action) =>
-          run.toolCalls.some(
-            (call) => call.toolCallId === action.toolCallId,
-          ),
+          run.toolCalls.some((call) => call.toolCallId === action.toolCallId),
         )))
   ) {
     entries.push({
@@ -527,7 +535,8 @@ function renderRun(
       existingAssistant.message = {
         ...existingAssistant.message,
         content: finalContent,
-        state: existingAssistant.message.state === "error" ? "error" : "complete",
+        state:
+          existingAssistant.message.state === "error" ? "error" : "complete",
       };
     } else if (!alreadyRendered && finalContent.length > 0) {
       entries.push({
@@ -545,7 +554,10 @@ function renderRun(
   }
 
   const messages = entries
-    .sort((left, right) => left.order - right.order || left.tieBreaker - right.tieBreaker)
+    .sort(
+      (left, right) =>
+        left.order - right.order || left.tieBreaker - right.tieBreaker,
+    )
     .map((entry) => entry.message);
   const state: RenderTurn["state"] =
     run.status === "cancelled" ? "stopped" : run.status;
@@ -553,9 +565,10 @@ function renderRun(
   return {
     id: run.runId ?? `pending-${runIndex}`,
     runId: run.runId,
-    sessionId: run.sessionId,
+    sessionId: run.threadId,
     state,
     messages,
+    items: projectTurnItems(run, events),
     usage: run.usage,
     limit: run.limit,
     finishReason: run.finishReason,
@@ -572,13 +585,11 @@ function transportError(
 ): RenderTransportError | undefined {
   if (status !== "error" && value == null) return undefined;
   const detail =
-    value instanceof Error
-      ? value.message
-      : String(value ?? "Agent stream failed.");
+    "The connection ended unexpectedly. Your messages are still here.";
   return {
     title: "Agent stream error",
     detail,
-    retryable: true,
+    retryable: false,
     scope: "transport",
   };
 }
@@ -598,7 +609,11 @@ function mergeProgress(
   for (let overlap = maximumOverlap; overlap > 0; overlap -= 1) {
     const previousSuffix = previous.slice(previous.length - overlap);
     const currentPrefix = current.slice(0, overlap);
-    if (previousSuffix.every((part, index) => samePart(part, currentPrefix[index]!))) {
+    if (
+      previousSuffix.every((part, index) =>
+        samePart(part, currentPrefix[index]!),
+      )
+    ) {
       return [...previous, ...current.slice(overlap)];
     }
   }
@@ -628,10 +643,10 @@ function mergeRenderTool(
       : previous.errorCode !== undefined
         ? { errorCode: previous.errorCode }
         : {}),
-    ...(current.startedAt ?? previous.startedAt
+    ...((current.startedAt ?? previous.startedAt)
       ? { startedAt: current.startedAt ?? previous.startedAt }
       : {}),
-    ...(current.completedAt ?? previous.completedAt
+    ...((current.completedAt ?? previous.completedAt)
       ? { completedAt: current.completedAt ?? previous.completedAt }
       : {}),
   };
@@ -651,7 +666,11 @@ function mergeRenderMessage(
         ? { reasoning: previous.reasoning }
         : {}),
     ...(current.tool
-      ? { tool: previous.tool ? mergeRenderTool(previous.tool, current.tool) : current.tool }
+      ? {
+          tool: previous.tool
+            ? mergeRenderTool(previous.tool, current.tool)
+            : current.tool,
+        }
       : previous.tool
         ? { tool: previous.tool }
         : {}),
@@ -672,35 +691,44 @@ function mergeRenderTurn(
   previous: RenderTurn,
   current: RenderTurn,
 ): RenderTurn {
-  const previousMessages = new Map(previous.messages.map((message) => [message.id, message] as const));
+  const previousMessages = new Map(
+    previous.messages.map((message) => [message.id, message] as const),
+  );
   const messages = current.messages.map((message) => {
     const prior = previousMessages.get(message.id);
     return prior ? mergeRenderMessage(prior, message) : message;
   });
-  const currentMessageIds = new Set(current.messages.map((message) => message.id));
+  const currentMessageIds = new Set(
+    current.messages.map((message) => message.id),
+  );
   messages.push(
-    ...previous.messages.filter((message) => !currentMessageIds.has(message.id)),
+    ...previous.messages.filter(
+      (message) => !currentMessageIds.has(message.id),
+    ),
   );
   return {
     ...previous,
     ...current,
     messages,
-    ...(current.usage ?? previous.usage
+    ...((current.usage ?? previous.usage)
       ? { usage: current.usage ?? previous.usage }
       : { usage: null }),
-    ...(current.limit ?? previous.limit
+    ...((current.limit ?? previous.limit)
       ? { limit: current.limit ?? previous.limit }
       : { limit: null }),
-    ...(current.finishReason ?? previous.finishReason
+    ...((current.finishReason ?? previous.finishReason)
       ? { finishReason: current.finishReason ?? previous.finishReason }
       : { finishReason: null }),
-    ...(current.cancellationReason ?? previous.cancellationReason
-      ? { cancellationReason: current.cancellationReason ?? previous.cancellationReason }
+    ...((current.cancellationReason ?? previous.cancellationReason)
+      ? {
+          cancellationReason:
+            current.cancellationReason ?? previous.cancellationReason,
+        }
       : { cancellationReason: null }),
-    ...(current.startedAt ?? previous.startedAt
+    ...((current.startedAt ?? previous.startedAt)
       ? { startedAt: current.startedAt ?? previous.startedAt }
       : {}),
-    ...(current.completedAt ?? previous.completedAt
+    ...((current.completedAt ?? previous.completedAt)
       ? { completedAt: current.completedAt ?? previous.completedAt }
       : {}),
     ...(current.error
@@ -726,8 +754,41 @@ export function selectRenderModel({
   );
   const turns = runs.map((run, index) => {
     const current = renderRun(run, events, index);
-    const historical = current.runId === null ? undefined : historicalById.get(current.runId);
-    return historical ? mergeRenderTurn(historical, current) : current;
+    const historical =
+      current.runId === null ? undefined : historicalById.get(current.runId);
+    const turn = historical ? mergeRenderTurn(historical, current) : current;
+    turn.transportState =
+      index === runs.length - 1
+        ? streamStatus
+        : (historical?.transportState ?? "closed");
+    if (
+      index < runs.length - 1 ||
+      turn.transportState === "stopped" ||
+      turn.transportState === "error" ||
+      turn.transportState === "closed"
+    ) {
+      turn.items = turn.items.map((item) =>
+        item.type === "message" && item.state === "streaming"
+          ? {
+              ...item,
+              state: "stopped",
+              blocks: item.blocks.map((block) =>
+                block.state === "streaming"
+                  ? { ...block, state: "stopped" }
+                  : block,
+              ),
+            }
+          : item.type === "tool-call"
+            ? { ...item, active: false }
+            : item.type === "tool-timeline"
+              ? {
+                  ...item,
+                  tools: item.tools.map((tool) => ({ ...tool, active: false })),
+                }
+              : item,
+      );
+    }
+    return turn;
   });
   const normalizedTransportError = transportError(streamStatus, streamError);
   return {
@@ -741,6 +802,8 @@ export function selectRenderModel({
 }
 
 /** Backward-compatible flat message selector for existing React consumers. */
-export function selectRenderMessages(source: RenderMessageSource): RenderMessage[] {
+export function selectRenderMessages(
+  source: RenderMessageSource,
+): RenderMessage[] {
   return [...selectRenderModel(source).messages];
 }

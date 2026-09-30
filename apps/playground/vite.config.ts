@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwind from "@tailwindcss/vite";
 import { agentDockPlaygroundPlugin } from "./server/index.js";
 
 export default defineConfig(({ mode }) => {
@@ -7,6 +8,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       react(),
+      tailwind(),
       agentDockPlaygroundPlugin({
         apiKeys: {
           openrouter: env.OPENROUTER_API_KEY,

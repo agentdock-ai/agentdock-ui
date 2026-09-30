@@ -1,22 +1,12 @@
 import React, { useEffect, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  AgentChatView,
-  AgentDockTheme,
-  AgentProvider,
-  Button,
-  Input,
-} from "@agentdock-ai/react";
-import {
-  AgentStore,
-  consumeAgentStream,
-  decodeAgentEventStream,
-} from "@agentdock-ai/ui-core";
-import "@agentdock-ai/react/styles.css";
+import { Chat } from "./components/agentdock-ui/chat";
+import { ChatWorkspace } from "./components/agentdock-ui/chat-workspace";
+import { ThreadSidebar } from "./components/agentdock-ui/thread-sidebar";
+import { usePlaygroundThreads } from "./use-playground-threads.js";
+import { Settings2, Sun, Moon } from "lucide-react";
 import "./style.css";
 
-const store = new AgentStore();
-const sessionId = `playground-${crypto.randomUUID()}`;
 const providers = [
   { id: "openrouter", label: "OpenRouter", requiresKey: true },
   { id: "openai", label: "OpenAI", requiresKey: true },
@@ -77,8 +67,12 @@ function readPersistedConfig(): PersistedPlaygroundConfig | null {
       version: 1,
       provider: value.provider,
       model: value.model.trim(),
-      apiKey: typeof value.apiKey === "string" ? value.apiKey.trim() : undefined,
-      savedAt: typeof value.savedAt === "string" ? value.savedAt : new Date().toISOString(),
+      apiKey:
+        typeof value.apiKey === "string" ? value.apiKey.trim() : undefined,
+      savedAt:
+        typeof value.savedAt === "string"
+          ? value.savedAt
+          : new Date().toISOString(),
     };
   } catch {
     return null;
@@ -91,7 +85,11 @@ function persistConfig(
   try {
     window.localStorage.setItem(
       PLAYGROUND_STORAGE_KEY,
-      JSON.stringify({ ...config, version: 1, savedAt: new Date().toISOString() }),
+      JSON.stringify({
+        ...config,
+        version: 1,
+        savedAt: new Date().toISOString(),
+      }),
     );
   } catch {
     // Local storage can be unavailable in privacy-restricted browser contexts.
@@ -99,6 +97,9 @@ function persistConfig(
 }
 
 function Playground() {
+  const navigation = usePlaygroundThreads();
+  const [dark, setDark] = useState(true);
+  const [connectionOpen, setConnectionOpen] = useState(false);
   const [provider, setProvider] = useState<Provider>("openrouter");
   const [modelOption, setModelOption] = useState(models.openrouter[0]!.id);
   const [customModelName, setCustomModelName] = useState("");
@@ -124,7 +125,9 @@ function Playground() {
         const health = (await response.json()) as Health;
         if (!live) return;
 
-        const p = persisted?.provider ?? (isProvider(health.provider) ? health.provider : "openrouter");
+        const p =
+          persisted?.provider ??
+          (isProvider(health.provider) ? health.provider : "openrouter");
         const m = persisted?.model ?? health.model ?? models.openrouter[0]!.id;
         const knownModel = models[p].some((option) => option.id === m);
         setProvider(p);
@@ -146,8 +149,13 @@ function Playground() {
             }),
           });
           if (!configureResponse.ok) {
-            const body = (await configureResponse.json().catch(() => ({}))) as { error?: string };
-            throw new Error(body.error ?? "The saved provider connection could not be restored.");
+            const body = (await configureResponse.json().catch(() => ({}))) as {
+              error?: string;
+            };
+            throw new Error(
+              body.error ??
+                "The saved provider connection could not be restored.",
+            );
           }
           if (!live) return;
           setConfigured(true);
@@ -158,7 +166,11 @@ function Playground() {
       } catch (cause) {
         if (live) {
           setConfigured(false);
-          setError(cause instanceof Error ? cause.message : "Could not reach the local agent.");
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "Could not reach the local agent.",
+          );
         }
       } finally {
         if (live) setConnecting(false);
@@ -206,9 +218,12 @@ function Playground() {
           : {}),
       });
       setSavedApiKey(selectedProvider.requiresKey ? connectionKey : "");
-      setSavedKeyAvailable(selectedProvider.requiresKey && Boolean(connectionKey));
+      setSavedKeyAvailable(
+        selectedProvider.requiresKey && Boolean(connectionKey),
+      );
       setKey("");
       setConfigured(true);
+      setConnectionOpen(false);
     } catch (cause) {
       setConfigured(false);
       setError(
@@ -221,118 +236,144 @@ function Playground() {
     }
   }
 
-  async function send(prompt: string) {
-    const response = await fetch("/api/agent/stream", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, sessionId }),
-    });
-    if (!response.ok) {
-      const body = (await response.json().catch(() => ({}))) as {
-        error?: string;
-      };
-      throw new Error(
-        body.error ?? `Agent request failed (${response.status}).`,
-      );
-    }
-    if (!response.body)
-      throw new Error("The agent response did not include a stream.");
-    await consumeAgentStream(store, decodeAgentEventStream(response.body));
-  }
-
   const keyMissing =
     selectedProvider.requiresKey &&
     !key.trim() &&
     !savedKeyAvailable &&
     !envKeys[provider];
   return (
-    <main className="playground">
-      <form className="provider-form" onSubmit={connect}>
-        <select
-          aria-label="Provider"
-          value={provider}
-          onChange={(event) => selectProvider(event.target.value as Provider)}
-        >
-          {providers.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.label}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Model"
-          value={modelOption}
-          onChange={(event) => {
-            setModelOption(event.target.value);
-            setCustomModelName("");
-            setConfigured(false);
-          }}
-        >
-          {models[provider].map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.label}
-            </option>
-          ))}
-          <option value={customModel}>Custom model…</option>
-        </select>
-        {modelOption === customModel && (
-          <Input
-            aria-label="Model ID"
-            placeholder="Model ID"
-            value={customModelName}
-            onChange={(event) => {
-              setCustomModelName(event.target.value);
-              setConfigured(false);
-            }}
+    <div className={`${dark ? "dark " : ""}playground`}>
+      <ChatWorkspace
+        title={navigation.active.title}
+        sidebar={
+          <ThreadSidebar
+            threads={navigation.threads}
+            selectedId={navigation.active.id}
+            onNew={navigation.onNew}
+            onSelect={navigation.onSelect}
+            footer="Local playground"
           />
-        )}
-        {selectedProvider.requiresKey && (
-          <Input
-            aria-label={`${selectedProvider.label} API key`}
-            type="password"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder={
-              envKeys[provider]
-                ? "API key from .env"
-                : savedKeyAvailable
-                  ? "Saved API key"
-                  : "API key"
-            }
-            value={key}
-            onChange={(event) => {
-              setKey(event.target.value);
-              setConfigured(false);
-            }}
-          />
-        )}
-        <Button type="submit" disabled={connecting || !model || keyMissing}>
-          {connecting ? "Connecting…" : configured ? "Connected" : "Connect"}
-        </Button>
-      </form>
-      {error && (
-        <p className="configuration-error" role="alert">
-          {error}
-        </p>
-      )}
-      <AgentChatView
-        className="playground-chat"
-        disabled={!configured}
-        onSubmit={send}
-        placeholder={
-          configured ? "Message your agent…" : "Connect a provider to start…"
         }
-      />
-    </main>
+        actions={
+          <>
+            <button
+              type="button"
+              aria-label="Connection settings"
+              aria-expanded={connectionOpen || !configured}
+              onClick={() => setConnectionOpen(!connectionOpen)}
+              className="workspace-action"
+            >
+              <Settings2 size={15} />
+            </button>
+            <button
+              type="button"
+              aria-label={dark ? "Light mode" : "Dark mode"}
+              onClick={() => setDark(!dark)}
+              className="workspace-action"
+            >
+              {dark ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
+          </>
+        }
+      >
+        {(connectionOpen || !configured) && (
+          <form className="provider-form" onSubmit={connect}>
+            <select
+              aria-label="Provider"
+              value={provider}
+              onChange={(event) =>
+                selectProvider(event.target.value as Provider)
+              }
+            >
+              {providers.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Model"
+              value={modelOption}
+              onChange={(event) => {
+                setModelOption(event.target.value);
+                setCustomModelName("");
+                setConfigured(false);
+              }}
+            >
+              {models[provider].map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
+              <option value={customModel}>Custom model…</option>
+            </select>
+            {modelOption === customModel && (
+              <input
+                aria-label="Model ID"
+                placeholder="Model ID"
+                value={customModelName}
+                onChange={(event) => {
+                  setCustomModelName(event.target.value);
+                  setConfigured(false);
+                }}
+              />
+            )}
+            {selectedProvider.requiresKey && (
+              <input
+                aria-label={`${selectedProvider.label} API key`}
+                type="password"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={
+                  envKeys[provider]
+                    ? "API key from .env"
+                    : savedKeyAvailable
+                      ? "Saved API key"
+                      : "API key"
+                }
+                value={key}
+                onChange={(event) => {
+                  setKey(event.target.value);
+                  setConfigured(false);
+                }}
+              />
+            )}
+            <button type="submit" disabled={connecting || !model || keyMissing}>
+              {connecting
+                ? "Connecting…"
+                : configured
+                  ? "Connected"
+                  : "Connect"}
+            </button>
+          </form>
+        )}
+        {error && (
+          <p className="configuration-error" role="alert">
+            {error}
+          </p>
+        )}
+        <Chat
+          key={navigation.active.id}
+          adapter={navigation.adapter}
+          store={navigation.active.store}
+          className="playground-chat"
+          disabled={!configured}
+          suggestions={[
+            "Help me plan my week",
+            "Explain a concept",
+            "Review an idea",
+          ]}
+          placeholder={
+            configured ? "Send a message…" : "Connect a provider to start…"
+          }
+        />
+      </ChatWorkspace>
+    </div>
   );
 }
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <AgentDockTheme mode="light">
-      <AgentProvider store={store}>
-        <Playground />
-      </AgentProvider>
-    </AgentDockTheme>
+    <Playground />
   </React.StrictMode>,
 );

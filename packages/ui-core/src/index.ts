@@ -18,6 +18,13 @@ export {
   type RenderMessageSource,
 } from "./select-render-messages.js";
 export type {
+  RenderContentBlock,
+  RenderTurnItem,
+  RenderMessageItem,
+  RenderToolCallItem,
+  RenderToolTimelineItem,
+  RenderApprovalItem,
+  RenderErrorItem,
   RenderApproval,
   RenderApprovalAction,
   RenderApprovalKind,
