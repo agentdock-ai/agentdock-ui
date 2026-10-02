@@ -7,7 +7,7 @@ export function ChatWorkspace({
   children,
   sidebar,
   title = "New chat",
-  brand = "AgentDock",
+  brand = "Agentdock",
   actions,
   className,
 }: {

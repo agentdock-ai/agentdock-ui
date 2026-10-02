@@ -1,7 +1,13 @@
 "use client";
-import { useRef } from "react";
-import { Paperclip, Image } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Paperclip, Image, Plus } from "lucide-react";
 import { ChatIcon } from "./icon.js";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "../ui/dropdown-menu.js";
 
 export function ComposerAttachmentPicker({
   accept,
@@ -14,6 +20,10 @@ export function ComposerAttachmentPicker({
 }) {
   const files = useRef<HTMLInputElement>(null);
   const images = useRef<HTMLInputElement>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
   const imageAccept = accept
     ? accept
         .split(",")
@@ -24,8 +34,8 @@ export function ComposerAttachmentPicker({
     onFiles(Array.from(input.files ?? []));
     input.value = "";
   };
-  const style =
-    "flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 [@media(pointer:coarse)]:size-9";
+  const itemStyle =
+    "flex min-h-9 cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 text-[13px] outline-none data-[highlighted]:bg-muted focus:bg-muted data-[disabled]:pointer-events-none data-[disabled]:opacity-40";
   return (
     <div className="mr-auto flex items-center gap-0.5">
       <input
@@ -46,28 +56,52 @@ export function ComposerAttachmentPicker({
         hidden
         onChange={(event) => select(event.currentTarget)}
       />
-      <button
-        type="button"
-        aria-label="Attach files"
-        title="Attach files"
-        disabled={disabled}
-        onClick={() => files.current?.click()}
-        className={style}
+      <DropdownMenu
+        open={open && !disabled}
+        onOpenChange={setOpen}
+        modal={false}
       >
-        <ChatIcon icon={Paperclip} size={16} />
-      </button>
-      {imageAccept && (
-        <button
+        <DropdownMenuTrigger
           type="button"
-          aria-label="Attach images"
-          title="Attach images"
+          aria-label="Add attachments"
+          title="Add attachments"
           disabled={disabled}
-          onClick={() => images.current?.click()}
-          className={style}
+          className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 [@media(pointer:coarse)]:size-9"
         >
-          <ChatIcon icon={Image} size={16} />
-        </button>
-      )}
+          <ChatIcon icon={Plus} size={18} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          aria-label="Attachments"
+          className="z-50 w-60 max-w-[calc(100vw-1.5rem)] rounded-xl border border-border bg-background p-1.5 text-foreground shadow-md"
+        >
+          {imageAccept && (
+            <DropdownMenuItem
+              disabled={disabled}
+              onClick={() => images.current?.click()}
+              className={itemStyle}
+            >
+              <ChatIcon
+                icon={Image}
+                size={16}
+                className="text-muted-foreground"
+              />
+              Add photos
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem
+            disabled={disabled}
+            onClick={() => files.current?.click()}
+            className={itemStyle}
+          >
+            <ChatIcon
+              icon={Paperclip}
+              size={16}
+              className="text-muted-foreground"
+            />
+            Attach files
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

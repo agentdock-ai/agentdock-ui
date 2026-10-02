@@ -100,6 +100,32 @@ export function ComponentsPage() {
             <ComponentPreview name="Message · User">
               <Message message={userMessage} showReasoning />
             </ComponentPreview>
+            <ComponentPreview name="Message · Image attachment">
+              <Message
+                message={{
+                  ...userMessage,
+                  id: "gallery-image-message",
+                  blocks: [
+                    {
+                      id: "gallery-image",
+                      type: "image",
+                      position: 0,
+                      state: "complete",
+                      url: new URL("/gallery/landscape.svg", location.origin)
+                        .href,
+                    },
+                    {
+                      id: "gallery-image-caption",
+                      type: "text",
+                      position: 1,
+                      state: "complete",
+                      text: "What do you think of this image?",
+                    },
+                  ],
+                }}
+                showReasoning
+              />
+            </ComponentPreview>
             <ComponentPreview name="Message · Assistant">
               <Message message={assistantMessage} showReasoning />
             </ComponentPreview>

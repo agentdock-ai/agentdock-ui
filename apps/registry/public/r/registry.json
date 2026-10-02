@@ -5,13 +5,13 @@
     {
       "name": "chat-radix",
       "type": "registry:block",
-      "title": "AgentDock Chat",
+      "title": "Agentdock Chat",
       "description": "A compact chat panel connected to an app-owned ChatAdapter."
     },
     {
       "name": "chat-base",
       "type": "registry:block",
-      "title": "AgentDock Chat",
+      "title": "Agentdock Chat",
       "description": "A compact chat panel connected to an app-owned ChatAdapter."
     }
   ]

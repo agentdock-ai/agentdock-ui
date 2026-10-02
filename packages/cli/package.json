@@ -1,7 +1,7 @@
 {
   "name": "agentdock-ui",
   "version": "0.1.0",
-  "description": "Source-copy installer for AgentDock UI components",
+  "description": "Source-copy installer for Agentdock UI components",
   "license": "MIT",
   "type": "module",
   "private": false,

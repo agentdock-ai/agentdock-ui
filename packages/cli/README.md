@@ -31,4 +31,4 @@ const chatAdapter: ChatAdapter = appChatAdapter;
 <Chat adapter={chatAdapter} />;
 ```
 
-`sendMessage` yields canonical AgentDock events. Provide `cancelRun`, `respondToInterrupt`, and `continueRun` only when the app supports those operations. `continueRun` resumes a paused run without a pending interrupt. No endpoint prop is available.
+`sendMessage` yields canonical Agentdock events. Provide `cancelRun`, `respondToInterrupt`, and `continueRun` only when the app supports those operations. `continueRun` resumes a paused run without a pending interrupt. No endpoint prop is available.

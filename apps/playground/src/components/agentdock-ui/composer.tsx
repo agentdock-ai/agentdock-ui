@@ -73,7 +73,7 @@ export function Composer({
         event.preventDefault();
         if (canSend) onSubmit();
       }}
-      className="rounded-2xl border border-foreground/25 bg-muted/50 p-2 transition-colors focus-within:border-ring motion-reduce:transition-none"
+      className="rounded-2xl border border-border bg-background p-2 transition-colors focus-within:border-ring motion-reduce:transition-none"
     >
       {attachments.length > 0 && (
         <ComposerAttachments

@@ -12,4 +12,4 @@ These files are the planned source-copy component boundary for `agentdock-ui add
 | `tool-call.tsx`, `tool-timeline.tsx`, `approval-card.tsx`, `error-state.tsx` | Activity, decisions, and errors. |
 | `types.ts`, `utils.ts`, `index.ts` | Shared component contracts and exports. |
 
-Do not substitute raw AgentDock events directly into individual components. They must receive the normalized render model defined by `@agentdock-ai/ui-core`.
+Do not substitute raw Agentdock events directly into individual components. They must receive the normalized render model defined by `@agentdock-ai/ui-core`.

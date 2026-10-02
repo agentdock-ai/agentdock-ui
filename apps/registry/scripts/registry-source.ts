@@ -26,10 +26,16 @@ export async function createRegistry(flavor: "radix" | "base") {
       content: sourceImports(content),
     });
   }
-  for (const name of ["button.tsx", "textarea.tsx", "collapsible.tsx"]) {
+  for (const name of [
+    "button.tsx",
+    "textarea.tsx",
+    "collapsible.tsx",
+    "dropdown-menu.tsx",
+  ]) {
     const source =
-      name === "collapsible.tsx" && flavor === "base"
-        ? "collapsible.base.tsx"
+      ["collapsible.tsx", "dropdown-menu.tsx"].includes(name) &&
+      flavor === "base"
+        ? name.replace(".tsx", ".base.tsx")
         : name;
     const content = (
       await readFile(resolve(registryRoot, "registry/ui", source), "utf8")
@@ -47,7 +53,7 @@ export async function createRegistry(flavor: "radix" | "base") {
     $schema: "https://ui.shadcn.com/schema/registry-item.json",
     name: `chat-${flavor}`,
     type: "registry:block",
-    title: "AgentDock Chat",
+    title: "Agentdock Chat",
     description: "A compact chat panel connected to an app-owned ChatAdapter.",
     dependencies: [
       "@agentdock-ai/react@^0.1.0",

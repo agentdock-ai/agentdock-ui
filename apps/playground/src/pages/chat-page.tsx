@@ -3,8 +3,8 @@ import { Chat } from "../components/agentdock-ui/chat";
 import { ChatWorkspace } from "../components/agentdock-ui/chat-workspace";
 import { ThreadSidebar } from "../components/agentdock-ui/thread-sidebar";
 import { usePlaygroundThreads } from "../use-playground-threads.js";
-import { Settings2 } from "lucide-react";
-import { ChatIcon } from "../components/agentdock-ui/icon";
+import { ConnectionSettings } from "../connection-settings";
+import { ConnectionSelect } from "../connection-select";
 
 const providers = [
   { id: "openrouter", label: "OpenRouter", requiresKey: true },
@@ -15,20 +15,28 @@ type Provider = (typeof providers)[number]["id"];
 const models: Record<Provider, { id: string; label: string }[]> = {
   openrouter: [
     { id: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5" },
+    { id: "anthropic/claude-haiku-4.5", label: "Claude Haiku 4.5" },
     { id: "openai/gpt-4.1", label: "GPT-4.1" },
+    { id: "openai/gpt-4.1-mini", label: "GPT-4.1 mini" },
+    { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
     { id: "deepseek/deepseek-v4-flash-0731", label: "DeepSeek V4 Flash" },
   ],
   openai: [
     { id: "gpt-5.4-mini", label: "GPT-5.4 mini" },
-    { id: "gpt-5.4-nano", label: "GPT-5.4 nano" },
+    { id: "gpt-5.4", label: "GPT-5.4" },
+    { id: "gpt-5-mini", label: "GPT-5 mini" },
     { id: "gpt-4.1", label: "GPT-4.1" },
+    { id: "gpt-4.1-mini", label: "GPT-4.1 mini" },
+    { id: "gpt-4o-mini", label: "GPT-4o mini" },
   ],
   ollama: [
-    { id: "llama3.3", label: "Llama 3.3" },
-    { id: "qwen3", label: "Qwen 3" },
+    { id: "llama3.3", label: "Llama 3.3 · 70B" },
+    { id: "qwen3", label: "Qwen 3 · 8B" },
+    { id: "qwen3:4b", label: "Qwen 3 · 4B" },
+    { id: "llama3.2", label: "Llama 3.2 · 3B" },
+    { id: "qwen2.5", label: "Qwen 2.5 · 7B" },
   ],
 };
-const customModel = "__custom";
 const PLAYGROUND_STORAGE_KEY = "agentdock.playground.connection.v1";
 
 interface PersistedPlaygroundConfig {
@@ -95,12 +103,16 @@ function persistConfig(
   }
 }
 
-export function ChatPage() {
+export function ChatPage({
+  settingsOpen,
+  onCloseSettings,
+}: {
+  settingsOpen: boolean;
+  onCloseSettings: () => void;
+}) {
   const navigation = usePlaygroundThreads();
-  const [connectionOpen, setConnectionOpen] = useState(false);
   const [provider, setProvider] = useState<Provider>("openrouter");
-  const [modelOption, setModelOption] = useState(models.openrouter[0]!.id);
-  const [customModelName, setCustomModelName] = useState("");
+  const [model, setModel] = useState(models.openrouter[0]!.id);
   const [key, setKey] = useState("");
   const [savedApiKey, setSavedApiKey] = useState("");
   const [savedKeyAvailable, setSavedKeyAvailable] = useState(false);
@@ -110,8 +122,6 @@ export function ChatPage() {
   );
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState("");
-  const model =
-    modelOption === customModel ? customModelName.trim() : modelOption;
   const selectedProvider = providers.find((item) => item.id === provider)!;
 
   useEffect(() => {
@@ -126,16 +136,22 @@ export function ChatPage() {
         const p =
           persisted?.provider ??
           (isProvider(health.provider) ? health.provider : "openrouter");
-        const m = persisted?.model ?? health.model ?? models.openrouter[0]!.id;
+        const m = persisted?.model ?? health.model ?? models[p][0]!.id;
         const knownModel = models[p].some((option) => option.id === m);
         setProvider(p);
-        setModelOption(knownModel ? m : customModel);
-        setCustomModelName(knownModel ? "" : m);
+        setModel(knownModel ? m : models[p][0]!.id);
         setEnvKeys(health.credentialsAvailable ?? {});
         setSavedApiKey(persisted?.apiKey ?? "");
         setSavedKeyAvailable(Boolean(persisted?.apiKey));
 
         if (persisted) {
+          if (!knownModel) {
+            setConfigured(false);
+            setError(
+              "Choose a preset model and reconnect to replace your previous model.",
+            );
+            return;
+          }
           setConnecting(true);
           const configureResponse = await fetch("/api/configure", {
             method: "POST",
@@ -159,7 +175,11 @@ export function ChatPage() {
           setConfigured(true);
           setKey("");
         } else {
-          setConfigured(Boolean(health.configured));
+          setConfigured(Boolean(health.configured) && knownModel);
+          if (health.configured && !knownModel)
+            setError(
+              "Choose a preset model and reconnect to replace your previous model.",
+            );
         }
       } catch (cause) {
         if (live) {
@@ -182,8 +202,7 @@ export function ChatPage() {
 
   function selectProvider(next: Provider) {
     setProvider(next);
-    setModelOption(models[next][0]!.id);
-    setCustomModelName("");
+    setModel(models[next][0]!.id);
     setKey("");
     setSavedApiKey("");
     setSavedKeyAvailable(false);
@@ -221,7 +240,7 @@ export function ChatPage() {
       );
       setKey("");
       setConfigured(true);
-      setConnectionOpen(false);
+      onCloseSettings();
     } catch (cause) {
       setConfigured(false);
       setError(
@@ -249,84 +268,62 @@ export function ChatPage() {
             selectedId={navigation.active.id}
             onNew={navigation.onNew}
             onSelect={navigation.onSelect}
-            footer="Local playground"
           />
         }
-        actions={
-          <>
-            <button
-              type="button"
-              aria-label="Connection settings"
-              aria-expanded={connectionOpen || !configured}
-              onClick={() => setConnectionOpen(!connectionOpen)}
-              className="workspace-action"
-            >
-              <ChatIcon icon={Settings2} size={15} />
-            </button>
-          </>
-        }
       >
-        {(connectionOpen || !configured) && (
+        <ConnectionSettings open={settingsOpen} onClose={onCloseSettings}>
           <form className="provider-form" onSubmit={connect}>
-            <select
-              aria-label="Provider"
+            <ConnectionSelect
+              label="Provider"
+              disabled={connecting}
               value={provider}
-              onChange={(event) =>
-                selectProvider(event.target.value as Provider)
-              }
-            >
-              {providers.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-            <select
-              aria-label="Model"
-              value={modelOption}
-              onChange={(event) => {
-                setModelOption(event.target.value);
-                setCustomModelName("");
+              onValueChange={(value) => selectProvider(value as Provider)}
+              options={providers}
+            />
+            <ConnectionSelect
+              label="Model"
+              disabled={connecting}
+              value={model}
+              onValueChange={(value) => {
+                setModel(value);
                 setConfigured(false);
+                setError("");
               }}
-            >
-              {models[provider].map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-              <option value={customModel}>Custom model…</option>
-            </select>
-            {modelOption === customModel && (
-              <input
-                aria-label="Model ID"
-                placeholder="Model ID"
-                value={customModelName}
-                onChange={(event) => {
-                  setCustomModelName(event.target.value);
-                  setConfigured(false);
-                }}
-              />
+              options={models[provider]}
+            />
+            {provider === "ollama" && (
+              <p className="-mt-2 text-xs text-muted-foreground">
+                Choose a model installed in Ollama.
+              </p>
             )}
             {selectedProvider.requiresKey && (
-              <input
-                aria-label={`${selectedProvider.label} API key`}
-                type="password"
-                autoComplete="off"
-                spellCheck={false}
-                placeholder={
-                  envKeys[provider]
-                    ? "API key from .env"
-                    : savedKeyAvailable
-                      ? "Saved API key"
-                      : "API key"
-                }
-                value={key}
-                onChange={(event) => {
-                  setKey(event.target.value);
-                  setConfigured(false);
-                }}
-              />
+              <label>
+                API key
+                <input
+                  aria-label={`${selectedProvider.label} API key`}
+                  disabled={connecting}
+                  type="password"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder={
+                    envKeys[provider]
+                      ? "API key from .env"
+                      : savedKeyAvailable
+                        ? "Saved API key"
+                        : "API key"
+                  }
+                  value={key}
+                  onChange={(event) => {
+                    setKey(event.target.value);
+                    setConfigured(false);
+                  }}
+                />
+              </label>
+            )}
+            {error && (
+              <p className="configuration-error" role="alert">
+                {error}
+              </p>
             )}
             <button type="submit" disabled={connecting || !model || keyMissing}>
               {connecting
@@ -336,12 +333,7 @@ export function ChatPage() {
                   : "Connect"}
             </button>
           </form>
-        )}
-        {error && (
-          <p className="configuration-error" role="alert">
-            {error}
-          </p>
-        )}
+        </ConnectionSettings>
         <Chat
           key={navigation.active.id}
           adapter={navigation.adapter}
@@ -354,7 +346,9 @@ export function ChatPage() {
             "Review an idea",
           ]}
           placeholder={
-            configured ? "Send a message…" : "Connect a provider to start…"
+            configured
+              ? "Send a message…"
+              : "Open settings to connect a provider…"
           }
         />
       </ChatWorkspace>

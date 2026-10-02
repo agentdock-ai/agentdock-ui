@@ -85,13 +85,25 @@ body {
   font-size: 12px;
 }
 .playground-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 600;
   white-space: nowrap;
 }
-.playground-brand span {
-  margin-left: 5px;
-  color: var(--muted-foreground);
+.playground-brand-mark {
+  width: 22px;
+  height: 24px;
+  flex-shrink: 0;
+  background: currentColor;
+  mask-size: auto 24px;
+  mask-repeat: no-repeat;
+  mask-position: left center;
+}
+.playground-brand-label {
+  margin-left: 4px;
   font-weight: 400;
+  color: var(--muted-foreground);
 }
 .playground-navigation {
   display: flex;
@@ -150,17 +162,21 @@ body {
   outline-offset: 2px;
 }
 .provider-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 16px;
+  padding: 20px;
 }
-.provider-form select,
+.provider-form label {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
 .provider-form input {
   min-width: 0;
-  height: 32px;
+  width: 100%;
+  height: 36px;
   padding: 0 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -169,16 +185,11 @@ body {
   font: inherit;
   font-size: 12px;
 }
-.provider-form input {
-  flex: 1;
-  max-width: 280px;
-  min-width: 140px;
-}
 .provider-form input::placeholder {
   color: var(--muted-foreground);
 }
-.provider-form button {
-  height: 32px;
+.provider-form button[type="submit"] {
+  height: 36px;
   padding: 0 12px;
   border: 0;
   border-radius: 6px;
@@ -188,17 +199,16 @@ body {
   font-size: 12px;
   cursor: pointer;
 }
-.provider-form button:disabled {
+.provider-form button[type="submit"]:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.provider-form :is(button, input, select):focus-visible {
+.provider-form :is(button, input):focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
 .configuration-error {
   margin: 0;
-  padding: 8px 16px;
   color: var(--destructive);
   font-size: 12px;
 }
@@ -313,9 +323,6 @@ body {
     gap: 12px;
     padding: 0 12px;
   }
-  .playground-brand span {
-    display: none;
-  }
   .gallery-container {
     padding: 24px 16px 40px;
   }
@@ -342,13 +349,20 @@ body {
   .playground {
     padding: 4px;
   }
-  .provider-form {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+@media (max-width: 480px) {
+  .playground-header {
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    padding-top: 8px;
+    padding-bottom: 6px;
   }
-  .provider-form input {
-    width: 100%;
-    max-width: none;
-    min-width: 0;
+  .playground-header-actions {
+    margin-left: auto;
+  }
+  .playground-navigation {
+    order: 1;
+    flex-basis: 100%;
   }
 }

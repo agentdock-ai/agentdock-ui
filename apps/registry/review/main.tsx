@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { AgentStore } from "@agentdock-ai/react";
 import { Chat } from "../registry/agentdock-ui/chat.js";
@@ -38,6 +38,13 @@ function Review() {
   const [selectedId, setSelectedId] = useState<string>(threads[0]!.id);
   const active = threads.find((thread) => thread.id === selectedId)!;
   const [dark, setDark] = useState(params.get("theme") !== "light");
+  useEffect(() => {
+    const previous = document.documentElement.classList.contains("dark");
+    document.documentElement.classList.toggle("dark", dark);
+    return () => {
+      document.documentElement.classList.toggle("dark", previous);
+    };
+  }, [dark]);
   const [hideReasoning, setHideReasoning] = useState(false);
   const name = active.scenario;
   const adapter = useMemo(() => {

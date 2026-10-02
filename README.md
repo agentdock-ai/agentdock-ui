@@ -23,7 +23,7 @@
   </p>
 </div>
 
-AgentDock UI V1 is a compact, editable chat panel backed by the canonical AgentDock event contract. `@agentdock-ai/react` supplies the headless store, provider, hooks and adapter types. Styled components are copied into your application from the registry.
+Agentdock UI V1 is a compact, editable chat panel backed by the canonical Agentdock event contract. `@agentdock-ai/react` supplies the headless store, provider, hooks and adapter types. Styled components are copied into your application from the registry.
 
 ## Install Chat
 
@@ -99,11 +99,11 @@ WebP images (5 MB per file), up to five attachments. Its local in-memory storage
 expires after 30 minutes. PDF/Office parsing and durable storage belong to the host;
 image understanding requires a model that supports images.
 
-The app owns authentication, authorization, endpoint URLs, thread identity, request construction, secrets, provider selection and business rules. The browser consumes canonical AgentDock events only. LangGraph, LangChain and provider events must be normalized on the server.
+The app owns authentication, authorization, endpoint URLs, thread identity, request construction, secrets, provider selection and business rules. The browser consumes canonical Agentdock events only. LangGraph, LangChain and provider events must be normalized on the server.
 
 ## V1 surface
 
-An optional app-owned workspace/sidebar surrounds the standalone Chat. The panel includes readable messages, safe Markdown, streaming, optional reasoning, compact tool disclosures, approvals, scoped errors, cancellation, an anchored composer and scroll-to-latest. Light/dark colors use host shadcn semantic tokens. No AgentDock theme provider or stylesheet is required.
+An optional app-owned workspace/sidebar surrounds the standalone Chat. The panel includes readable messages, safe Markdown, streaming, optional reasoning, compact tool disclosures, approvals, scoped errors, cancellation, an anchored composer and scroll-to-latest. Light/dark colors use host shadcn semantic tokens. No Agentdock theme provider or stylesheet is required.
 
 Components are small and editable under `components/agentdock-ui`. The runtime also exposes `AgentProvider`, `AgentStore`, `useAgentState`, `useAgentStore`, `useAgentActions`, stream decoding and render selectors for custom interfaces.
 
@@ -114,7 +114,7 @@ The runtime root is headless. Legacy styled exports remain under `@agentdock-ai/
 ## Development and validation
 
 ```sh
-yarn dev                  # Real AgentDock playground
+yarn dev                  # Real Agentdock playground
 
 yarn typecheck
 yarn test

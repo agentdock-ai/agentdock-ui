@@ -3,6 +3,7 @@ import { ChatIcon } from "./icon.js";
 import type { RenderContentBlock } from "@agentdock-ai/ui-core";
 import { StreamingText } from "./streaming-text.js";
 import { Reasoning } from "./reasoning.js";
+import { ImageAttachment } from "./image-attachment.js";
 import { safeUrl, formatJson } from "./utils.js";
 export function MessageContent({
   blocks,
@@ -48,24 +49,8 @@ export function MessageContent({
             </details>
           );
         const url = safeUrl(block.url);
-        if (block.type === "image" && url)
-          return (
-            <a
-              key={block.id}
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Open attached image"
-              className="block w-fit max-w-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <img
-                src={url}
-                alt="Attached image"
-                loading="lazy"
-                className="max-h-48 max-w-full rounded-lg border border-border object-contain"
-              />
-            </a>
-          );
+        if (block.type === "image" && url && /^https?:/i.test(url))
+          return <ImageAttachment key={`${block.id}:${url}`} url={url} />;
         const label =
           block.type === "citation"
             ? block.title || "View source"

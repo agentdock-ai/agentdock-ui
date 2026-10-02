@@ -1,7 +1,7 @@
 {
   "name": "@agentdock-ai/react",
   "version": "0.1.0",
-  "description": "React primitives for consuming AgentDock event streams",
+  "description": "React primitives for consuming Agentdock event streams",
   "license": "MIT",
   "type": "module",
   "files": ["dist"],
