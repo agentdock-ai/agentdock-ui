@@ -40,6 +40,9 @@ export interface ChatAdapter {
 
   cancelRun?(input: { runId: string; signal: AbortSignal }): Promise<void>;
 
+  /** Continue a paused run with no pending interrupt; request construction stays in the app. */
+  continueRun?(input: { runId: string; signal: AbortSignal }): AgentEventStream;
+
   respondToInterrupt?(input: {
     runId: string;
     interruptId: string;

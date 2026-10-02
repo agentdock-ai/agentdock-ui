@@ -80,6 +80,8 @@ export interface RenderMessage {
 }
 
 export interface RenderMessageSource {
+  /** Events accepted by the store, grouped by turn across resumed invocations. */
+  turnEvents?: readonly (readonly AgentEvent[])[];
   runs: readonly import("@agentdock-ai/contracts").AgentReducerState[];
   events: readonly AgentEvent[];
   /** Durable turn snapshots may be supplied when diagnostic events are evicted. */

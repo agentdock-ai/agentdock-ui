@@ -84,6 +84,7 @@ export function createPlaygroundChatAdapter({
     },
     respondToInterrupt: ({ runId, interruptId, decisions, signal }) =>
       stream({ runId, interruptId, decisions }, signal),
+    continueRun: ({ runId, signal }) => stream({ runId, continue: true }, signal),
     async cancelRun({ runId, signal }) {
       const response = await request("/api/agent/cancel", {
         method: "POST",

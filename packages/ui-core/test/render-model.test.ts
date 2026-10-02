@@ -1,3 +1,4 @@
+import { AGENT_EVENT_PROTOCOL_VERSION } from "@agentdock-ai/contracts";
 import { describe, expect, it } from "vitest";
 import {
   createAgentReducerState,
@@ -19,7 +20,7 @@ function event(
   options: { eventId?: string; runId?: string } = {},
 ): AgentEvent {
   return {
-    protocolVersion: 2,
+    protocolVersion: AGENT_EVENT_PROTOCOL_VERSION,
     eventId: options.eventId ?? `event-${logicalSequence}`,
     runId: options.runId ?? runId,
     logicalSequence,
@@ -65,10 +66,7 @@ describe("ui-core render model", () => {
       runId,
       role: "assistant",
       state: "streaming",
-      content: [
-        { type: "text", text: "Hel" },
-        { type: "text", text: "lo" },
-      ],
+      content: [{ type: "text", text: "Hello" }],
     });
 
     const completedEvents = [

@@ -14,10 +14,14 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json && node scripts-build.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test test/*.test.mjs"
+    "test": "yarn build && node --test test/*.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.5.1",
-    "typescript": "^5.8.0"
+    "typescript": "^5.8.0",
+    "@types/semver": "^7.7.0"
+  },
+  "dependencies": {
+    "semver": "^7.7.2"
   }
 }

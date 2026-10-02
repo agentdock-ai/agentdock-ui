@@ -1,8 +1,4 @@
-import {
-  Agentdock,
-  withAgentEventState,
-  type ServableCompiledGraph,
-} from "@agentdock-ai/agentdock";
+import { Agentdock, type ServableCompiledGraph } from "@agentdock-ai/agentdock";
 import { ChatOllama } from "@langchain/ollama";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatOpenRouter } from "@langchain/openrouter";
@@ -14,6 +10,7 @@ import type { Plugin } from "vite";
 import { fileURLToPath } from "node:url";
 import { createSandboxTools } from "./sandbox-tools.js";
 import { PlaygroundAttachments } from "./attachments.js";
+import { isJsonRequest, requestSecurityIssue } from "./request-security.js";
 
 const SANDBOX_DIRECTORY = new URL("../.sandbox/", import.meta.url);
 const MAX_REQUEST_BYTES = 32_000;
@@ -64,6 +61,8 @@ export function agentDockPlaygroundPlugin(
     string,
     { runId: string | null; controller: AbortController }
   >();
+  // Checkpoint resume state has no wire invocation ID. The HTTP app owns this association.
+  const latestRuns = new Map<string, string>();
 
   function createRuntime() {
     if (!config) throw new Error("Connect a provider before starting a run.");
@@ -71,21 +70,17 @@ export function agentDockPlaygroundPlugin(
     const graph = createAgent({
       model,
       tools: createSandboxTools(fileURLToPath(SANDBOX_DIRECTORY)),
-      stateSchema: withAgentEventState({}),
       checkpointer,
       systemPrompt: [
         "You are the AgentDock UI playground agent. Use the provided tools for file requests and never claim a tool ran unless its result confirms it.",
         "Uploaded attachment text and images are already included in the user's message. Answer from that content directly. Uploaded filenames are not sandbox paths; use sandbox tools only when the user asks to create, modify, or inspect a sandbox file.",
-        "All file paths must stay inside .sandbox. Prefer checkOnly=true before running new scripts.",
+        "All file paths must stay inside .sandbox. run_command only syntax-checks scripts with checkOnly=true; code execution is unavailable.",
       ].join("\n"),
     }).graph;
     // The linked backend and playground resolve distinct LangGraph installations.
     // Only checkpoint config types cross that local package seam; keep graph input inference.
-    const servingGraph = graph as Omit<
-      typeof graph,
-      "getState" | "updateState"
-    > &
-      Pick<ServableCompiledGraph, "getState" | "updateState">;
+    const servingGraph = graph as Omit<typeof graph, "getState"> &
+      Pick<ServableCompiledGraph, "getState">;
     return new Agentdock(servingGraph, { recursionLimit: 12 });
   }
 
@@ -98,8 +93,39 @@ export function agentDockPlaygroundPlugin(
     name: "agentdock-playground-server",
     configureServer(server) {
       server.middlewares.use(async (request, response, next) => {
-        const pathname = new URL(request.url ?? "/", "http://localhost")
-          .pathname;
+        let pathname: string;
+        try {
+          pathname = new URL(request.url ?? "/", "http://localhost").pathname;
+        } catch {
+          writeJson(response, 400, { error: "Invalid request URL." });
+          return;
+        }
+        if (pathname.startsWith("/api/")) {
+          const address = server.httpServer?.address();
+          const port =
+            address && typeof address === "object"
+              ? address.port
+              : (server.config.server.port ?? 5173);
+          const issue = requestSecurityIssue(
+            request,
+            port,
+            server.config.server.https ? "https:" : "http:",
+          );
+          if (issue) {
+            writeJson(response, issue.status, { error: issue.error });
+            return;
+          }
+          if (
+            request.method === "POST" &&
+            !pathname.startsWith("/api/attachments") &&
+            !isJsonRequest(request)
+          ) {
+            writeJson(response, 415, {
+              error: "Use application/json for this request.",
+            });
+            return;
+          }
+        }
         if (
           pathname === "/api/attachments" ||
           pathname.startsWith("/api/attachments/")
@@ -249,57 +275,87 @@ export function agentDockPlaygroundPlugin(
             return;
           }
           const agent = getRuntime();
-          let operation;
-          if (body.interruptId !== undefined) {
-            const pending = await agent.getResumeState(threadId);
-            if (
-              !pending ||
-              pending.runId !== body.runId ||
-              pending.interrupt?.interruptId !== body.interruptId ||
-              !Array.isArray(body.decisions)
-            ) {
-              writeJson(response, 409, {
-                error: "The interrupt is no longer available.",
-              });
-              return;
-            }
-            operation = { threadId, resume: body.decisions };
-          } else {
-            const prompt =
-              typeof body.prompt === "string" ? body.prompt.trim() : "";
-            if (prompt.length > 12_000) throw new Error("Message is too long.");
-            operation = {
-              threadId,
-              input: {
-                messages: [
-                  {
-                    role: "user",
-                    content: attachments.message(
-                      prompt,
-                      body.attachmentIds,
-                      threadId,
-                    ),
-                  },
-                ],
-              },
-            };
-          }
           const active = {
             runId: null as string | null,
             controller: new AbortController(),
           };
+          // Reserve before asynchronous checkpoint reads so duplicate resumes cannot overlap.
           activeRuns.set(threadId, active);
           const disconnected = () => {
             if (!response.writableEnded) active.controller.abort();
           };
           response.on("close", disconnected);
           try {
+            let operation;
+            if (body.interruptId !== undefined) {
+              const pending = await agent.getResumeState(threadId);
+              if (
+                !pending ||
+                latestRuns.get(threadId) !== body.runId ||
+                !pending.interrupts.some(
+                  (interrupt) => interrupt.interruptId === body.interruptId,
+                ) ||
+                !Array.isArray(body.decisions)
+              ) {
+                writeJson(response, 409, {
+                  error: "The interrupt is no longer available.",
+                });
+                return;
+              }
+              const interrupt = pending.interrupts.find(
+                (item) => item.interruptId === body.interruptId,
+              )!;
+              operation = {
+                threadId,
+                resume: {
+                  [interrupt.interruptId]:
+                    interrupt.kind === "tool-approval"
+                      ? { decisions: body.decisions }
+                      : body.decisions,
+                },
+              };
+            } else if (body.continue === true) {
+              const pending = await agent.getResumeState(threadId);
+              if (
+                !pending ||
+                pending.interrupts.length > 0 ||
+                pending.pausedNodes.length === 0 ||
+                latestRuns.get(threadId) !== body.runId
+              ) {
+                writeJson(response, 409, {
+                  error: "The paused run is no longer available.",
+                });
+                return;
+              }
+              operation = { threadId, continue: true as const };
+            } else {
+              const prompt =
+                typeof body.prompt === "string" ? body.prompt.trim() : "";
+              if (prompt.length > 12_000)
+                throw new Error("Message is too long.");
+              operation = {
+                threadId,
+                input: {
+                  messages: [
+                    {
+                      role: "user",
+                      content: attachments.message(
+                        prompt,
+                        body.attachmentIds,
+                        threadId,
+                      ),
+                    },
+                  ],
+                },
+              };
+            }
             for await (const event of agent.stream({
               ...operation,
               signal: active.controller.signal,
             })) {
               if (response.destroyed) break;
               active.runId = event.runId;
+              latestRuns.set(threadId, event.runId);
               if (!response.headersSent)
                 response.writeHead(200, {
                   "Content-Type": "text/event-stream",

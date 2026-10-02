@@ -67,7 +67,22 @@ export function MessageList({
                 return <ErrorState key={item.id} {...item.error} />;
             }
           })}
-          {thinking && turn === model.turns.at(-1) && <ThinkingIndicator />}
+          {thinking && turn === model.turns.at(-1) && (
+            <ThinkingIndicator
+              label={
+                turn.items.some(
+                  (item) =>
+                    item.type === "message" &&
+                    item.role === "assistant" &&
+                    item.blocks.some(
+                      (block) => block.type === "text" && block.text.trim(),
+                    ),
+                )
+                  ? "working"
+                  : "thinking"
+              }
+            />
+          )}
           {turn.state === "stopped" && (
             <p className="text-xs text-muted-foreground">
               Stopped · Your partial answer is preserved.

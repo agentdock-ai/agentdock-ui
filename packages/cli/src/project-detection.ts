@@ -13,9 +13,10 @@ export interface Project {
   package: Record<string, any>;
   workspaceRoot?: string;
 }
-async function yarnWorkspaceRoot(cwd: string): Promise<string | undefined> {
+async function findWorkspaceRoot(cwd: string): Promise<string | undefined> {
   let parent = dirname(cwd);
   while (parent !== dirname(parent)) {
+    if (await exists(resolve(parent, "pnpm-workspace.yaml"))) return parent;
     const path = resolve(parent, "package.json");
     if (await exists(path)) {
       const pkg = await readJson(path);
@@ -99,13 +100,18 @@ export async function detectProject(directory: string): Promise<Project> {
       "No package.json found. Use --cwd to select a React application.",
     );
   const pkg = await readJson(resolve(cwd, "package.json"));
-  const workspaceRoot = await yarnWorkspaceRoot(cwd);
+  const workspaceRoot = await findWorkspaceRoot(cwd);
   const deps = { ...pkg.dependencies, ...pkg.devDependencies };
   if (!deps.react || !deps.tailwindcss)
     throw new Error(
       "Chat requires a React app with Tailwind configured. Install React and Tailwind first.",
     );
-  let manager = (pkg.packageManager?.split("@")[0] ?? "npm") as PackageManager;
+  const rootPackage =
+    workspaceRoot && (await exists(resolve(workspaceRoot, "package.json")))
+      ? await readJson(resolve(workspaceRoot, "package.json"))
+      : undefined;
+  const declaredManager = pkg.packageManager ?? rootPackage?.packageManager;
+  let manager = (declaredManager?.split("@")[0] ?? "npm") as PackageManager;
   for (const [lock, value] of [
     ["pnpm-lock.yaml", "pnpm"],
     ["yarn.lock", "yarn"],
@@ -113,7 +119,10 @@ export async function detectProject(directory: string): Promise<Project> {
     ["bun.lockb", "bun"],
     ["package-lock.json", "npm"],
   ] as const)
-    if (await exists(resolve(workspaceRoot ?? cwd, lock))) {
+    if (
+      !declaredManager &&
+      (await exists(resolve(workspaceRoot ?? cwd, lock)))
+    ) {
       manager = value;
       break;
     }

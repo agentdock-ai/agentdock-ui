@@ -21,9 +21,11 @@ export function useAgentActions(adapter: ChatAdapter) {
     ...state,
     canCancel: Boolean(adapter.cancelRun),
     canRespond: Boolean(adapter.respondToInterrupt),
+    canContinue: Boolean(adapter.continueRun),
     sendMessage: (text: string, attachments?: readonly ChatAttachment[]) =>
       actions.current?.sendMessage(text, attachments) ?? Promise.resolve(false),
     cancelRun: () => actions.current?.cancelRun() ?? Promise.resolve(false),
+    continueRun: () => actions.current?.continueRun() ?? Promise.resolve(false),
     respondToInterrupt: (
       interruptId: string,
       decisions: Parameters<

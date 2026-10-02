@@ -20,7 +20,7 @@
     "build": "yarn build:packages && yarn workspace @agentdock-ai/playground build",
     "typecheck": "yarn build:packages && yarn workspace @agentdock-ai/ui-core typecheck && yarn workspace @agentdock-ai/react typecheck && yarn workspace @agentdock-ai/playground typecheck && yarn workspace @agentdock-ai/registry typecheck && yarn workspace agentdock-ui typecheck",
     "lint": "yarn typecheck",
-    "test": "yarn workspace @agentdock-ai/ui-core test && yarn workspace @agentdock-ai/react test && yarn workspace @agentdock-ai/playground test && yarn workspace agentdock-ui test",
+    "test": "yarn build:packages && yarn workspace @agentdock-ai/ui-core test && yarn workspace @agentdock-ai/react test && yarn workspace @agentdock-ai/playground test && yarn workspace agentdock-ui test",
     "dev": "yarn workspace @agentdock-ai/playground dev",
     "playground:dev": "yarn workspace @agentdock-ai/playground dev",
     "playground:build": "yarn build:packages && yarn workspace @agentdock-ai/playground build",

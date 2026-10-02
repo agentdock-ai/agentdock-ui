@@ -1,3 +1,4 @@
+import { AGENT_EVENT_PROTOCOL_VERSION } from "@agentdock-ai/contracts";
 import { describe, expect, it } from "vitest";
 import { AgentStore } from "../src/core/agent-store.js";
 import { consumeAgentStream } from "../src/core/consume-agent-stream.js";
@@ -10,7 +11,7 @@ function runEvent(
   type: "run.started" | "run.completed",
 ): AgentEvent {
   const base = {
-    protocolVersion: 2 as const,
+    protocolVersion: AGENT_EVENT_PROTOCOL_VERSION,
     eventId,
     runId,
       logicalSequence,
@@ -34,7 +35,7 @@ function inputEvent(
   input: AgentEventInput,
 ): AgentEvent {
   return {
-    protocolVersion: 2,
+    protocolVersion: AGENT_EVENT_PROTOCOL_VERSION,
     eventId,
     runId,
       logicalSequence,

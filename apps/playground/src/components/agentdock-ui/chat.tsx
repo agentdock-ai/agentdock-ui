@@ -5,14 +5,15 @@ import {
   useAgentActions,
   useAgentState,
 } from "@agentdock-ai/react";
-import type { ChatProps } from "./types";
-import { ChatShell } from "./chat-shell";
-import { ChatViewport } from "./chat-viewport";
-import { MessageList } from "./message-list";
-import { EmptyState, Suggestions } from "./empty-state";
-import { Composer } from "./composer";
-import { ErrorState } from "./error-state";
-import { useChatAttachments } from "./use-chat-attachments";
+import type { ChatProps } from "./types.js";
+import { ChatShell } from "./chat-shell.js";
+import { ChatViewport } from "./chat-viewport.js";
+import { MessageList } from "./message-list.js";
+import { EmptyState, Suggestions } from "./empty-state.js";
+import { Composer } from "./composer.js";
+import { ErrorState } from "./error-state.js";
+import { Button } from "./ui/button.js";
+import { useChatAttachments } from "./use-chat-attachments.js";
 
 export function Chat(props: ChatProps) {
   return (
@@ -40,15 +41,20 @@ function ChatSurface({
     (streamStatus === "consuming" &&
       !["completed", "failed", "cancelled"].includes(agent.status));
   const waiting = agent.status === "waiting" && streamStatus !== "stopped";
+  const paused = waiting && agent.interrupts.length === 0;
   const items = model.turns.at(-1)?.items ?? [];
   const activity = items.some(
     (item) =>
-      item.type === "tool-call" ||
-      item.type === "tool-timeline" ||
-      item.type === "approval" ||
+      (item.type === "tool-call" && item.active) ||
+      (item.type === "tool-timeline" &&
+        item.tools.some((tool) => tool.active)) ||
+      (item.type === "approval" && item.approval.state === "pending") ||
       (item.type === "message" &&
         item.role === "assistant" &&
-        item.blocks.some((b) => b.type !== "reasoning" || showReasoning)),
+        showReasoning &&
+        item.blocks.some(
+          (b) => b.type === "reasoning" && b.state === "streaming",
+        )),
   );
   const empty = model.turns.length === 0;
   const latestUserId = model.messages
@@ -78,21 +84,23 @@ function ChatSurface({
     ? "Stopping…"
     : actions.respondingTo
       ? "Sending response…"
-      : waiting
-        ? "Waiting for your response"
-        : active
-          ? "Agent is working"
-          : streamStatus === "error"
-            ? "Connection interrupted"
-            : streamStatus === "stopped"
-              ? "Stream stopped"
-              : agent.status === "completed"
-                ? "Response complete"
-                : agent.status === "failed"
-                  ? "Run failed"
-                  : agent.status === "cancelled"
-                    ? "Run stopped"
-                    : "";
+      : paused
+        ? "Run paused"
+        : waiting
+          ? "Waiting for your response"
+          : active
+            ? "Agent is working"
+            : streamStatus === "error"
+              ? "Connection interrupted"
+              : streamStatus === "stopped"
+                ? "Stream stopped"
+                : agent.status === "completed"
+                  ? "Response complete"
+                  : agent.status === "failed"
+                    ? "Run failed"
+                    : agent.status === "cancelled"
+                      ? "Run stopped"
+                      : "";
   return (
     <ChatShell
       className={className}
@@ -153,7 +161,7 @@ function ChatSurface({
         {!empty && (
           <MessageList
             model={model}
-            thinking={active && !activity}
+            thinking={active && !waiting && !activity}
             showReasoning={showReasoning}
             canRespond={
               actions.canRespond &&
@@ -172,12 +180,43 @@ function ChatSurface({
             }}
           />
         )}
-        {model.transportError && actions.actionError?.scope !== "approval" && (
-          <ErrorState {...model.transportError} />
+        {paused && (
+          <div
+            role="status"
+            className="mx-auto w-full max-w-[44rem] px-4 py-3 text-[13px] text-muted-foreground"
+          >
+            <p>
+              {actions.canContinue
+                ? "The run is paused. Continue when you’re ready."
+                : "The run is paused. Continue it in your app."}
+            </p>
+            {actions.canContinue && (
+              <Button
+                className="mt-2"
+                disabled={active || disabled}
+                onClick={() => {
+                  void actions.continueRun();
+                }}
+              >
+                {active ? "Continuing…" : "Continue run"}
+              </Button>
+            )}
+          </div>
         )}
+        {model.transportError &&
+          actions.actionError?.scope !== "approval" &&
+          actions.actionError?.scope !== "continue" && (
+            <ErrorState {...model.transportError} />
+          )}
         {actions.actionError?.scope === "cancel" && (
           <ErrorState
             title="Unable to stop"
+            detail={actions.actionError.message}
+          />
+        )}
+        {actions.actionError?.scope === "continue" && (
+          <ErrorState
+            title="Unable to continue"
             detail={actions.actionError.message}
           />
         )}

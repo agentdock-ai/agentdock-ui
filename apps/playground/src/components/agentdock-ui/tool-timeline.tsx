@@ -14,8 +14,9 @@ export function ToolTimeline({
 }: {
   tools: readonly RenderToolCallItem[];
 }) {
-  const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState<boolean | undefined>();
   const active = tools.some((item) => item.active);
+  const open = expanded ?? active;
   const failures = tools.filter((item) => item.tool.status === "failed").length;
   if (tools.length === 1)
     return (
@@ -24,7 +25,11 @@ export function ToolTimeline({
       </div>
     );
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="min-w-0 px-2">
+    <Collapsible
+      open={open}
+      onOpenChange={setExpanded}
+      className="min-w-0 px-2"
+    >
       <CollapsibleTrigger className="flex min-h-6 items-center gap-1 rounded-sm font-mono text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
         <ChatIcon
           icon={ChevronRight}

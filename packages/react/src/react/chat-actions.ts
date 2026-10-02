@@ -13,7 +13,10 @@ export interface ChatActionState {
   busy: boolean;
   cancelling: boolean;
   respondingTo: string | null;
-  actionError: { scope: "cancel" | "approval"; message: string } | null;
+  actionError: {
+    scope: "cancel" | "approval" | "continue";
+    message: string;
+  } | null;
 }
 export const idleChatActions: ChatActionState = {
   busy: false,
@@ -39,6 +42,7 @@ export function createChatActions(
   async function consume(
     source: (signal: AbortSignal) => AgentEventStream,
     interruptId?: string,
+    continuation = false,
   ): Promise<boolean> {
     if (active || disposed) return false;
     const controller = new AbortController();
@@ -60,10 +64,21 @@ export function createChatActions(
         update({
           actionError: {
             scope: "approval",
+            message: store
+              .getSnapshot()
+              .agent.interrupts.some(
+                (interrupt) => interrupt.interruptId === interruptId,
+              )
+              ? "The response could not be confirmed. Your decision is still pending."
+              : "Your response was received, but the connection ended before the agent finished.",
+          },
+        });
+      else if (continuation)
+        update({
+          actionError: {
+            scope: "continue",
             message:
-              store.getSnapshot().agent.interrupt?.interruptId === interruptId
-                ? "The response could not be confirmed. Your decision is still pending."
-                : "Your response was received, but the connection ended before the agent finished.",
+              "The continuation could not be confirmed. Try again when the connection is available.",
           },
         });
       return false;
@@ -103,11 +118,14 @@ export function createChatActions(
       interruptId: string,
       decisions: readonly JsonValue[],
     ) {
-      const { agent } = store.getSnapshot();
+      const { agent, streamStatus } = store.getSnapshot();
       if (
         !adapter.respondToInterrupt ||
         !agent.runId ||
-        agent.interrupt?.interruptId !== interruptId ||
+        streamStatus === "stopped" ||
+        !agent.interrupts.some(
+          (interrupt) => interrupt.interruptId === interruptId,
+        ) ||
         active ||
         disposed
       )
@@ -122,6 +140,24 @@ export function createChatActions(
             signal,
           }),
         interruptId,
+      );
+    },
+    async continueRun() {
+      const { agent, streamStatus } = store.getSnapshot();
+      if (
+        !adapter.continueRun ||
+        !agent.runId ||
+        agent.status !== "waiting" ||
+        agent.interrupts.length > 0 ||
+        streamStatus === "stopped" ||
+        active ||
+        disposed
+      )
+        return false;
+      return consume(
+        (signal) => adapter.continueRun!({ runId: agent.runId!, signal }),
+        undefined,
+        true,
       );
     },
     async cancelRun() {

@@ -13,6 +13,119 @@ import {
 
 const project = (events: ReturnType<typeof sequence>) =>
   projectTurnItems(reduceAgentEvents(events), events);
+it.each([128, 256, 1024])(
+  "retains full streamed text and tool placement after %s deltas",
+  (count) => {
+    const store = new AgentStore();
+    const chunks = Array.from({ length: count }, (_, i) => `word-${i} `);
+    const events = sequence([
+      ...intro,
+      text("Before tool."),
+      { type: "tool.called", toolCall: call },
+      {
+        type: "tool.progress",
+        toolCallId: call.toolCallId,
+        content: [{ type: "text", text: "Reading…" }],
+      },
+      {
+        type: "tool.completed",
+        result: { ...call, output: "Read", isError: false },
+      },
+      ...chunks.map(text),
+    ]);
+    events.forEach((event) => store.applyEvent(event));
+    const items = store.getSnapshot().renderModel.turns[0]!.items;
+    expect(store.getSnapshot().agent.eventIds).toHaveLength(128);
+    expect(items.map((item) => item.type)).toEqual([
+      "message",
+      "tool-call",
+      "message",
+    ]);
+    expect(items[0]).toMatchObject({ blocks: [{ text: "Before tool." }] });
+    expect(items[1]).toMatchObject({
+      tool: { progress: [{ text: "Reading…" }], status: "complete" },
+    });
+    expect(items[2]).toMatchObject({ blocks: [{ text: chunks.join("") }] });
+    store.applyEvent(
+      sequence(
+        [{ type: "run.cancelled" }],
+        "fixture-run",
+        "phase-1",
+        events.length,
+      )[0]!,
+    );
+    expect(store.getSnapshot().renderModel.turns[0]!.items[2]).toMatchObject({
+      state: "stopped",
+      blocks: [{ text: chunks.join("") }],
+    });
+  },
+);
+it("keeps pending approvals after the reducer replay window rolls over", () => {
+  const store = new AgentStore();
+  const events = sequence([
+    { type: "run.started" },
+    {
+      type: "interrupt.required",
+      interrupt: {
+        interruptId: "retained",
+        kind: "custom",
+        prompt: "Choose",
+        actions: [],
+      },
+    },
+    ...Array.from({ length: 150 }, () => ({
+      type: "usage.updated" as const,
+      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+    })),
+  ]);
+  events.forEach((event) => store.applyEvent(event));
+  expect(store.getSnapshot().renderModel.turns[0]?.items).toMatchObject([
+    {
+      type: "approval",
+      approval: { interruptId: "retained", state: "pending" },
+    },
+  ]);
+});
+it("preserves chronological placement when a resume uses a new invocation ID", () => {
+  const store = new AgentStore();
+  scenarios.approval.forEach((event) => store.applyEvent(event));
+  store.setStreamStatus("closed");
+  const resume = sequence(
+    [
+      { type: "run.started" },
+      {
+        type: "interrupt.resolved",
+        interruptId: "decision-1",
+        decisions: [true],
+      },
+      { type: "message.started", messageId: "continued", role: "assistant" },
+      {
+        type: "message.part.delta",
+        messageId: "continued",
+        part: { type: "text", text: "Continued" },
+      },
+      { type: "run.completed", finishReason: "stop", content: [] },
+    ],
+    "resumed-invocation",
+  );
+  resume.forEach((event) => store.applyEvent(event));
+  expect(store.getSnapshot().runs).toHaveLength(1);
+  expect(
+    store.getSnapshot().renderModel.turns[0]?.items.map((item) => item.type),
+  ).toEqual(["tool-call", "approval", "message"]);
+  expect(store.getSnapshot().renderModel.turns[0]?.items[1]).toMatchObject({
+    approval: { state: "resolved" },
+  });
+  store.appendUserMessage("Next turn");
+  sequence(
+    [{ type: "run.started" }, complete("Next")],
+    "next-invocation",
+  ).forEach((event) => store.applyEvent(event));
+  expect(store.getSnapshot().turnEvents.map((events) => events.length)).toEqual(
+    [scenarios.approval.length + resume.length, 2],
+  );
+  expect(store.getSnapshot().renderModel.turns).toHaveLength(2);
+});
 describe("V1 ordered transcript", () => {
   it.each(Object.keys(scenarios) as (keyof typeof scenarios)[])(
     "reduces %s with the canonical contract",
@@ -30,6 +143,7 @@ describe("V1 ordered transcript", () => {
           interruptId: "decision-1",
           decisions: [{ decision: "allow" }],
         },
+        { type: "run.paused", next: ["step"] },
         complete("Done"),
       ],
       "fixture-run",

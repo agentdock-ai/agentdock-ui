@@ -15,6 +15,13 @@ export async function consumeAgentStream(
 ): Promise<void> {
   if (signal?.aborted) {
     store.setStreamStatus("stopped");
+    try {
+      void Promise.resolve(events[Symbol.asyncIterator]().return?.()).catch(
+        () => undefined,
+      );
+    } catch {
+      /* cleanup only */
+    }
     return;
   }
   const owner = {};

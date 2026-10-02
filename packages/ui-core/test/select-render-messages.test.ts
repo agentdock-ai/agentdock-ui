@@ -1,3 +1,4 @@
+import { AGENT_EVENT_PROTOCOL_VERSION } from "@agentdock-ai/contracts";
 import { describe, expect, it } from "vitest";
 import {
   createAgentReducerState,
@@ -12,7 +13,7 @@ function event(
   input: Record<string, unknown>,
 ): AgentEvent {
   return {
-    protocolVersion: 2,
+    protocolVersion: AGENT_EVENT_PROTOCOL_VERSION,
     eventId: `event-${logicalSequence}`,
     runId,
       logicalSequence,

@@ -132,3 +132,105 @@ test("symlink destinations cannot copy source outside the app", async (t) => {
   await assert.rejects(addChat({ cwd, yes: true }), /inside the consumer/);
   assert.deepEqual(await readdir(outside), []);
 });
+test("incompatible declared dependencies fail before any files or package changes", async (t) => {
+  for (const version of ["^8.0.0", "^9.0.0", "10.0.0", "*", ">=8"]) {
+    const cwd = await fixture(t);
+    const path = join(cwd, "package.json");
+    const pkg = {
+      private: true,
+      dependencies: { ...dependencies, "react-markdown": version },
+    };
+    const original = JSON.stringify(pkg);
+    await writeFile(path, original);
+    const before = await readdir(cwd);
+    await assert.rejects(
+      addChat({ cwd, yes: true }),
+      /react-markdown.*requires \^10\.1\.0/,
+    );
+    assert.deepEqual(await readdir(cwd), before);
+    assert.equal(await readFile(path, "utf8"), original);
+  }
+});
+test("compatible versions and verified local dependencies are preserved", async (t) => {
+  const cwd = await fixture(t);
+  const pkg = {
+    private: true,
+    dependencies: {
+      ...dependencies,
+      "react-markdown": "10.1.1",
+      "@agentdock-ai/react": "workspace:*",
+    },
+  };
+  await writeFile(join(cwd, "package.json"), JSON.stringify(pkg));
+  await mkdir(join(cwd, "node_modules/@agentdock-ai/react"), {
+    recursive: true,
+  });
+  await writeFile(
+    join(cwd, "node_modules/@agentdock-ai/react/package.json"),
+    JSON.stringify({ name: "@agentdock-ai/react", version: "0.1.0" }),
+  );
+  assert.deepEqual(
+    (await addChat({ cwd, yes: true, dryRun: true })).dependencies,
+    [],
+  );
+});
+test("rejects incompatible installed versions and unverifiable local dependencies", async (t) => {
+  const cwd = await fixture(t);
+  await mkdir(join(cwd, "node_modules/react-markdown"), { recursive: true });
+  await writeFile(
+    join(cwd, "node_modules/react-markdown/package.json"),
+    JSON.stringify({ version: "8.0.7" }),
+  );
+  await assert.rejects(addChat({ cwd, dryRun: true }), /installed 8\.0\.7/);
+  await rm(join(cwd, "node_modules"), { recursive: true });
+  await writeFile(
+    join(cwd, "package.json"),
+    JSON.stringify({
+      dependencies: { ...dependencies, "react-markdown": "file:../markdown" },
+    }),
+  );
+  await assert.rejects(addChat({ cwd, dryRun: true }), /cannot be verified/);
+});
+test("detects pnpm workspaces and inherits root package-manager metadata", async (t) => {
+  for (const withLock of [false, true]) {
+    const root = await mkdtemp(join(tmpdir(), "agentdock-pnpm-"));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    const cwd = join(root, "apps/web");
+    const source = await fixture(t);
+    await mkdir(cwd, { recursive: true });
+    const { cp } = await import("node:fs/promises");
+    await cp(source, cwd, { recursive: true });
+    await writeFile(
+      join(root, "package.json"),
+      JSON.stringify({ private: true, packageManager: "pnpm@10.0.0" }),
+    );
+    await writeFile(
+      join(root, "pnpm-workspace.yaml"),
+      "packages:\n  - apps/*\n",
+    );
+    if (withLock)
+      await writeFile(join(root, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
+    await writeFile(join(root, "package-lock.json"), "{}");
+    assert.equal((await addChat({ cwd, dryRun: true })).manager, "pnpm");
+    assert.ok(!(await readdir(cwd)).includes("package-lock.json"));
+  }
+});
+test("inherits Yarn workspace lockfiles and honors explicit app package managers", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "agentdock-workspace-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const cwd = join(root, "apps/web");
+  await mkdir(cwd, { recursive: true });
+  const { cp } = await import("node:fs/promises");
+  await cp(await fixture(t), cwd, { recursive: true });
+  await writeFile(
+    join(root, "package.json"),
+    JSON.stringify({ workspaces: ["apps/*"] }),
+  );
+  await writeFile(join(root, "yarn.lock"), "# workspace\n");
+  assert.equal((await addChat({ cwd, dryRun: true })).manager, "yarn");
+  await writeFile(
+    join(cwd, "package.json"),
+    JSON.stringify({ dependencies, packageManager: "bun@1.0.0" }),
+  );
+  assert.equal((await addChat({ cwd, dryRun: true })).manager, "bun");
+});

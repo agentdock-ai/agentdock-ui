@@ -31,6 +31,11 @@ export function ToolCall({ item }: { item: RenderToolCallItem }) {
     tool.status === "complete" && typeof tool.output === "string"
       ? tool.output
       : input;
+  const progress = active
+    ? tool.progress
+        .flatMap((part) => (part.type === "text" ? [part.text] : []))
+        .at(-1)
+    : undefined;
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="min-w-0">
       <CollapsibleTrigger
@@ -68,6 +73,14 @@ export function ToolCall({ item }: { item: RenderToolCallItem }) {
           className={`shrink-0 ${open ? "rotate-90" : ""}`}
         />
       </CollapsibleTrigger>
+      {progress && (
+        <p
+          role="status"
+          className="mb-1 ml-5 line-clamp-2 text-[12px] leading-5 text-muted-foreground [overflow-wrap:anywhere]"
+        >
+          {progress}
+        </p>
+      )}
       <CollapsibleContent>
         <div className="my-2 ml-5 space-y-2.5">
           <Payload title="Parameters" value={tool.input} />

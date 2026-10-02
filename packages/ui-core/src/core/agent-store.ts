@@ -21,6 +21,8 @@ export interface AgentStoreSnapshot {
   messages: readonly AgentReducerMessage[];
   /** Raw events retained for diagnostics and replay-style debugging. */
   events: readonly AgentEvent[];
+  /** Validated events per conversation turn, including resumed invocations. */
+  turnEvents: readonly (readonly AgentEvent[])[];
   /** Render snapshots retained independently of the diagnostic event cap. */
   renderHistory: readonly RenderModel["turns"][number][];
   /** Transport lifecycle, separate from the agent run lifecycle. */
@@ -38,6 +40,7 @@ function createInitialSnapshot(): AgentStoreSnapshot {
     runs: [],
     messages: [],
     events: [],
+    turnEvents: [],
     renderHistory: [],
     streamStatus: "idle",
     streamError: null,
@@ -96,6 +99,14 @@ export class AgentStore {
       // recreated on refresh, so durable history belongs to AgentDock's
       // session/checkpoint layer rather than this browser-side snapshot.
       events: [...this.snapshot.events, event],
+      turnEvents:
+        startsNewRun || this.snapshot.turnEvents.length === 0
+          ? [...this.snapshot.turnEvents, [event]]
+          : this.snapshot.turnEvents.map((events, index) =>
+              index === this.snapshot.turnEvents.length - 1
+                ? [...events, event]
+                : events,
+            ),
     });
   }
 
@@ -151,6 +162,9 @@ export class AgentStore {
       agent: nextAgent,
       runs,
       messages: runs.flatMap((run) => run.messages),
+      turnEvents: startsNewRun
+        ? [...this.snapshot.turnEvents, []]
+        : this.snapshot.turnEvents,
     });
   }
 

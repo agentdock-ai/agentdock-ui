@@ -94,7 +94,11 @@ export function createSandboxTools(sandboxDirectory = DEFAULT_SANDBOX) {
       },
     ),
     tool(
-      async ({ command, script, args, checkOnly }, runtime) => {
+      async ({ command, script, checkOnly }, runtime) => {
+        if (checkOnly !== true)
+          throw new Error(
+            "Code execution is unavailable. Use checkOnly=true to syntax-check a script.",
+          );
         if (command !== "node")
           throw new Error("Only the node command is allowed in .sandbox.");
         const sandboxRoot = await canonicalSandboxRoot(configuredSandboxRoot);
@@ -109,25 +113,19 @@ export function createSandboxTools(sandboxDirectory = DEFAULT_SANDBOX) {
         const stat = await lstat(scriptPath);
         if (!stat.isFile() || stat.isSymbolicLink())
           throw new Error("The script must be a regular file inside .sandbox.");
-        const safeArgs = args ?? [];
-        if (safeArgs.length > 32 || safeArgs.some((arg) => arg.length > 1_000))
-          throw new Error("Too many or oversized script arguments.");
         return runNodeSandboxed({
           sandboxRoot,
           script: scriptPath,
-          args: safeArgs,
-          checkOnly: checkOnly ?? false,
           signal: runtime.signal ?? new AbortController().signal,
         });
       },
       {
         name: "run_command",
         description:
-          "Run a JavaScript file with Node inside the restricted .sandbox. The only command is node; provide a relative script path and optional script arguments. Network and child-process access are disabled, filesystem access is confined to .sandbox, and execution has a 10 second timeout. Use checkOnly=true to syntax-check without running the script.",
+          "Syntax-check a JavaScript file inside .sandbox using Node. Set command=node and checkOnly=true. Scripts are parsed without executing their code. Generated-code execution is unavailable in this playground.",
         schema: z.object({
           command: z.enum(["node"]),
           script: z.string(),
-          args: z.array(z.string()).optional(),
           checkOnly: z.boolean().optional(),
         }),
       },
@@ -214,21 +212,19 @@ function assertFileSize(content: string): void {
 interface SandboxedNodeOptions {
   sandboxRoot: string;
   script: string;
-  args: string[];
-  checkOnly: boolean;
   signal: AbortSignal;
 }
 
 async function runNodeSandboxed(
   options: SandboxedNodeOptions,
 ): Promise<JsonValue> {
-  const { sandboxRoot, script, args, checkOnly, signal } = options;
+  const { sandboxRoot, script, signal } = options;
   if (signal.aborted) throw signal.reason ?? new Error("Command cancelled.");
   const childArgs = [
     "--permission",
     `--allow-fs-read=${sandboxRoot}`,
-    `--allow-fs-write=${sandboxRoot}`,
-    ...(checkOnly ? ["--check", script] : [script, ...args]),
+    "--check",
+    script,
   ];
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawn(process.execPath, childArgs, {
@@ -243,7 +239,10 @@ async function runNodeSandboxed(
     let timedOut = false;
     let outputLimited = false;
     let forceKillTimer: ReturnType<typeof setTimeout> | undefined;
+    let terminating = false;
     const terminate = () => {
+      if (terminating) return;
+      terminating = true;
       child.kill("SIGTERM");
       forceKillTimer = setTimeout(() => child.kill("SIGKILL"), 250);
     };
@@ -279,7 +278,7 @@ async function runNodeSandboxed(
       if (forceKillTimer) clearTimeout(forceKillTimer);
       signal.removeEventListener("abort", abort);
       resolvePromise({
-        command: `node ${relative(sandboxRoot, script)}${checkOnly ? " (syntax check)" : ""}`,
+        command: `node ${relative(sandboxRoot, script)} (syntax check)`,
         exitCode:
           code ?? (timedOut || outputLimited || terminationSignal ? 1 : 0),
         stdout,

@@ -79,7 +79,7 @@ export function createChatAdapter({
 <Chat adapter={chatAdapter} />;
 ```
 
-Provide optional `cancelRun` and `respondToInterrupt` only when the consuming app supports them. Approval inputs stay opaque and are returned unchanged. Chat has no endpoint prop.
+Provide optional `cancelRun`, `respondToInterrupt`, and `continueRun` only when the consuming app supports them. `continueRun({ runId, signal })` yields canonical events for a paused run without a pending interrupt. Approval inputs stay opaque and are returned unchanged. Chat has no endpoint prop.
 
 ### Optional files and images
 
@@ -124,6 +124,8 @@ yarn fixture:verify       # Clean Vite/Radix and Next.js/Base UI consumers
 ```
 
 The playground keeps provider setup and transport in the consuming app. It supports local Ollama and server-configured OpenAI/OpenRouter credentials. The fixture review app is available with `yarn workspace @agentdock-ai/registry dev`; its controls are development harness UI.
+
+The local playground API requires its own loopback Host and Origin for mutations. Its file tools operate inside `.sandbox`; `run_command` requires `checkOnly: true` and only checks JavaScript syntax. Running generated code requires a separately isolated execution service supplied by the consuming app.
 
 [Implementation checklist](AGENTDOCK_UI_V1_CHECKLIST.md) · [Review record](AGENTDOCK_UI_V1_REVIEW.md) · [Registry](apps/registry/README.md) · [Installer](packages/cli/README.md)
 

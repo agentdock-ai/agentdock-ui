@@ -9,6 +9,7 @@ import {
   type Project,
 } from "../project-detection.js";
 import { loadRegistry } from "../shadcn-registry.js";
+import { missingDependencies, packageName } from "../dependencies.js";
 export interface AddOptions {
   cwd: string;
   dryRun?: boolean;
@@ -18,14 +19,6 @@ export interface AddOptions {
 }
 const hash = (content: string) =>
   createHash("sha256").update(content).digest("hex");
-function packageName(spec: string) {
-  return spec.startsWith("@")
-    ? spec.slice(
-        0,
-        spec.indexOf("@", 1) === -1 ? undefined : spec.indexOf("@", 1),
-      )
-    : spec.split("@")[0]!;
-}
 async function install(project: Project, dependencies: string[]) {
   if (!dependencies.length) return;
   const command = project.manager === "npm" ? "install" : "add";
@@ -104,11 +97,13 @@ export async function addChat(options: AddOptions) {
     }),
   );
   const declared = {
-    ...project.package.dependencies,
     ...project.package.devDependencies,
+    ...project.package.dependencies,
   };
-  const missing = registry.dependencies.filter(
-    (dep) => !declared[packageName(dep)],
+  const missing = await missingDependencies(
+    project.cwd,
+    registry.dependencies,
+    declared,
   );
   const conflicts = files.filter((file) => file.edited);
   let overwrite = Boolean(options.overwrite);

@@ -16,9 +16,11 @@ export function Reasoning({ text, active }: { text: string; active: boolean }) {
           icon={ChevronRight}
           size={12}
           aria-hidden="true"
-          className={`${open ? "rotate-90" : ""} ${active ? "text-primary" : ""}`}
+          className={`${open ? "rotate-90" : ""} ${active ? "text-primary motion-safe:animate-pulse" : ""}`}
         />
-        <span>{active ? "thinking" : "thoughts"}</span>
+        <span className={active ? "motion-safe:animate-pulse" : undefined}>
+          {active ? "thinking" : "thoughts"}
+        </span>
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div

@@ -13,7 +13,206 @@ async function* stream(events: readonly AgentEvent[]) {
   yield* events;
 }
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+it.each(["run.paused", "run.failed", "run.cancelled"] as const)(
+  "continues %s through the app without adding a user message",
+  async (type) => {
+    const store = new AgentStore();
+    const pause =
+      type === "run.paused"
+        ? { type, next: ["node"] }
+        : type === "run.failed"
+          ? { type, code: "retry", message: "Retry", recoverable: true }
+          : { type, recoverable: true };
+    sequence([{ type: "run.started" }, pause], "paused-run").forEach((event) =>
+      store.applyEvent(event),
+    );
+    store.setStreamStatus("closed");
+    let received: unknown;
+    const actions = createChatActions(
+      store,
+      {
+        sendMessage: () => stream([]),
+        continueRun(input) {
+          received = input;
+          return stream(
+            sequence(
+              [{ type: "run.started" }, complete("Continued")],
+              "continued-run",
+            ),
+          );
+        },
+      },
+      () => {},
+    );
+    expect(await actions.sendMessage("Wrong path")).toBe(false);
+    expect(await actions.continueRun()).toBe(true);
+    expect(received).toMatchObject({
+      runId: "paused-run",
+      signal: expect.any(AbortSignal),
+    });
+    expect(store.getSnapshot().agent.status).toBe("completed");
+    expect(
+      store.getSnapshot().messages.some((message) => message.role === "user"),
+    ).toBe(false);
+  },
+);
+it("does not invent continuation capabilities or bypass a pending interrupt", async () => {
+  const store = new AgentStore();
+  scenarios.approval.forEach((event) => store.applyEvent(event));
+  const actions = createChatActions(
+    store,
+    { sendMessage: () => stream([]) },
+    () => {},
+  );
+  expect(await actions.continueRun()).toBe(false);
+  let called = false;
+  const supported = createChatActions(
+    store,
+    {
+      sendMessage: () => stream([]),
+      continueRun() {
+        called = true;
+        return stream([]);
+      },
+    },
+    () => {},
+  );
+  expect(await supported.continueRun()).toBe(false);
+  expect(called).toBe(false);
+});
+it("keeps a failed continuation retryable and blocks overlapping attempts", async () => {
+  const store = new AgentStore();
+  sequence([
+    { type: "run.started" },
+    { type: "run.paused", next: ["node"] },
+  ]).forEach((event) => store.applyEvent(event));
+  let latest:
+    import("../src/react/chat-actions.js").ChatActionState | undefined;
+  const actions = createChatActions(
+    store,
+    {
+      sendMessage: () => stream([]),
+      continueRun() {
+        throw new Error("secret API key");
+      },
+    },
+    (state) => {
+      latest = state;
+    },
+  );
+  expect(await actions.continueRun()).toBe(false);
+  expect(latest?.actionError).toMatchObject({ scope: "continue" });
+  expect(latest?.actionError?.message).not.toContain("secret");
+  expect(store.getSnapshot().agent.status).toBe("waiting");
+  const pending = createChatActions(
+    store,
+    {
+      sendMessage: () => stream([]),
+      continueRun: () => ({
+        [Symbol.asyncIterator]: () => ({ next: () => new Promise(() => {}) }),
+      }),
+    },
+    () => {},
+  );
+  const attempt = pending.continueRun();
+  expect(await pending.continueRun()).toBe(false);
+  pending.dispose();
+  await expect(attempt).resolves.toBe(true);
+});
 describe("ChatAdapter actions", () => {
+  it.each(["success", "failure"])(
+    "targets any pending interrupt and keeps its response scoped on %s",
+    async (mode) => {
+      const store = new AgentStore();
+      sequence([
+        { type: "run.started" },
+        {
+          type: "interrupt.required",
+          interrupt: {
+            interruptId: "first",
+            kind: "custom",
+            prompt: "First",
+            actions: [],
+          },
+        },
+        {
+          type: "interrupt.required",
+          interrupt: {
+            interruptId: "second",
+            kind: "custom",
+            prompt: "Second",
+            actions: [],
+          },
+        },
+      ]).forEach((event) => store.applyEvent(event));
+      const received: unknown[] = [];
+      let state:
+        import("../src/react/chat-actions.js").ChatActionState | undefined;
+      const actions = createChatActions(
+        store,
+        {
+          sendMessage: () => stream([]),
+          respondToInterrupt(input) {
+            received.push(input.decisions);
+            if (mode === "failure") throw new Error("secret");
+            return stream(
+              sequence(
+                [
+                  {
+                    type: "interrupt.resolved",
+                    interruptId: input.interruptId,
+                    decisions: [...input.decisions],
+                  },
+                ],
+                input.runId,
+                "phase-2",
+                store.getSnapshot().agent.lastLogicalSequence,
+              ),
+            );
+          },
+        },
+        (value) => {
+          state = value;
+        },
+      );
+      expect(await actions.respondToInterrupt("second", [{ opaque: 42 }])).toBe(
+        mode === "success",
+      );
+      expect(received).toEqual([[{ opaque: 42 }]]);
+      expect(store.getSnapshot().agent.interrupts[0]?.interruptId).toBe(
+        "first",
+      );
+      if (mode === "success") {
+        expect(await actions.respondToInterrupt("second", [{}])).toBe(false);
+        expect(received).toHaveLength(1);
+      } else {
+        expect(state?.actionError?.scope).toBe("approval");
+        expect(state?.actionError?.message).toContain(
+          "decision is still pending",
+        );
+        expect(state?.actionError?.message).not.toContain("secret");
+      }
+    },
+  );
+  it("rejects approval responses after local cancellation", async () => {
+    const store = new AgentStore();
+    scenarios.approval.forEach((event) => store.applyEvent(event));
+    store.setStreamStatus("stopped");
+    let called = false;
+    const actions = createChatActions(
+      store,
+      {
+        sendMessage: () => stream([]),
+        respondToInterrupt() {
+          called = true;
+          return stream([]);
+        },
+      },
+      () => {},
+    );
+    expect(await actions.respondToInterrupt("decision-1", [{}])).toBe(false);
+    expect(called).toBe(false);
+  });
   it("sends uploaded attachments and records canonical content without synthetic events", async () => {
     const store = new AgentStore();
     const attachment: ChatAttachment = {

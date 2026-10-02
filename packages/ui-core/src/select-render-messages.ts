@@ -69,24 +69,17 @@ function emptyRunEventIndex(): RunEventIndex {
   };
 }
 
-function indexRunEvents(
-  events: readonly AgentEvent[],
-  runId: string | null,
-): RunEventIndex {
+function indexRunEvents(events: readonly AgentEvent[]): RunEventIndex {
   const index = emptyRunEventIndex();
-  if (!runId) return index;
 
   const seenEventIds = new Set<string>();
-  const runEvents = events
-    .filter((event) => event.runId === runId)
-    .filter((event) => {
-      if (seenEventIds.has(event.eventId)) return false;
-      seenEventIds.add(event.eventId);
-      return true;
-    })
-    .sort((left, right) => left.logicalSequence - right.logicalSequence);
+  const runEvents = events.filter((event) => {
+    if (seenEventIds.has(event.eventId)) return false;
+    seenEventIds.add(event.eventId);
+    return true;
+  });
 
-  for (const event of runEvents) {
+  for (const [position, event] of runEvents.entries()) {
     switch (event.type) {
       case "run.started":
         index.runStartedAt ??= event.timestamp;
@@ -94,7 +87,7 @@ function indexRunEvents(
       case "message.started":
         index.messageSequence.set(
           event.messageId,
-          index.messageSequence.get(event.messageId) ?? event.logicalSequence,
+          index.messageSequence.get(event.messageId) ?? position,
         );
         index.messageStartedAt.set(
           event.messageId,
@@ -104,7 +97,7 @@ function indexRunEvents(
       case "message.part.delta":
         index.messageSequence.set(
           event.messageId,
-          index.messageSequence.get(event.messageId) ?? event.logicalSequence,
+          index.messageSequence.get(event.messageId) ?? position,
         );
         index.messageStartedAt.set(
           event.messageId,
@@ -121,15 +114,14 @@ function indexRunEvents(
         index.completedMessages.add(event.messageId);
         index.messageSequence.set(
           event.messageId,
-          index.messageSequence.get(event.messageId) ?? event.logicalSequence,
+          index.messageSequence.get(event.messageId) ?? position,
         );
         index.messageCompletedAt.set(event.messageId, event.timestamp);
         break;
       case "tool.called":
         index.toolSequence.set(
           event.toolCall.toolCallId,
-          index.toolSequence.get(event.toolCall.toolCallId) ??
-            event.logicalSequence,
+          index.toolSequence.get(event.toolCall.toolCallId) ?? position,
         );
         index.toolStartedAt.set(
           event.toolCall.toolCallId,
@@ -395,7 +387,7 @@ function renderRun(
   events: readonly AgentEvent[],
   runIndex: number,
 ): RenderTurn {
-  const index = indexRunEvents(events, run.runId);
+  const index = indexRunEvents(events);
   const approval = run.interrupt
     ? buildApproval(index, run.interrupt.interruptId)
     : run.interruptResolution
@@ -568,7 +560,7 @@ function renderRun(
     sessionId: run.threadId,
     state,
     messages,
-    items: projectTurnItems(run, events),
+    items: projectTurnItems(run, events, true),
     usage: run.usage,
     limit: run.limit,
     finishReason: run.finishReason,
@@ -743,6 +735,7 @@ function mergeRenderTurn(
 export function selectRenderModel({
   runs,
   events,
+  turnEvents,
   history = [],
   streamStatus = "idle",
   streamError = null,
@@ -753,7 +746,12 @@ export function selectRenderModel({
       .map((turn) => [turn.runId, turn] as const),
   );
   const turns = runs.map((run, index) => {
-    const current = renderRun(run, events, index);
+    const current = renderRun(
+      run,
+      turnEvents?.[index] ??
+        events.filter((event) => event.runId === run.runId),
+      index,
+    );
     const historical =
       current.runId === null ? undefined : historicalById.get(current.runId);
     const turn = historical ? mergeRenderTurn(historical, current) : current;

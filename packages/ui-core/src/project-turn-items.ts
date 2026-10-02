@@ -18,13 +18,14 @@ import { reconcileBlocks } from "./reconcile-blocks.js";
 export function projectTurnItems(
   run: AgentReducerState,
   events: readonly AgentEvent[],
+  includesPreviousInvocations = false,
 ): RenderTurnItem[] {
-  const accepted = new Set(run.eventIds);
   const seen = new Set<string>();
+  // The canonical eventIds list is a bounded replay window, not transcript history.
+  // Store events have already passed the canonical reducer before reaching this projection.
   const source = events.filter(
     (e) =>
-      e.runId === run.runId &&
-      accepted.has(e.eventId) &&
+      (includesPreviousInvocations || e.runId === run.runId) &&
       !seen.has(e.eventId) &&
       !!seen.add(e.eventId),
   );
@@ -136,8 +137,7 @@ export function projectTurnItems(
     }
   }
 
-  for (const event of source) {
-    const p = event.logicalSequence;
+  for (const [p, event] of source.entries()) {
     switch (event.type) {
       case "message.part.delta": {
         const role =
@@ -365,6 +365,7 @@ export function projectTurnItems(
       case "message.started":
       case "usage.updated":
       case "run.cancelled":
+      case "run.paused":
         break;
     }
   }
