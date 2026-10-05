@@ -1,21 +1,14 @@
 <div align="center">
-  <table>
-    <tr>
-      <td align="center" bgcolor="#111827">
-        <img src="./assets/agentdock-logo.png" alt="Agentdock" width="460" />
-      </td>
-    </tr>
-  </table>
+  <p><img src="./assets/agentdock-logo.png" alt="Agentdock" width="320" /></p>
 
-  <h1>React UI for Agentdock agents</h1>
+  <h1>Composable chat UI for Agentdock</h1>
 
   <p>
-    Build a production chat experience for Agentdock with typed event streams,
-    tool activity, run state, and composable React primitives.
+    Build polished agent experiences with a typed React runtime and editable,
+    installable chat components powered by Agentdock's event protocol.
   </p>
 
   <p>
-    <a href="https://www.npmjs.com/package/@agentdock-ai/react"><img alt="npm version" src="https://img.shields.io/npm/v/@agentdock-ai/react?logo=npm&label=npm" /></a>
     <a href="https://github.com/agentdock-ai/agentdock-ui"><img alt="License MIT" src="https://img.shields.io/badge/license-MIT-111827" /></a>
     <img alt="Node.js 22+" src="https://img.shields.io/badge/Node.js-22%2B-339933?logo=node.js&logoColor=white" />
     <img alt="TypeScript 5.8+" src="https://img.shields.io/badge/TypeScript-5.8%2B-3178C6?logo=typescript&logoColor=white" />
@@ -23,7 +16,7 @@
   </p>
 </div>
 
-Agentdock UI is a compact, editable chat panel backed by the canonical Agentdock event contract. `@agentdock-ai/react` supplies the headless store, provider, hooks and adapter types. Styled components are copied into your application from the registry.
+Agentdock UI pairs `@agentdock-ai/react`—a headless store, provider, hooks, and adapter types—with chat components the CLI installs directly into your app, so you can shape the interface to your product. Your app keeps control of requests, authentication, and transport while the UI consumes canonical Agentdock events.
 
 ## Install Chat
 
