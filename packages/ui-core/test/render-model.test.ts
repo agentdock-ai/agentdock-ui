@@ -1,575 +1,593 @@
-import { AGENT_EVENT_PROTOCOL_VERSION } from "@agentdock-ai/contracts";
 import { describe, expect, it } from "vitest";
 import {
   createAgentReducerState,
   reduceAgentEvents,
-  type AgentEvent,
-  type AgentReducerState,
+  type AgentEventInput,
   type ContentPart,
 } from "@agentdock-ai/contracts";
+import { AgentStore } from "../src/core/agent-store.js";
+import { selectRenderModel } from "../src/select-render-model.js";
 import {
-  selectRenderMessages,
-  selectRenderModel,
-} from "../src/select-render-messages.js";
+  call,
+  intro,
+  scenarios,
+  sequence,
+  text,
+  complete,
+} from "../../../scripts/fixtures/events.js";
 
-const runId = "run-1";
-
-function event(
-  logicalSequence: number,
-  input: Record<string, unknown>,
-  options: { eventId?: string; runId?: string } = {},
-): AgentEvent {
-  return {
-    protocolVersion: AGENT_EVENT_PROTOCOL_VERSION,
-    eventId: options.eventId ?? `event-${logicalSequence}`,
-    runId: options.runId ?? runId,
-    logicalSequence,
-    phaseId: "phase-1",
-    sequence: logicalSequence,
-    timestamp: `2026-09-19T00:00:${String(logicalSequence).padStart(2, "0")}.000Z`,
-    ...input,
-  } as AgentEvent;
-}
-
-function stateFor(events: readonly AgentEvent[]): AgentReducerState {
-  return reduceAgentEvents(events);
-}
-
-function startedMessageEvents(parts: ContentPart[] = [{ type: "text", text: "Hello" }]): AgentEvent[] {
-  return [
-    event(1, { type: "run.started" }),
-    event(2, { type: "message.started", messageId: "assistant-1", role: "assistant" }),
-    ...parts.map((part, index) =>
-      event(3 + index, {
-        type: "message.part.delta",
-        messageId: "assistant-1",
-        part,
-      }),
-    ),
-  ];
-}
-
-describe("ui-core render model", () => {
-  it("keeps text streaming in one stable assistant message and normalizes completed history", () => {
-    const streamingEvents = [
-      event(1, { type: "run.started" }),
-      event(2, { type: "message.started", messageId: "assistant-1", role: "assistant" }),
-      event(3, { type: "message.part.delta", messageId: "assistant-1", part: { type: "text", text: "Hel" } }),
-      event(4, { type: "message.part.delta", messageId: "assistant-1", part: { type: "text", text: "lo" } }),
-    ];
-    const streamingState = stateFor(streamingEvents);
-    const streaming = selectRenderMessages({ runs: [streamingState], events: streamingEvents });
-
-    expect(streaming).toHaveLength(1);
-    expect(streaming[0]).toMatchObject({
-      id: "assistant-1",
-      runId,
-      role: "assistant",
-      state: "streaming",
-      content: [{ type: "text", text: "Hello" }],
-    });
-
-    const completedEvents = [
-      ...streamingEvents,
-      event(5, {
-        type: "message.completed",
-        messageId: "assistant-1",
-        role: "assistant",
-        content: [{ type: "text", text: "Hello" }],
-      }),
-      event(6, {
-        type: "run.completed",
-        finishReason: "stop",
-        content: [{ type: "text", text: "Hello" }],
-      }),
-    ];
-    const completed = selectRenderMessages({
-      runs: [stateFor(completedEvents)],
-      events: completedEvents,
-    });
-
-    expect(completed).toHaveLength(1);
-    expect(completed[0]).toMatchObject({ id: "assistant-1", state: "complete" });
-    expect(completed[0]?.content).toEqual([{ type: "text", text: "Hello" }]);
+function model(
+  inputs: readonly AgentEventInput[],
+  streamStatus:
+    "idle" | "consuming" | "closed" | "stopped" | "error" = "consuming",
+) {
+  const events = sequence([...inputs]);
+  return selectRenderModel({
+    runs: [reduceAgentEvents(events)],
+    turnEvents: [events],
+    streamStatus,
   });
+}
+function items(inputs: readonly AgentEventInput[]) {
+  return model(inputs).turns[0]!.items;
+}
 
-  it("separates reasoning from assistant text while retaining timing", () => {
-    const events = [
-      ...startedMessageEvents([
-        { type: "reasoning", text: "First " },
-        { type: "reasoning", text: "think." },
-        { type: "text", text: "Answer" },
-      ]),
-      event(6, {
+const approval: AgentEventInput = {
+  type: "interrupt.required",
+  interrupt: {
+    kind: "tool-approval",
+    interruptId: "approve",
+    prompt: "Allow deletion?",
+    actions: [
+      { id: "allow", toolCallId: call.toolCallId, name: "Allow", input: true },
+    ],
+  },
+};
+
+describe("ordered render model", () => {
+  it("keeps streamed text and completion at a stable location", () => {
+    const inputs = [...intro, text("Hel"), text("lo")];
+    const streaming = items(inputs);
+    const completed = items([
+      ...inputs,
+      {
         type: "message.completed",
-        messageId: "assistant-1",
+        messageId: "answer",
         role: "assistant",
-        content: [
-          { type: "reasoning", text: "First think." },
+        content: [{ type: "text", text: "Hello" }],
+      },
+      complete("Hello"),
+    ]);
+    expect(streaming).toMatchObject([
+      {
+        type: "message",
+        state: "streaming",
+        blocks: [{ type: "text", text: "Hello" }],
+      },
+    ]);
+    expect(completed).toMatchObject([
+      { id: streaming[0]!.id, state: "complete", blocks: [{ text: "Hello" }] },
+    ]);
+  });
+  it("keeps reasoning with its original timing when the final answer omits it", () => {
+    const result = items([
+      ...intro,
+      {
+        type: "message.part.delta",
+        messageId: "answer",
+        part: { type: "reasoning", text: "Think" },
+      },
+      text("Answer"),
+      {
+        type: "message.completed",
+        messageId: "answer",
+        role: "assistant",
+        content: [{ type: "text", text: "Answer" }],
+      },
+    ]);
+    expect(result).toMatchObject([
+      {
+        blocks: [
+          {
+            type: "reasoning",
+            text: "Think",
+            state: "complete",
+            startedAt: expect.any(String),
+            completedAt: expect.any(String),
+          },
           { type: "text", text: "Answer" },
         ],
-      }),
-    ];
-    const message = selectRenderMessages({ runs: [stateFor(events)], events })[0];
-
-    expect(message).toMatchObject({
-      state: "complete",
-      content: [{ type: "text", text: "Answer" }],
-      reasoning: {
-        text: "First think.",
-        state: "complete",
-        startedAt: "2026-09-19T00:00:03.000Z",
-        completedAt: "2026-09-19T00:00:06.000Z",
       },
-    });
-  });
-
-  it("projects a completed tool once and keeps progress before its result", () => {
-    const call = {
-      toolCallId: "tool-1",
-      name: "create_file",
-      input: { path: "hello.txt" },
-    };
-    const events = [
-      event(1, { type: "run.started" }),
-      event(2, { type: "tool.called", toolCall: call }),
-      event(3, { type: "tool.progress", toolCallId: call.toolCallId, content: [{ type: "text", text: "Writing" }] }),
-      event(4, { type: "tool.progress", toolCallId: call.toolCallId, content: [{ type: "text", text: " done" }] }),
-      event(5, { type: "tool.completed", result: { ...call, output: { path: "hello.txt" } } }),
-    ];
-    const message = selectRenderMessages({ runs: [stateFor(events)], events })[0];
-
-    expect(message).toMatchObject({
-      id: "tool-run-1-tool-1",
-      role: "tool",
-      state: "complete",
-      tool: {
-        toolCallId: "tool-1",
-        status: "complete",
-        progress: [
-          { type: "text", text: "Writing" },
-          { type: "text", text: " done" },
-        ],
-        output: { path: "hello.txt" },
-      },
-    });
-    expect(selectRenderMessages({ runs: [stateFor(events)], events })).toHaveLength(1);
-  });
-
-  it("marks tool.completed with isError and tool.failed as failed states", () => {
-    const errorResultCall = { toolCallId: "tool-error-result", name: "read_file", input: {} };
-    const failedCall = { toolCallId: "tool-failed", name: "write_file", input: {} };
-    const events = [
-      event(1, { type: "run.started" }),
-      event(2, { type: "tool.called", toolCall: errorResultCall }),
-      event(3, { type: "tool.completed", result: { ...errorResultCall, output: "permission denied", isError: true } }),
-      event(4, { type: "tool.called", toolCall: failedCall }),
-      event(5, { type: "tool.failed", error: { ...failedCall, error: "timed out", code: "TIMEOUT" } }),
-    ];
-    const messages = selectRenderMessages({ runs: [stateFor(events)], events });
-
-    expect(messages.map((message) => message.tool?.status)).toEqual(["failed", "failed"]);
-    expect(messages[0]?.tool).toMatchObject({ error: "permission denied", output: "permission denied" });
-    expect(messages[1]?.tool).toMatchObject({ error: "timed out", errorCode: "TIMEOUT" });
-  });
-
-  it("keeps multiple ordered tool calls at one location each without duplicate output", () => {
-    const calls = [
-      { toolCallId: "tool-1", name: "first", input: {} },
-      { toolCallId: "tool-2", name: "second", input: {} },
-      { toolCallId: "tool-3", name: "third", input: {} },
-    ];
-    const events = [
-      event(1, { type: "run.started" }),
-      ...calls.flatMap((call, index) => [
-        event(2 + index * 2, { type: "tool.called", toolCall: call }),
-        event(3 + index * 2, { type: "tool.completed", result: { ...call, output: { index } } }),
-      ]),
-    ];
-    const messages = selectRenderMessages({ runs: [stateFor(events)], events });
-
-    expect(messages.map((message) => message.id)).toEqual([
-      "tool-run-1-tool-1",
-      "tool-run-1-tool-2",
-      "tool-run-1-tool-3",
     ]);
-    expect(messages.map((message) => message.tool?.output)).toEqual([
-      { index: 0 },
-      { index: 1 },
-      { index: 2 },
-    ]);
-    expect(new Set(messages.map((message) => message.id)).size).toBe(3);
   });
-
-  it("projects tool approval and resolution without changing the tool ID", () => {
-    const call = { toolCallId: "tool-approval", name: "delete_file", input: { path: "x" } };
-    const required = {
-      kind: "tool-approval" as const,
-      interruptId: "interrupt-1",
-      prompt: "Allow deletion?",
-      actions: [
+  it("preserves progress, output and tool timing without duplicate items", () => {
+    expect(
+      items([
+        { type: "run.started" },
+        { type: "tool.called", toolCall: call },
         {
-          id: "tool-approval",
-          toolCallId: "tool-approval",
-          name: "delete_file",
-          input: { path: "x" },
+          type: "tool.progress",
+          toolCallId: call.toolCallId,
+          content: [{ type: "text", text: "Writing" }],
         },
-      ],
-    };
-    const pendingEvents = [
-      event(1, { type: "run.started" }),
-      event(2, { type: "tool.called", toolCall: call }),
-      event(3, { type: "interrupt.required", interrupt: required }),
-    ];
-    const pending = selectRenderMessages({ runs: [stateFor(pendingEvents)], events: pendingEvents })[0];
-    expect(pending).toMatchObject({
-      id: "tool-run-1-tool-approval",
-      tool: { status: "approval" },
-      approval: {
-        interruptId: "interrupt-1",
-        kind: "tool-approval",
-        state: "pending",
-        actions: [{ id: "tool-approval", toolCallId: "tool-approval" }],
+        { type: "tool.completed", result: { ...call, output: { ok: true } } },
+      ]),
+    ).toMatchObject([
+      {
+        type: "tool-call",
+        active: false,
+        tool: {
+          status: "complete",
+          progress: [{ text: "Writing" }],
+          output: { ok: true },
+          startedAt: expect.any(String),
+          completedAt: expect.any(String),
+        },
       },
-    });
-
-    const resolvedEvents = [
-      ...pendingEvents,
-      event(4, { type: "interrupt.resolved", interruptId: "interrupt-1", decisions: [{ approved: true }] }),
-    ];
-    const resolved = selectRenderMessages({ runs: [stateFor(resolvedEvents)], events: resolvedEvents })[0];
-    expect(resolved?.id).toBe(pending?.id);
-    expect(resolved?.approval).toMatchObject({ state: "resolved", decisions: [{ approved: true }] });
+    ]);
   });
-
-  it("renders one resolved approval after the approved tool completes", () => {
-    const call = { toolCallId: "tool-resolved", name: "delete_file", input: { path: "x" } };
-    const events = [
-      event(1, { type: "run.started" }),
-      event(2, { type: "tool.called", toolCall: call }),
-      event(3, {
-        type: "interrupt.required",
-        interrupt: {
-          kind: "tool-approval",
-          interruptId: "resolved-approval",
-          prompt: "Allow deletion?",
-          actions: [
-            {
-              id: "tool-resolved",
-              toolCallId: "tool-resolved",
-              name: "delete_file",
-              input: true,
-            },
-          ],
+  it.each(["result", "failed"] as const)(
+    "retains error details from a tool %s",
+    (kind) => {
+      const end: AgentEventInput =
+        kind === "result"
+          ? {
+              type: "tool.completed",
+              result: { ...call, isError: true, output: "permission denied" },
+            }
+          : {
+              type: "tool.failed",
+              error: { ...call, error: "timed out", code: "TIMEOUT" },
+            };
+      const result = items([
+        { type: "run.started" },
+        { type: "tool.called", toolCall: call },
+        end,
+      ]);
+      expect(result).toMatchObject([
+        {
+          type: "tool-call",
+          tool: {
+            status: "failed",
+            error: kind === "result" ? "permission denied" : "timed out",
+          },
         },
-      }),
-      event(4, {
-        type: "interrupt.resolved",
-        interruptId: "resolved-approval",
-        decisions: [{ approved: true }],
-      }),
-      event(5, { type: "tool.completed", result: { ...call, output: { deleted: true } } }),
-      event(6, { type: "run.completed", finishReason: "stop", content: [] }),
+      ]);
+    },
+  );
+  it("keeps a single approval card associated with its tool through resolution", () => {
+    const inputs: AgentEventInput[] = [
+      { type: "run.started" },
+      { type: "tool.called", toolCall: call },
+      approval,
     ];
-    const messages = selectRenderMessages({ runs: [stateFor(events)], events });
-
-    expect(messages.filter((message) => message.approval)).toHaveLength(1);
-    expect(messages[0]).toMatchObject({
-      tool: { toolCallId: "tool-resolved", status: "complete" },
-      approval: { interruptId: "resolved-approval", state: "resolved" },
-    });
+    const pending = items(inputs);
+    const resolved = items([
+      ...inputs,
+      { type: "interrupt.resolved", interruptId: "approve", decisions: [true] },
+      { type: "tool.completed", result: { ...call, output: "done" } },
+    ]);
+    expect(pending).toMatchObject([
+      { type: "tool-call", tool: { status: "approval" } },
+      { type: "approval", approval: { state: "pending" } },
+    ]);
+    expect(resolved).toMatchObject([
+      { id: pending[0]!.id, tool: { status: "complete" } },
+      {
+        id: pending[1]!.id,
+        approval: { state: "resolved", decisions: [true] },
+      },
+    ]);
   });
-
-  it("renders one standalone resolved approval when its tool cannot be identified", () => {
-    const calls = [
-      { toolCallId: "tool-a", name: "first", input: {} },
-      { toolCallId: "tool-b", name: "second", input: {} },
-    ];
-    const events = [
-      event(1, { type: "run.started" }),
-      event(2, { type: "tool.called", toolCall: calls[0]! }),
-      event(3, { type: "tool.called", toolCall: calls[1]! }),
-      event(4, {
-        type: "interrupt.required",
-        interrupt: {
-          kind: "tool-approval",
-          interruptId: "ambiguous-resolved-approval",
-          prompt: "Choose which action to allow.",
-          actions: [
-            {
-              id: "allow",
-              toolCallId: "missing-tool-call",
-              name: "Allow",
-              input: true,
-            },
-          ],
+  it("keeps custom approvals and opaque inputs unchanged", () => {
+    const input = { target: ["staging", "production"] };
+    expect(
+      items([
+        { type: "run.started" },
+        {
+          type: "interrupt.required",
+          interrupt: {
+            kind: "custom",
+            interruptId: "custom",
+            prompt: "Choose",
+            actions: [{ id: "select", name: "Choose", input }],
+            payload: input,
+          },
         },
-      }),
-      event(5, {
-        type: "interrupt.resolved",
-        interruptId: "ambiguous-resolved-approval",
-        decisions: [{ approved: true }],
-      }),
-      event(6, { type: "tool.completed", result: { ...calls[0]!, output: { ok: true } } }),
-      event(7, { type: "tool.completed", result: { ...calls[1]!, output: { ok: true } } }),
-    ];
-    const messages = selectRenderMessages({ runs: [stateFor(events)], events });
-
-    expect(messages.filter((message) => message.approval)).toHaveLength(1);
-    expect(messages.filter((message) => message.tool?.status === "approval")).toHaveLength(0);
-    expect(messages.find((message) => message.approval)).toMatchObject({
-      id: "interrupt-run-1-ambiguous-resolved-approval",
-      approval: { state: "resolved" },
-    });
-  });
-
-  it("renders a stable custom interrupt fallback", () => {
-    const events = [
-      event(1, { type: "run.started" }),
-      event(2, {
-        type: "interrupt.required",
-        interrupt: {
+      ]),
+    ).toMatchObject([
+      {
+        type: "approval",
+        approval: {
           kind: "custom",
-          interruptId: "custom-1",
-          prompt: "Choose a deployment target.",
-          actions: [{ id: "staging", name: "Use staging", input: "staging" }],
-          payload: { options: ["staging", "production"] },
+          detail: "Choose",
+          actions: [{ input }],
+          payload: input,
         },
-      }),
-    ];
-    const messages = selectRenderMessages({ runs: [stateFor(events)], events });
-
-    expect(messages).toHaveLength(1);
-    expect(messages[0]).toMatchObject({
-      id: "interrupt-run-1-custom-1",
-      role: "assistant",
-      state: "streaming",
-      approval: {
-        kind: "custom",
-        state: "pending",
-        detail: "Choose a deployment target.",
-        payload: { options: ["staging", "production"] },
       },
-    });
+    ]);
   });
-
-  it("keeps partial content visible for completion, failure, and cancellation", () => {
-    const completedEvents = [
-      ...startedMessageEvents([{ type: "text", text: "done" }]),
-      event(4, { type: "run.completed", finishReason: "stop", content: [] }),
-    ];
-    const failedEvents = [
-      ...startedMessageEvents([{ type: "text", text: "partial" }]),
-      event(4, { type: "run.failed", code: "MODEL_ERROR", message: "Model failed." }),
-    ];
-    const cancelledEvents = [
-      ...startedMessageEvents([{ type: "text", text: "cancelled partial" }]),
-      event(4, { type: "run.cancelled", reason: "user requested stop" }),
-    ];
-
-    expect(selectRenderModel({ runs: [stateFor(completedEvents)], events: completedEvents }).turns[0]).toMatchObject({ state: "completed" });
-    expect(selectRenderMessages({ runs: [stateFor(failedEvents)], events: failedEvents })[0]).toMatchObject({
-      state: "error",
-      content: [{ type: "text", text: "partial" }],
-      error: { scope: "run", code: "MODEL_ERROR", detail: "Model failed." },
+  it.each(["completed", "failed", "cancelled"] as const)(
+    "preserves partial content on run.%s",
+    (kind) => {
+      const end: AgentEventInput =
+        kind === "completed"
+          ? { type: "run.completed", finishReason: "stop", content: [] }
+          : kind === "failed"
+            ? {
+                type: "run.failed",
+                code: "MODEL_ERROR",
+                message: "Model failed",
+              }
+            : { type: "run.cancelled", reason: "User stopped" };
+      const turn = model([...intro, text("Partial"), end]).turns[0]!;
+      expect(turn.state).toBe(kind === "cancelled" ? "stopped" : kind);
+      expect(turn.items[0]).toMatchObject({
+        blocks: [{ text: "Partial" }],
+        state:
+          kind === "completed"
+            ? "complete"
+            : kind === "cancelled"
+              ? "stopped"
+              : "error",
+      });
+      if (kind === "failed")
+        expect(turn.error).toMatchObject({
+          code: "MODEL_ERROR",
+          detail: "Model failed",
+          scope: "run",
+        });
+      if (kind === "cancelled")
+        expect(turn.cancellationReason).toBe("User stopped");
+    },
+  );
+  it.each(["closed", "error", "stopped"] as const)(
+    "stops activity on transport %s without changing canonical lifecycle",
+    (status) => {
+      const turn = model(
+        [...intro, text("Partial"), { type: "tool.called", toolCall: call }],
+        status,
+      ).turns[0]!;
+      expect(turn.state).toBe("running");
+      expect(turn.items).toMatchObject([
+        { state: "stopped" },
+        { active: false },
+      ]);
+    },
+  );
+  it("keeps transport errors separate from completed run state", () => {
+    const result = model(
+      [...intro, text("History"), complete("History")],
+      "error",
+    );
+    expect(result.transportError).toMatchObject({
+      scope: "transport",
+      retryable: false,
     });
-    expect(selectRenderMessages({ runs: [stateFor(cancelledEvents)], events: cancelledEvents })[0]).toMatchObject({
-      state: "stopped",
-      content: [{ type: "text", text: "cancelled partial" }],
-    });
+    expect(result.turns[0]).toMatchObject({ state: "completed" });
+    expect(result.turns[0]!.error).toBeUndefined();
   });
-
-  it("keeps transport errors separate from run failures", () => {
-    const completedEvents = [
-      ...startedMessageEvents([{ type: "text", text: "history" }]),
-      event(4, { type: "run.completed", finishReason: "stop", content: [] }),
-    ];
-    const model = selectRenderModel({
-      runs: [stateFor(completedEvents)],
-      events: completedEvents,
-      streamStatus: "error",
-      streamError: new Error("Connection dropped."),
-    });
-
-    expect(model.transportError).toMatchObject({ scope: "transport", detail: "The connection ended unexpectedly. Your messages are still here." });
-    expect(model.turns[0]?.error).toBeUndefined();
-    expect(model.turns[0]?.state).toBe("completed");
-  });
-
-  it("deduplicates replayed event IDs and preserves chronological turns", () => {
-    const firstRun = [
-      event(1, { type: "run.started" }, { eventId: "first-start", runId: "run-1" }),
-      event(2, { type: "message.started", messageId: "first-message", role: "assistant" }, { eventId: "first-message-start", runId: "run-1" }),
-      event(3, { type: "message.part.delta", messageId: "first-message", part: { type: "text", text: "one" } }, { eventId: "first-delta", runId: "run-1" }),
-      event(4, { type: "run.completed", finishReason: "stop", content: [] }, { eventId: "first-complete", runId: "run-1" }),
-    ];
-    const secondRun = [
-      event(1, { type: "run.started" }, { eventId: "second-start", runId: "run-2" }),
-      event(2, { type: "message.started", messageId: "second-message", role: "assistant" }, { eventId: "second-message-start", runId: "run-2" }),
-      event(3, { type: "message.part.delta", messageId: "second-message", part: { type: "text", text: "two" } }, { eventId: "second-delta", runId: "run-2" }),
-      event(4, { type: "run.completed", finishReason: "stop", content: [] }, { eventId: "second-complete", runId: "run-2" }),
-    ];
-    const replayed = [...firstRun, firstRun[2]!, ...secondRun];
-    const model = selectRenderModel({
-      runs: [stateFor(firstRun), stateFor(secondRun)],
-      events: replayed,
-    });
-
-    expect(model.turns.map((turn) => turn.runId)).toEqual(["run-1", "run-2"]);
-    expect(model.messages.map((message) => message.id)).toEqual(["first-message", "second-message"]);
-    expect(model.messages[0]?.content).toEqual([{ type: "text", text: "one" }]);
-  });
-
-  it("preserves every typed content part, including a safe custom fallback", () => {
+  it("preserves every typed content block", () => {
     const content: ContentPart[] = [
-      { type: "image", url: "https://example.test/image.png", mimeType: "image/png" },
-      { type: "audio", data: "audio-data", mimeType: "audio/mpeg" },
-      { type: "video", fileId: "video-1", mimeType: "video/mp4" },
-      { type: "file", url: "https://example.test/file.txt", name: "file.txt", mimeType: "text/plain" },
+      {
+        type: "image",
+        url: "https://example.test/image.png",
+        mimeType: "image/png",
+      },
+      { type: "audio", data: "audio", mimeType: "audio/mpeg" },
+      { type: "video", fileId: "video", mimeType: "video/mp4" },
+      {
+        type: "file",
+        url: "https://example.test/file.txt",
+        name: "file.txt",
+        mimeType: "text/plain",
+      },
       { type: "citation", url: "https://example.test/source", title: "Source" },
       { type: "custom", name: "chart", data: { value: 42 } },
     ];
-    const events = [
-      event(1, { type: "run.started" }),
-      event(2, { type: "message.started", messageId: "assistant-typed", role: "assistant" }),
-      ...content.map((part, index) => event(3 + index, { type: "message.part.delta", messageId: "assistant-typed", part })),
-    ];
-    const message = selectRenderMessages({ runs: [stateFor(events)], events })[0];
-
-    expect(message?.content).toEqual(content);
-    expect(message?.content.map((part) => part.type)).toEqual([
-      "image",
-      "audio",
-      "video",
-      "file",
-      "citation",
-      "custom",
+    const result = items([
+      ...intro,
+      ...content.map((part): AgentEventInput => ({
+        type: "message.part.delta",
+        messageId: "answer",
+        part,
+      })),
     ]);
+    expect(result).toMatchObject([{ blocks: content }]);
   });
-
-  it("projects usage and final run content onto the turn", () => {
-    const finalContent: ContentPart[] = [{ type: "text", text: "Final answer" }];
-    const events = [
-      event(1, { type: "run.started" }),
-      event(2, { type: "usage.updated", usage: { inputTokens: 4, outputTokens: 8, totalTokens: 12 } }),
-      event(3, { type: "run.completed", finishReason: "stop", content: finalContent, usage: { totalTokens: 12 } }),
-    ];
-    const model = selectRenderModel({ runs: [stateFor(events)], events });
-
-    expect(model.turns[0]).toMatchObject({
+  it("projects final-only content and usage onto the turn", () => {
+    expect(
+      model([
+        { type: "run.started" },
+        {
+          type: "usage.updated",
+          usage: { inputTokens: 4, outputTokens: 8, totalTokens: 12 },
+        },
+        complete("Final answer"),
+      ]).turns[0],
+    ).toMatchObject({
       state: "completed",
       finishReason: "stop",
       usage: { totalTokens: 12 },
-      messages: [{ id: "run-content-run-1", content: finalContent, state: "complete" }],
+      startedAt: expect.any(String),
+      completedAt: expect.any(String),
+      items: [{ type: "message", blocks: [{ text: "Final answer" }] }],
     });
   });
-
-  it("does not duplicate a tool when run.completed repeats tool protocol parts", () => {
-    const call = { toolCallId: "tool-final", name: "create_file", input: { path: "x" } };
-    const toolContent: ContentPart[] = [
-      { type: "tool-call", toolCall: call },
-      { type: "tool-result", result: { ...call, output: { ok: true } } },
-    ];
-    const events = [
-      event(1, { type: "run.started" }),
-      event(2, { type: "tool.called", toolCall: call }),
-      event(3, { type: "tool.completed", result: { ...call, output: { ok: true } } }),
-      event(4, { type: "run.completed", finishReason: "stop", content: toolContent }),
-    ];
-    const messages = selectRenderMessages({ runs: [stateFor(events)], events });
-
-    expect(messages).toHaveLength(1);
-    expect(messages[0]?.role).toBe("tool");
-    expect(messages[0]?.tool?.output).toEqual({ ok: true });
-    expect(messages.some((message) => message.id.startsWith("run-content-"))).toBe(false);
+  it("keeps transcript data when diagnostic events are evicted", () => {
+    const store = new AgentStore();
+    scenarios.tools.forEach((event) => store.applyEvent(event));
+    const snapshot = store.getSnapshot();
+    const result = selectRenderModel({
+      runs: snapshot.runs,
+      turnEvents: snapshot.turnEvents,
+      streamStatus: snapshot.streamStatus,
+    });
+    expect(result).toEqual(snapshot.renderModel);
+    expect(result.turns[0]!.items.map((item) => item.type)).toEqual([
+      "message",
+      "tool-timeline",
+      "message",
+    ]);
   });
+  it("requires an event history for each turn", () => {
+    expect(() =>
+      selectRenderModel({ runs: [createAgentReducerState()], turnEvents: [] }),
+    ).toThrow("Each run must have a corresponding turn event history");
+  });
+  it("never exposes a second flat transcript on the store or render model", () => {
+    const store = new AgentStore();
+    store.appendUserMessage("Hello");
+    expect(store.getSnapshot()).not.toHaveProperty("messages");
+    expect(store.getSnapshot().renderModel).not.toHaveProperty("messages");
+    expect(store.getSnapshot().renderModel.turns[0]).not.toHaveProperty(
+      "messages",
+    );
+  });
+});
 
-  it("renders ambiguous tool approval at the turn level instead of guessing a tool", () => {
-    const calls = [
-      { toolCallId: "tool-a", name: "first", input: {} },
-      { toolCallId: "tool-b", name: "second", input: {} },
-    ];
-    const events = [
-      event(1, { type: "run.started" }),
-      event(2, { type: "tool.called", toolCall: calls[0]! }),
-      event(3, { type: "tool.called", toolCall: calls[1]! }),
-      event(4, {
-        type: "interrupt.required",
-        interrupt: {
-          kind: "tool-approval",
-          interruptId: "ambiguous-approval",
-          prompt: "Choose which action to allow.",
-          actions: [
-            {
-              id: "allow",
-              toolCallId: "tool-history",
-              name: "delete_file",
-              input: true,
-            },
-          ],
+it.each([
+  [{ error: "denied" }, "denied"],
+  [{ message: "unavailable" }, "unavailable"],
+  [{ status: "failed" }, "The tool could not complete."],
+  [null, "The tool could not complete."],
+] as const)("preserves a structured tool error %j", (output, detail) => {
+  expect(
+    items([
+      { type: "run.started" },
+      { type: "tool.called", toolCall: call },
+      { type: "tool.completed", result: { ...call, isError: true, output } },
+    ]),
+  ).toMatchObject([{ tool: { status: "failed", error: detail } }]);
+});
+it("places a linked approval after its tool and groups remaining consecutive calls", () => {
+  const calls = [
+    call,
+    { ...call, toolCallId: "second" },
+    { ...call, toolCallId: "third" },
+    { ...call, toolCallId: "fourth" },
+  ];
+  const turn = model(
+    [
+      { type: "run.started" },
+      ...calls.map((toolCall): AgentEventInput => ({
+        type: "tool.called",
+        toolCall,
+      })),
+      approval,
+    ],
+    "closed",
+  ).turns[0]!;
+  expect(turn.items.map((item) => item.type)).toEqual([
+    "tool-call",
+    "approval",
+    "tool-timeline",
+  ]);
+  expect(turn.items[2]).toMatchObject({
+    tools: [{ active: false }, { active: false }, { active: false }],
+  });
+});
+it("reconciles final run text with the last existing assistant rather than adding an answer", () => {
+  const result = items([
+    ...intro,
+    text("Draft"),
+    {
+      type: "run.completed",
+      finishReason: "stop",
+      content: [
+        { type: "text", text: "Final " },
+        { type: "text", text: "answer" },
+      ],
+    },
+  ]);
+  expect(result).toMatchObject([
+    { messageId: "answer", blocks: [{ text: "Final answer" }] },
+  ]);
+});
+it("reconciles final media snapshots without duplicating or changing their positions", () => {
+  const result = items([
+    ...intro,
+    {
+      type: "message.part.delta",
+      messageId: "answer",
+      part: { type: "image", url: "https://example.test/draft.png" },
+    },
+    {
+      type: "message.completed",
+      messageId: "answer",
+      role: "assistant",
+      content: [{ type: "image", url: "https://example.test/final.png" }],
+    },
+  ]);
+  expect(result).toMatchObject([
+    {
+      blocks: [
+        { type: "image", url: "https://example.test/final.png", position: 2 },
+      ],
+    },
+  ]);
+});
+it("coalesces completed embedded tool failures with observed calls", () => {
+  const result = items([
+    ...intro,
+    { type: "tool.called", toolCall: call },
+    {
+      type: "message.completed",
+      messageId: "answer",
+      role: "assistant",
+      content: [
+        { type: "tool-call", toolCall: call },
+        {
+          type: "tool-result",
+          result: { ...call, isError: true, output: "Failed" },
         },
-      }),
-    ];
-    const messages = selectRenderMessages({ runs: [stateFor(events)], events });
-    const approvalMessage = messages.find((message) => message.approval);
+      ],
+    },
+  ]);
+  expect(result).toMatchObject([
+    {
+      type: "tool-call",
+      tool: { status: "failed", error: "Failed", output: "Failed" },
+    },
+  ]);
+});
+it("normalizes consecutive final parts and preserves complete reasoning between text segments", () => {
+  const result = items([
+    ...intro,
+    text("Before"),
+    {
+      type: "message.part.delta",
+      messageId: "answer",
+      part: { type: "reasoning", text: "Thinking" },
+    },
+    text("After"),
+    {
+      type: "message.completed",
+      messageId: "answer",
+      role: "assistant",
+      content: [
+        { type: "text", text: "Before" },
+        { type: "text", text: "After" },
+      ],
+    },
+  ]);
+  expect(result).toMatchObject([
+    {
+      blocks: [
+        { text: "Before" },
+        { type: "reasoning", text: "Thinking" },
+        { text: "After" },
+      ],
+    },
+  ]);
+});
 
-    expect(messages.filter((message) => message.role === "tool")).toHaveLength(2);
-    expect(messages.filter((message) => message.tool?.status === "approval")).toHaveLength(0);
-    expect(approvalMessage).toMatchObject({
-      id: "interrupt-run-1-ambiguous-approval",
-      approval: { kind: "tool-approval", state: "pending" },
-    });
+it("renders completed messages when the provider emits no deltas", () => {
+  expect(
+    items([
+      ...intro,
+      {
+        type: "message.completed",
+        messageId: "answer",
+        role: "assistant",
+        content: [{ type: "text", text: "Final" }],
+      },
+    ]),
+  ).toMatchObject([{ state: "complete", blocks: [{ text: "Final" }] }]);
+});
+it("reconciles adjacent completed text parts and replaces omitted media", () => {
+  const result = items([
+    ...intro,
+    text("Before"),
+    {
+      type: "message.part.delta",
+      messageId: "answer",
+      part: { type: "image", url: "https://example.test/image.png" },
+    },
+    text("After"),
+    {
+      type: "message.completed",
+      messageId: "answer",
+      role: "assistant",
+      content: [
+        { type: "text", text: "Final " },
+        { type: "text", text: "answer" },
+      ],
+    },
+  ]);
+  expect(result).toMatchObject([
+    { blocks: [{ type: "text", text: "Final answer" }] },
+  ]);
+});
+it("keeps separate turn histories chronological without local transport metadata", () => {
+  const first = sequence([...intro, text("First"), complete("First")], "first");
+  const second = sequence([...intro, text("Second")], "second");
+  const result = selectRenderModel({
+    runs: [reduceAgentEvents(first), reduceAgentEvents(second)],
+    turnEvents: [first, second],
+    streamStatus: "consuming",
   });
+  expect(result.turns).toMatchObject([
+    {
+      runId: "first",
+      transportState: "closed",
+      items: [{ blocks: [{ text: "First" }] }],
+    },
+    {
+      runId: "second",
+      transportState: "consuming",
+      items: [{ blocks: [{ text: "Second" }] }],
+    },
+  ]);
+});
 
-  it("uses a durable turn snapshot when event diagnostics are no longer available", () => {
-    const call = { toolCallId: "tool-history", name: "delete_file", input: { path: "old.txt" } };
-    const fullEvents = [
-      event(1, { type: "run.started" }),
-      event(2, { type: "tool.called", toolCall: call }),
-      event(3, {
-        type: "interrupt.required",
-        interrupt: {
-          kind: "tool-approval",
-          interruptId: "history-approval",
-          prompt: "Allow deleting old.txt?",
-          actions: [
-            {
-              id: "allow",
-              toolCallId: "tool-history",
-              name: "delete_file",
-              input: true,
-            },
-          ],
-        },
-      }),
-      event(4, { type: "interrupt.resolved", interruptId: "history-approval", decisions: [true] }),
-      event(5, { type: "tool.completed", result: { ...call, output: { deleted: true } } }),
-      event(6, {
-        type: "run.completed",
-        finishReason: "stop",
-        content: [
-          { type: "text", text: "Deleted." },
-          { type: "tool-call", toolCall: call },
-          { type: "tool-result", result: { ...call, output: { deleted: true } } },
-        ],
-      }),
+it.each(["message", "run"])(
+  "adds content first supplied by %s completion to the existing message",
+  (kind) => {
+    const content: ContentPart[] = [
+      { type: "text", text: "Answer" },
+      { type: "citation", url: "https://example.test/source", title: "Source" },
     ];
-    const state = stateFor(fullEvents);
-    const complete = selectRenderModel({ runs: [state], events: fullEvents });
-    const evicted = selectRenderModel({
-      runs: [state],
-      events: [fullEvents.at(-1)!],
-      history: complete.turns,
-    });
+    const end: AgentEventInput =
+      kind === "message"
+        ? {
+            type: "message.completed",
+            messageId: "answer",
+            role: "assistant",
+            content,
+          }
+        : { type: "run.completed", finishReason: "stop", content };
+    expect(items([...intro, text("Draft"), end])).toMatchObject([
+      { blocks: content },
+    ]);
+  },
+);
+it("reconciles embedded protocol parts after streamed text without duplicating tools", () => {
+  const result = items([
+    ...intro,
+    text("Before"),
+    { type: "tool.called", toolCall: call },
+    {
+      type: "message.completed",
+      messageId: "answer",
+      role: "assistant",
+      content: [
+        { type: "text", text: "Before" },
+        { type: "tool-call", toolCall: call },
+        { type: "tool-result", result: { ...call, output: "Done" } },
+      ],
+    },
+  ]);
+  expect(result).toMatchObject([
+    { type: "message", blocks: [{ text: "Before" }] },
+    { type: "tool-call", tool: { output: "Done", status: "complete" } },
+  ]);
+});
 
-    expect(evicted.turns[0]?.messages.find((message) => message.tool)?.approval).toMatchObject({
-      interruptId: "history-approval",
-      detail: "Allow deleting old.txt?",
-      state: "resolved",
-    });
-    expect(evicted.messages.some((message) => message.content.some(
-      (part) => part.type === "text" && part.text === "Deleted.",
-    ))).toBe(true);
-    expect(evicted.messages.filter((message) => message.tool?.toolCallId === "tool-history")).toHaveLength(1);
-  });
+it("rejects a history paired with the wrong reducer messages instead of guessing a role", () => {
+  const events = sequence([...intro, text("Answer")]);
+  const run = { ...reduceAgentEvents(events), messages: [] };
+  expect(() =>
+    selectRenderModel({ runs: [run], turnEvents: [events] }),
+  ).toThrow("unknown message");
 });

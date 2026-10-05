@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { dirname, posix, resolve } from "node:path";
 import assert from "node:assert/strict";
 import { createRegistry, registryRoot } from "./registry-source.ts";
@@ -6,7 +6,7 @@ for (const flavor of ["radix", "base"] as const) {
   const expected = await createRegistry(flavor);
   const actual = JSON.parse(
     await readFile(
-      resolve(registryRoot, `public/r/v1/chat-${flavor}.json`),
+      resolve(registryRoot, `public/r/chat-${flavor}.json`),
       "utf8",
     ),
   );
@@ -62,3 +62,19 @@ for (const flavor of ["radix", "base"] as const) {
 console.log(
   "Registry paths, dependency closure, source freshness and protocol boundary verified.",
 );
+
+const playground = resolve(registryRoot, "../playground/src");
+const radix = await createRegistry("radix");
+for (const file of radix.files) {
+  assert.equal(
+    await readFile(resolve(playground, file.target), "utf8"),
+    file.content,
+    `Playground source is stale: ${file.target}. Run yarn registry:sync.`,
+  );
+}
+const manifests = await readdir(resolve(registryRoot, "public/r"));
+assert.deepEqual(manifests.sort(), [
+  "chat-base.json",
+  "chat-radix.json",
+  "registry.json",
+]);

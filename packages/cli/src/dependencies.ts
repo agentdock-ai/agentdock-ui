@@ -22,7 +22,13 @@ async function installedVersion(
       );
       if (typeof pkg.version === "string") return pkg.version;
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      if (
+        !error ||
+        typeof error !== "object" ||
+        !("code" in error) ||
+        error.code !== "ENOENT"
+      )
+        throw error;
     }
     const parent = dirname(directory);
     if (parent === directory) return undefined;

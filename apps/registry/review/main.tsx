@@ -167,8 +167,7 @@ function Review() {
     </div>
   );
 }
-if (params.has("baseline")) void import("./baseline.js");
-else {
+{
   const root =
     import.meta.hot?.data.root ?? createRoot(document.getElementById("root")!);
   if (import.meta.hot) import.meta.hot.data.root = root;

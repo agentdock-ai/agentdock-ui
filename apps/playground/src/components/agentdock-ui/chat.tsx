@@ -5,15 +5,15 @@ import {
   useAgentActions,
   useAgentState,
 } from "@agentdock-ai/react";
-import type { ChatProps } from "./types.js";
-import { ChatShell } from "./chat-shell.js";
-import { ChatViewport } from "./chat-viewport.js";
-import { MessageList } from "./message-list.js";
-import { EmptyState, Suggestions } from "./empty-state.js";
-import { Composer } from "./composer.js";
-import { ErrorState } from "./error-state.js";
-import { Button } from "./ui/button.js";
-import { useChatAttachments } from "./use-chat-attachments.js";
+import type { ChatProps } from "./types";
+import { ChatShell } from "./chat-shell";
+import { ChatViewport } from "./chat-viewport";
+import { MessageList } from "./message-list";
+import { EmptyState, Suggestions } from "./empty-state";
+import { Composer } from "./composer";
+import { ErrorState } from "./error-state";
+import { Button } from "./ui/button";
+import { useChatAttachments } from "./use-chat-attachments";
 
 export function Chat(props: ChatProps) {
   return (
@@ -57,9 +57,12 @@ function ChatSurface({
         )),
   );
   const empty = model.turns.length === 0;
-  const latestUserId = model.messages
-    .filter((m) => m.role === "user")
-    .at(-1)?.id;
+  const latestUser = model.turns
+    .flatMap((turn) => turn.items)
+    .filter((item) => item.type === "message" && item.role === "user")
+    .at(-1);
+  const latestUserId =
+    latestUser?.type === "message" ? latestUser.messageId : undefined;
   async function submit(text: string) {
     if (
       disabled ||
@@ -80,27 +83,17 @@ function ChatSurface({
       attachments.restore(sent);
     }
   }
-  const status = actions.cancelling
-    ? "Stopping…"
-    : actions.respondingTo
-      ? "Sending response…"
-      : paused
-        ? "Run paused"
-        : waiting
-          ? "Waiting for your response"
-          : active
-            ? "Agent is working"
-            : streamStatus === "error"
-              ? "Connection interrupted"
-              : streamStatus === "stopped"
-                ? "Stream stopped"
-                : agent.status === "completed"
-                  ? "Response complete"
-                  : agent.status === "failed"
-                    ? "Run failed"
-                    : agent.status === "cancelled"
-                      ? "Run stopped"
-                      : "";
+  let status = "";
+  if (actions.cancelling) status = "Stopping…";
+  else if (actions.respondingTo) status = "Sending response…";
+  else if (paused) status = "Run paused";
+  else if (waiting) status = "Waiting for your response";
+  else if (active) status = "Agent is working";
+  else if (streamStatus === "error") status = "Connection interrupted";
+  else if (streamStatus === "stopped") status = "Stream stopped";
+  else if (agent.status === "completed") status = "Response complete";
+  else if (agent.status === "failed") status = "Run failed";
+  else if (agent.status === "cancelled") status = "Run stopped";
   return (
     <ChatShell
       className={className}

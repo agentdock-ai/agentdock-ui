@@ -65,6 +65,6 @@ export async function createRegistry(flavor: "radix" | "base") {
     ],
     registryDependencies: [],
     files,
-    meta: { version: "1", flavor },
+    meta: { flavor },
   };
 }

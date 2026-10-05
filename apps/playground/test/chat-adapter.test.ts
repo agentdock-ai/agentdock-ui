@@ -15,10 +15,22 @@ const response = () =>
 describe("app-owned playground adapter", () => {
   it("owns continuation request construction and preserves the abort signal", async () => {
     const request = vi.fn<typeof fetch>(async () => response());
-    const adapter = createPlaygroundChatAdapter({ threadId: "app-thread", request });
+    const adapter = createPlaygroundChatAdapter({
+      threadId: "app-thread",
+      request,
+    });
     const signal = new AbortController().signal;
-    for await (const _ of adapter.continueRun!({ runId: "run", signal })) { /* consume */ }
-    expect(request.mock.calls[0]?.[1]).toMatchObject({ signal, body: JSON.stringify({ runId: "run", continue: true, threadId: "app-thread" }) });
+    for await (const _ of adapter.continueRun!({ runId: "run", signal })) {
+      /* consume */
+    }
+    expect(request.mock.calls[0]?.[1]).toMatchObject({
+      signal,
+      body: JSON.stringify({
+        runId: "run",
+        continue: true,
+        threadId: "app-thread",
+      }),
+    });
   });
   afterEach(() => vi.unstubAllGlobals());
   it("uploads binary files through the app and sends only app-owned attachment IDs", async () => {
@@ -144,3 +156,24 @@ describe("app-owned playground adapter", () => {
     );
   });
 });
+
+it.each([
+  null,
+  [],
+  { id: 1 },
+  { id: "file", name: "file.txt", size: -1, mimeType: "text/plain" },
+  { id: "file", name: "file.txt", size: 1 },
+  { id: "file", name: "file.txt", size: 1.5, mimeType: "text/plain" },
+])(
+  "rejects malformed upload metadata %j before building attachment content",
+  async (value) => {
+    const request = vi.fn<typeof fetch>(async () => Response.json(value));
+    const adapter = createPlaygroundChatAdapter({ threadId: "t", request });
+    await expect(
+      adapter.attachments!.upload({
+        file: new File(["text"], "notes.txt"),
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toThrow("upload could not be confirmed");
+  },
+);

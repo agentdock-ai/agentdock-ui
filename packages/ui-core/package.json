@@ -4,9 +4,13 @@
   "description": "Framework-independent state and stream primitives for Agentdock UI",
   "license": "MIT",
   "type": "module",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "sideEffects": false,
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -14,7 +18,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "node ../../scripts/clean-build.mjs && tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --config vitest.config.ts"
   },

@@ -4,7 +4,7 @@ export interface DecodeAgentEventStreamOptions {
   signal?: AbortSignal;
 }
 
-/** Decode AgentDock SSE frames and legacy newline-delimited event streams. */
+/** Decode the current canonical AgentDock events from SSE data frames. */
 export function decodeAgentEventStream(
   body: ReadableStream<Uint8Array>,
   options: DecodeAgentEventStreamOptions = {},
@@ -40,7 +40,6 @@ export function decodeAgentEventStream(
     const decoder = new TextDecoder();
     let buffer = "";
     let dataLines: string[] = [];
-    let inSseFrame = false;
     let ended = false;
     let cancelled = false;
     const cancel = () => {
@@ -61,37 +60,36 @@ export function decodeAgentEventStream(
           break;
         }
         buffer += decoder.decode(value, { stream: true });
-        let lineEnd = buffer.indexOf("\n");
+        let lineEnd = buffer.search(/[\r\n]/g);
         while (lineEnd !== -1 && !stopped && !options.signal?.aborted) {
-          const line = buffer.slice(0, lineEnd).replace(/\r$/, "").trim();
-          buffer = buffer.slice(lineEnd + 1);
+          // A trailing CR may be the first half of a CRLF split between chunks.
+          if (buffer[lineEnd] === "\r" && lineEnd === buffer.length - 1) break;
+          const width =
+            buffer[lineEnd] === "\r" && buffer[lineEnd + 1] === "\n" ? 2 : 1;
+          const line = buffer.slice(0, lineEnd);
+          buffer = buffer.slice(lineEnd + width);
           if (!line) {
             if (dataLines.length > 0)
               yield parseEventLine(dataLines.join("\n"));
             dataLines = [];
-            inSseFrame = false;
           } else if (line.startsWith("data:")) {
-            inSseFrame = true;
             dataLines.push(line.slice(5).replace(/^ /, ""));
-          } else if (line.startsWith(":") || /^(event|id|retry):/.test(line)) {
-            inSseFrame = true;
-          } else if (!inSseFrame) {
-            yield parseEventLine(line);
+          } else if (line.trimStart().startsWith("{")) {
+            throw new Error("Agent streams must use SSE data frames.");
           }
-          lineEnd = buffer.indexOf("\n");
+          lineEnd = buffer.search(/[\r\n]/g);
         }
       }
       buffer += decoder.decode();
-      const finalLine = buffer.replace(/\r$/, "").trim();
+      const finalLine = buffer.replace(/\r$/, "");
       if (finalLine.startsWith("data:")) {
         dataLines.push(finalLine.slice(5).replace(/^ /, ""));
       } else if (
-        finalLine &&
-        !inSseFrame &&
+        finalLine.trimStart().startsWith("{") &&
         !stopped &&
         !options.signal?.aborted
       ) {
-        yield parseEventLine(finalLine);
+        throw new Error("Agent streams must use SSE data frames.");
       }
       if (dataLines.length > 0 && !stopped && !options.signal?.aborted) {
         yield parseEventLine(dataLines.join("\n"));
@@ -106,17 +104,5 @@ export function decodeAgentEventStream(
 
 function parseEventLine(line: string): AgentEvent {
   const parsed: unknown = JSON.parse(line);
-  if (
-    typeof parsed === "object" &&
-    parsed !== null &&
-    "type" in parsed &&
-    parsed.type === "agentdock.transport.error"
-  ) {
-    const message =
-      "message" in parsed ? parsed.message : "Agent stream failed.";
-    throw new Error(
-      typeof message === "string" ? message : "Agent stream failed.",
-    );
-  }
   return cloneAgentEvent(parsed);
 }

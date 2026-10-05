@@ -1,4 +1,5 @@
 export { AgentStore } from "./core/agent-store.js";
+export type { AgentHistory, AgentHistoryMessage } from "./history.js";
 export type {
   AgentStoreListener,
   AgentStoreSnapshot,
@@ -13,10 +14,9 @@ export {
   type DecodeAgentEventStreamOptions,
 } from "./core/decode-agent-event-stream.js";
 export {
-  selectRenderMessages,
   selectRenderModel,
-  type RenderMessageSource,
-} from "./select-render-messages.js";
+  type RenderModelSource,
+} from "./select-render-model.js";
 export type {
   RenderContentBlock,
   RenderTurnItem,
@@ -31,12 +31,9 @@ export type {
   RenderApprovalState,
   RenderError,
   RenderErrorScope,
-  RenderMessage,
   RenderMessageRole,
   RenderMessageState,
   RenderModel,
-  RenderReasoning,
-  RenderReasoningState,
   RenderTool,
   RenderToolStatus,
   RenderTransportError,

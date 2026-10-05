@@ -8,6 +8,8 @@ import {
   safeDestination,
   type Project,
 } from "../project-detection.js";
+import { readJson } from "../json.js";
+import { stringMap } from "../project-config.js";
 import { loadRegistry } from "../shadcn-registry.js";
 import { missingDependencies, packageName } from "../dependencies.js";
 export interface AddOptions {
@@ -76,7 +78,12 @@ export async function addChat(options: AddOptions) {
   );
   let receipt: { files?: Record<string, string> } = {};
   if (await exists(receiptPath))
-    receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+    receipt = {
+      files: stringMap(
+        (await readJson(receiptPath)).files,
+        "Installation receipt files",
+      ),
+    };
   const files = await Promise.all(
     registry.files.map(async (file) => {
       const path = await safeDestination(
@@ -178,7 +185,6 @@ export async function addChat(options: AddOptions) {
       receiptPath,
       JSON.stringify(
         {
-          version: registry.meta.version,
           flavor: project.flavor,
           source: "agentdock-ui bundled registry",
           files: hashes,

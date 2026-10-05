@@ -23,7 +23,7 @@
   </p>
 </div>
 
-Agentdock UI V1 is a compact, editable chat panel backed by the canonical Agentdock event contract. `@agentdock-ai/react` supplies the headless store, provider, hooks and adapter types. Styled components are copied into your application from the registry.
+Agentdock UI is a compact, editable chat panel backed by the canonical Agentdock event contract. `@agentdock-ai/react` supplies the headless store, provider, hooks and adapter types. Styled components are copied into your application from the registry.
 
 ## Install Chat
 
@@ -33,7 +33,7 @@ The intended released installer command is:
 npx agentdock-ui add chat
 ```
 
-V1 is implemented locally; publishing is a separate release step. To use this checkout:
+The UI is implemented locally; publishing is a separate release step. To use this checkout:
 
 ```sh
 yarn install
@@ -43,7 +43,7 @@ yarn cli:build
 node packages/cli/dist/index.js add chat --cwd /path/to/app --yes
 ```
 
-The host must have React, TypeScript, Tailwind CSS, a TypeScript alias and shadcn semantic tokens. Existing `components.json` selects Radix or Base UI primitives. The installer can create a missing configuration from an existing host theme/alias. `--dry-run` is read-only; repeated installs preserve consumer edits. Use `--overwrite` only when you intend to replace those edits.
+The host must have React, TypeScript, Tailwind CSS 4, a TypeScript alias and shadcn semantic tokens. Existing `components.json` selects Radix or Base UI primitives. The installer can create a missing configuration from an existing host theme/alias. `--dry-run` is read-only; repeated installs preserve consumer edits. Use `--overwrite` only when you intend to replace those edits.
 
 ## App-owned adapter
 
@@ -81,6 +81,31 @@ export function createChatAdapter({
 
 Provide optional `cancelRun`, `respondToInterrupt`, and `continueRun` only when the consuming app supports them. `continueRun({ runId, signal })` yields canonical events for a paused run without a pending interrupt. Approval inputs stay opaque and are returned unchanged. Chat has no endpoint prop.
 
+### Restore saved conversations
+
+Load history in the consuming application and hydrate a fresh store before streaming:
+
+```tsx
+const store = new AgentStore();
+store.hydrateHistory({ messages: normalizedMessages, resumeState });
+<Chat adapter={chatAdapter} store={store} />;
+```
+
+Messages use canonical `messageId`, `role`, and `content` fields. Persisted replies
+may also include `state: "stopped"` or `state: "error"` so partial content keeps its
+display status after reload. These fields do not change native execution state. The application
+owns checkpoint/provider normalization and attachment URLs. History is cloned,
+validated, and rendered separately from execution events; no run IDs or events
+are synthesized. Duplicate message IDs are rejected. Live messages reconcile
+with saved messages by native ID. Hydration replaces history atomically and is
+rejected during an active run or stream.
+
+Optional `resumeState` is a fresh native waiting-state projection, such as
+Agentdock's `getResumeState(threadId)`, with `runId: null`. It restores pending
+interrupts or static pauses. `respondToInterrupt` and `continueRun` receive
+`runId: null` until the server starts an actual resumed invocation; adapters must
+target the app-owned authorized thread. `cancelRun` still requires a live run ID.
+
 ### Optional files and images
 
 Provide `adapter.attachments` to enable the compact file/image controls, drag/drop,
@@ -101,24 +126,25 @@ image understanding requires a model that supports images.
 
 The app owns authentication, authorization, endpoint URLs, thread identity, request construction, secrets, provider selection and business rules. The browser consumes canonical Agentdock events only. LangGraph, LangChain and provider events must be normalized on the server.
 
-## V1 surface
+## UI surface
 
 An optional app-owned workspace/sidebar surrounds the standalone Chat. The panel includes readable messages, safe Markdown, streaming, optional reasoning, compact tool disclosures, approvals, scoped errors, cancellation, an anchored composer and scroll-to-latest. Light/dark colors use host shadcn semantic tokens. No Agentdock theme provider or stylesheet is required.
 
-Components are small and editable under `components/agentdock-ui`. The runtime also exposes `AgentProvider`, `AgentStore`, `useAgentState`, `useAgentStore`, `useAgentActions`, stream decoding and render selectors for custom interfaces.
+Components are small and editable under `components/agentdock-ui`. The runtime also exposes `AgentProvider`, `AgentStore`, `useAgentState`, `useAgentStore`, `useAgentActions`, SSE stream decoding and `selectRenderModel` for custom interfaces.
 
-## Migration
-
-The runtime root is headless. Legacy styled exports remain under `@agentdock-ai/react/components`, with the existing narrower component and stylesheet subpaths retained throughout V1. Legacy source and CSS are preserved. See [the migration guide](AGENTDOCK_UI_V1_MIGRATION.md).
+The render model exposes one ordered `turn.items` transcript. `selectRenderModel`
+requires reducer snapshots and their complete `turnEvents`, grouped across resumed
+invocations. `AgentStore` maintains this history separately from its diagnostic log.
 
 ## Development and validation
 
 ```sh
 yarn dev                  # Real Agentdock playground
 
-yarn typecheck
-yarn test
-yarn build
+yarn ci                   # Formatting, types, registry freshness, coverage, tests and builds
+yarn test                 # Fast test run
+yarn registry:build       # Rebuild manifests after editing source
+yarn registry:sync        # Refresh the playground from canonical components
 yarn registry:verify
 yarn fixture:verify       # Clean Vite/Radix and Next.js/Base UI consumers
 ```
@@ -127,7 +153,7 @@ The playground keeps provider setup and transport in the consuming app. It suppo
 
 The local playground API requires its own loopback Host and Origin for mutations. Its file tools operate inside `.sandbox`; `run_command` requires `checkOnly: true` and only checks JavaScript syntax. Running generated code requires a separately isolated execution service supplied by the consuming app.
 
-[Implementation checklist](AGENTDOCK_UI_V1_CHECKLIST.md) · [Review record](AGENTDOCK_UI_V1_REVIEW.md) · [Registry](apps/registry/README.md) · [Installer](packages/cli/README.md)
+[Registry](apps/registry/README.md) · [Installer](packages/cli/README.md)
 
 ## License
 

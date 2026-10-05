@@ -1,3 +1,11 @@
+import {
+  isProvider,
+  persistedConfig,
+  healthResponse,
+  type PersistedPlaygroundConfig,
+  type Provider,
+} from "../connection-config.js";
+import { responseError } from "../adapter/upload-response.js";
 import { useEffect, useState, type FormEvent } from "react";
 import { Chat } from "../components/agentdock-ui/chat";
 import { ChatWorkspace } from "../components/agentdock-ui/chat-workspace";
@@ -11,7 +19,7 @@ const providers = [
   { id: "openai", label: "OpenAI", requiresKey: true },
   { id: "ollama", label: "Ollama", requiresKey: false },
 ] as const;
-type Provider = (typeof providers)[number]["id"];
+
 const models: Record<Provider, { id: string; label: string }[]> = {
   openrouter: [
     { id: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5" },
@@ -37,67 +45,21 @@ const models: Record<Provider, { id: string; label: string }[]> = {
     { id: "qwen2.5", label: "Qwen 2.5 · 7B" },
   ],
 };
-const PLAYGROUND_STORAGE_KEY = "agentdock.playground.connection.v1";
-
-interface PersistedPlaygroundConfig {
-  version: 1;
-  provider: Provider;
-  model: string;
-  apiKey?: string;
-  savedAt: string;
-}
-
-interface Health {
-  configured?: boolean;
-  provider?: Provider;
-  model?: string;
-  credentialsAvailable?: Partial<Record<Provider, boolean>>;
-}
-function isProvider(value: unknown): value is Provider {
-  return value === "openrouter" || value === "openai" || value === "ollama";
-}
+const PLAYGROUND_STORAGE_KEY = "agentdock.playground.connection";
 
 function readPersistedConfig(): PersistedPlaygroundConfig | null {
   try {
     const raw = window.localStorage.getItem(PLAYGROUND_STORAGE_KEY);
     if (!raw) return null;
-    const value = JSON.parse(raw) as Partial<PersistedPlaygroundConfig>;
-    if (
-      value.version !== 1 ||
-      !isProvider(value.provider) ||
-      typeof value.model !== "string" ||
-      !value.model.trim()
-    ) {
-      return null;
-    }
-    return {
-      version: 1,
-      provider: value.provider,
-      model: value.model.trim(),
-      apiKey:
-        typeof value.apiKey === "string" ? value.apiKey.trim() : undefined,
-      savedAt:
-        typeof value.savedAt === "string"
-          ? value.savedAt
-          : new Date().toISOString(),
-    };
+    return persistedConfig(JSON.parse(raw));
   } catch {
     return null;
   }
 }
 
-function persistConfig(
-  config: Omit<PersistedPlaygroundConfig, "version" | "savedAt">,
-): void {
+function persistConfig(config: PersistedPlaygroundConfig): void {
   try {
-    window.localStorage.setItem(
-      PLAYGROUND_STORAGE_KEY,
-      JSON.stringify({
-        ...config,
-        version: 1,
-        savedAt: new Date().toISOString(),
-      }),
-    );
+    window.localStorage.setItem(PLAYGROUND_STORAGE_KEY, JSON.stringify(config));
   } catch {
     // Local storage can be unavailable in privacy-restricted browser contexts.
   }
@@ -130,7 +92,7 @@ export function ChatPage({
       const persisted = readPersistedConfig();
       try {
         const response = await fetch("/api/health");
-        const health = (await response.json()) as Health;
+        const health = healthResponse(await response.json());
         if (!live) return;
 
         const p =
@@ -163,12 +125,11 @@ export function ChatPage({
             }),
           });
           if (!configureResponse.ok) {
-            const body = (await configureResponse.json().catch(() => ({}))) as {
-              error?: string;
-            };
             throw new Error(
-              body.error ??
+              responseError(
+                await configureResponse.json().catch(() => null),
                 "The saved provider connection could not be restored.",
+              ),
             );
           }
           if (!live) return;
@@ -222,11 +183,13 @@ export function ChatPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider, model, apiKey: connectionKey }),
       });
-      const body = (await response.json().catch(() => ({}))) as {
-        error?: string;
-      };
       if (!response.ok)
-        throw new Error(body.error ?? "Could not connect this provider.");
+        throw new Error(
+          responseError(
+            await response.json().catch(() => null),
+            "Could not connect this provider.",
+          ),
+        );
       persistConfig({
         provider,
         model,
@@ -277,7 +240,9 @@ export function ChatPage({
               label="Provider"
               disabled={connecting}
               value={provider}
-              onValueChange={(value) => selectProvider(value as Provider)}
+              onValueChange={(value) => {
+                if (isProvider(value)) selectProvider(value);
+              }}
               options={providers}
             />
             <ConnectionSelect

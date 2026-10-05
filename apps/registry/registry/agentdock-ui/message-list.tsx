@@ -25,7 +25,11 @@ export function MessageList({
     <div className="flex min-w-0 flex-col gap-7">
       {model.turns.map((turn) => (
         <div
-          key={turn.messages.find((m) => m.role === "user")?.id ?? turn.id}
+          key={
+            turn.items.find(
+              (item) => item.type === "message" && item.role === "user",
+            )?.id ?? turn.id
+          }
           className="flex min-w-0 flex-col gap-4"
           data-turn={turn.id}
         >
@@ -83,7 +87,7 @@ export function MessageList({
               }
             />
           )}
-          {turn.state === "stopped" && (
+          {(turn.state === "stopped" || turn.transportState === "stopped") && (
             <p className="text-xs text-muted-foreground">
               Stopped · Your partial answer is preserved.
             </p>

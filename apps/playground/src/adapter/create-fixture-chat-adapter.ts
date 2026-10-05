@@ -74,6 +74,8 @@ export function createFixtureChatAdapter(
       );
     },
     async *respondToInterrupt({ runId, interruptId, decisions }) {
+      if (runId === null)
+        throw new Error("The fixture has no saved checkpoint.");
       const { agent } = store.getSnapshot();
       yield* sequence(
         [

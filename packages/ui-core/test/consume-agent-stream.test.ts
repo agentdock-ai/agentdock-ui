@@ -14,7 +14,7 @@ function runEvent(
     protocolVersion: AGENT_EVENT_PROTOCOL_VERSION,
     eventId,
     runId,
-      logicalSequence,
+    logicalSequence,
     phaseId: "phase-1",
     sequence: logicalSequence,
     timestamp: new Date(logicalSequence * 1000).toISOString(),
@@ -38,7 +38,7 @@ function inputEvent(
     protocolVersion: AGENT_EVENT_PROTOCOL_VERSION,
     eventId,
     runId,
-      logicalSequence,
+    logicalSequence,
     phaseId: "phase-1",
     sequence: logicalSequence,
     timestamp: new Date(logicalSequence * 1000).toISOString(),
@@ -51,7 +51,7 @@ describe("consumeAgentStream", () => {
     const store = new AgentStore();
 
     store.appendUserMessage("Create a file");
-    expect(store.getSnapshot().messages).toEqual([
+    expect(store.getSnapshot().agent.messages).toEqual([
       {
         messageId: expect.stringMatching(/^user-/),
         role: "user",
@@ -67,8 +67,8 @@ describe("consumeAgentStream", () => {
       ]),
     );
 
-    expect(store.getSnapshot().messages[0]?.role).toBe("user");
-    expect(store.getSnapshot().messages[0]?.content).toEqual([
+    expect(store.getSnapshot().agent.messages[0]?.role).toBe("user");
+    expect(store.getSnapshot().agent.messages[0]?.content).toEqual([
       { type: "text", text: "Create a file" },
     ]);
   });
@@ -90,7 +90,7 @@ describe("consumeAgentStream", () => {
     expect(store.getSnapshot().streamStatus).toBe("closed");
     expect(store.getSnapshot().streamError).toBeNull();
     expect(store.getSnapshot().renderModel.turns[0]?.state).toBe("completed");
-    expect(store.getSnapshot().renderModel.messages).toEqual([]);
+    expect(store.getSnapshot().renderModel.turns[0]?.items).toEqual([]);
   });
 
   it("retains prior runs when a later turn begins in the same chat", async () => {
@@ -125,7 +125,9 @@ describe("consumeAgentStream", () => {
     for (let runNumber = 1; runNumber <= 101; runNumber += 1) {
       const runId = `run-${runNumber}`;
       store.applyEvent(runEvent(runId, `${runId}-start`, 1, "run.started"));
-      store.applyEvent(runEvent(runId, `${runId}-complete`, 2, "run.completed"));
+      store.applyEvent(
+        runEvent(runId, `${runId}-complete`, 2, "run.completed"),
+      );
     }
 
     expect(store.getSnapshot().runs).toHaveLength(101);
@@ -145,63 +147,86 @@ describe("consumeAgentStream", () => {
     ).rejects.toThrow("Agent event stream must begin with run.started.");
     expect(store.getSnapshot().streamStatus).toBe("error");
     expect(store.getSnapshot().streamError).toBeInstanceOf(Error);
-    expect(store.getSnapshot().renderModel.transportError?.scope).toBe("transport");
+    expect(store.getSnapshot().renderModel.transportError?.scope).toBe(
+      "transport",
+    );
     expect(store.getSnapshot().agent.status).toBe("idle");
   });
 
   it("keeps the complete diagnostic event log and terminal render details", () => {
     const store = new AgentStore();
-    store.applyEvent(inputEvent("run-1", "run-1-start", 1, { type: "run.started" }));
-    store.applyEvent(inputEvent("run-1", "run-1-message", 2, {
-      type: "message.started",
-      messageId: "assistant-1",
-      role: "assistant",
-    }));
-    store.applyEvent(inputEvent("run-1", "run-1-delta", 3, {
-      type: "message.part.delta",
-      messageId: "assistant-1",
-      part: { type: "text", text: "partial answer" },
-    }));
+    store.applyEvent(
+      inputEvent("run-1", "run-1-start", 1, { type: "run.started" }),
+    );
+    store.applyEvent(
+      inputEvent("run-1", "run-1-message", 2, {
+        type: "message.started",
+        messageId: "assistant-1",
+        role: "assistant",
+      }),
+    );
+    store.applyEvent(
+      inputEvent("run-1", "run-1-delta", 3, {
+        type: "message.part.delta",
+        messageId: "assistant-1",
+        part: { type: "text", text: "partial answer" },
+      }),
+    );
     for (let sequence = 4; sequence <= 503; sequence += 1) {
-      store.applyEvent(inputEvent("run-1", `run-1-usage-${sequence}`, sequence, {
-        type: "usage.updated",
-        usage: { totalTokens: sequence },
-      }));
+      store.applyEvent(
+        inputEvent("run-1", `run-1-usage-${sequence}`, sequence, {
+          type: "usage.updated",
+          usage: { totalTokens: sequence },
+        }),
+      );
     }
-    store.applyEvent(inputEvent("run-1", "run-1-failed", 504, {
-      type: "run.failed",
-      code: "MODEL_ERROR",
-      message: "The first run failed.",
-    }));
+    store.applyEvent(
+      inputEvent("run-1", "run-1-failed", 504, {
+        type: "run.failed",
+        code: "MODEL_ERROR",
+        message: "The first run failed.",
+      }),
+    );
 
     for (let sequence = 1; sequence <= 501; sequence += 1) {
       if (sequence === 1) {
-        store.applyEvent(inputEvent("run-2", "run-2-start", sequence, { type: "run.started" }));
+        store.applyEvent(
+          inputEvent("run-2", "run-2-start", sequence, { type: "run.started" }),
+        );
       } else {
-        store.applyEvent(inputEvent("run-2", `run-2-usage-${sequence}`, sequence, {
-          type: "usage.updated",
-          usage: { totalTokens: sequence },
-        }));
+        store.applyEvent(
+          inputEvent("run-2", `run-2-usage-${sequence}`, sequence, {
+            type: "usage.updated",
+            usage: { totalTokens: sequence },
+          }),
+        );
       }
     }
-    store.applyEvent(inputEvent("run-2", "run-2-complete", 502, {
-      type: "run.completed",
-      finishReason: "stop",
-      content: [],
-    }));
+    store.applyEvent(
+      inputEvent("run-2", "run-2-complete", 502, {
+        type: "run.completed",
+        finishReason: "stop",
+        content: [],
+      }),
+    );
 
     expect(store.getSnapshot().events).toHaveLength(1006);
-    expect(store.getSnapshot().events.some((event) => event.runId === "run-1")).toBe(true);
-    const firstTurn = store.getSnapshot().renderModel.turns.find((turn) => turn.runId === "run-1");
+    expect(
+      store.getSnapshot().events.some((event) => event.runId === "run-1"),
+    ).toBe(true);
+    const firstTurn = store
+      .getSnapshot()
+      .renderModel.turns.find((turn) => turn.runId === "run-1");
     expect(firstTurn).toMatchObject({
       state: "failed",
       startedAt: new Date(1000).toISOString(),
       error: { scope: "run", detail: "The first run failed." },
-      messages: [
+      items: [
         {
-          id: "assistant-1",
-          content: [{ type: "text", text: "partial answer" }],
+          messageId: "assistant-1",
+          blocks: [{ type: "text", text: "partial answer" }],
         },
+        { type: "error" },
       ],
     });
   });

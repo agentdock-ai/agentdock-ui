@@ -1,6 +1,6 @@
 # agentdock-ui
 
-Source-copy installer for the V1 chat panel:
+Source-copy installer for the chat panel:
 
 ```sh
 npx agentdock-ui add chat --cwd ./my-app

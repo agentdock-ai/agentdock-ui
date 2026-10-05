@@ -126,7 +126,7 @@ it("preserves chronological placement when a resume uses a new invocation ID", (
   );
   expect(store.getSnapshot().renderModel.turns).toHaveLength(2);
 });
-describe("V1 ordered transcript", () => {
+describe("ordered transcript", () => {
   it.each(Object.keys(scenarios) as (keyof typeof scenarios)[])(
     "reduces %s with the canonical contract",
     (name) => {
@@ -243,7 +243,6 @@ describe("V1 ordered transcript", () => {
         actions: [
           {
             label: "Yes, reject nothing",
-            kind: "custom",
             input: { opaque: 42 },
           },
         ],
@@ -339,4 +338,32 @@ it("retains consecutive media blocks during completion reconciliation", () => {
     },
   ]);
   expect(project(events)[0]).toMatchObject({ blocks: content });
+});
+
+it("preserves the stopped transport outcome of a recoverable invocation across the next prompt", () => {
+  const store = new AgentStore();
+  store.appendUserMessage("Explain the Sun");
+  sequence([
+    { type: "run.started" },
+    { type: "message.started", messageId: "partial", role: "assistant" },
+    {
+      type: "message.part.delta",
+      messageId: "partial",
+      part: { type: "text", text: "The Sun" },
+    },
+    { type: "run.paused", next: ["model_request"] },
+    { type: "run.cancelled", recoverable: true },
+  ]).forEach((event) => store.applyEvent(event));
+  store.setStreamStatus("stopped");
+  expect(store.getSnapshot().agent.status).toBe("waiting");
+  expect(store.getSnapshot().renderModel.turns[0]).toMatchObject({
+    state: "waiting",
+    transportState: "stopped",
+  });
+  store.appendUserMessage("What is my name?");
+  expect(store.getSnapshot().renderModel.turns).toHaveLength(2);
+  expect(store.getSnapshot().renderModel.turns[0]).toMatchObject({
+    state: "waiting",
+    transportState: "stopped",
+  });
 });

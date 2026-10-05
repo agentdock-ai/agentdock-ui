@@ -1,3 +1,4 @@
+import { normalizeContent } from "./normalize-content.js";
 import type { ContentPart } from "@agentdock-ai/contracts";
 import type { RenderContentBlock, RenderMessageItem } from "./render-model.js";
 
@@ -9,19 +10,7 @@ export function reconcileBlocks(
 ): void {
   const blocks = segments.flatMap((s) => s.blocks);
   const used = new Set<string>();
-  const normalized: ContentPart[] = [];
-  for (const part of content) {
-    const last = normalized.at(-1);
-    if (
-      (part.type === "text" || part.type === "reasoning") &&
-      last?.type === part.type
-    )
-      normalized[normalized.length - 1] = {
-        ...last,
-        text: last.text + part.text,
-      };
-    else normalized.push(part);
-  }
+  const normalized = normalizeContent(content);
   let cursor = 0;
   const finalHasReasoning = normalized.some((p) => p.type === "reasoning");
   for (const part of normalized) {
@@ -67,12 +56,11 @@ export function reconcileBlocks(
     }
   }
   // Keep reasoning omitted by a final answer snapshot; it is a separate content kind.
-  const hasReasoning = normalized.some((p) => p.type === "reasoning");
   for (const segment of segments)
     segment.blocks = segment.blocks.filter(
       (b) =>
         !blocks.includes(b) ||
         used.has(b.id) ||
-        (b.type === "reasoning" && !hasReasoning),
-    ) as RenderContentBlock[];
+        (b.type === "reasoning" && !finalHasReasoning),
+    );
 }

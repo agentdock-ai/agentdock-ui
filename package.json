@@ -13,11 +13,11 @@
   ],
   "resolutions": {
     "@agentdock-ai/contracts": "link:../agentdock/packages/contracts",
-    "@langchain/langgraph": "1.4.13"
+    "@langchain/langgraph": "1.4.17"
   },
   "scripts": {
     "build:packages": "yarn workspace @agentdock-ai/ui-core build && yarn workspace @agentdock-ai/react build",
-    "build": "yarn build:packages && yarn workspace @agentdock-ai/playground build",
+    "build": "yarn build:packages && yarn workspace @agentdock-ai/playground build && yarn workspace @agentdock-ai/registry build:review",
     "typecheck": "yarn build:packages && yarn workspace @agentdock-ai/ui-core typecheck && yarn workspace @agentdock-ai/react typecheck && yarn workspace @agentdock-ai/playground typecheck && yarn workspace @agentdock-ai/registry typecheck && yarn workspace agentdock-ui typecheck",
     "lint": "yarn typecheck",
     "test": "yarn build:packages && yarn workspace @agentdock-ai/ui-core test && yarn workspace @agentdock-ai/react test && yarn workspace @agentdock-ai/playground test && yarn workspace agentdock-ui test",
@@ -27,9 +27,16 @@
     "registry:build": "yarn workspace @agentdock-ai/registry build",
     "registry:verify": "yarn workspace @agentdock-ai/registry verify",
     "cli:build": "yarn workspace agentdock-ui build",
-    "fixture:verify": "node scripts/consumer-fixture/verify.mjs"
+    "fixture:verify": "node scripts/consumer-fixture/verify.mjs",
+    "registry:sync": "node --experimental-strip-types apps/registry/scripts/sync-playground.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "ci": "yarn format:check && yarn typecheck && yarn registry:verify && yarn test:coverage && yarn test:apps && yarn build",
+    "test:coverage": "yarn build:packages && yarn workspace @agentdock-ai/ui-core test --coverage && yarn workspace @agentdock-ai/react test --coverage",
+    "test:apps": "yarn workspace @agentdock-ai/playground test && yarn workspace agentdock-ui test"
   },
   "devDependencies": {
-    "prettier": "^3.9.9"
+    "prettier": "^3.9.9",
+    "@vitest/coverage-v8": "3.2.7"
   }
 }

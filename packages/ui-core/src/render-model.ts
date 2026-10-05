@@ -7,10 +7,11 @@ import type {
   JsonValue,
 } from "@agentdock-ai/contracts";
 
+import type { AgentHistoryMessage } from "./history.js";
+
 export type RenderMessageRole = AgentReducerMessage["role"];
 export type RenderMessageState = "streaming" | "complete" | "stopped" | "error";
 export type RenderToolStatus = "running" | "complete" | "failed" | "approval";
-export type RenderReasoningState = "streaming" | "complete";
 export type RenderApprovalKind = "tool-approval" | "custom";
 export type RenderApprovalState = "pending" | "resolved";
 export type RenderErrorScope = "transport" | "run" | "tool";
@@ -20,17 +21,9 @@ export type RenderTurnState =
 export type RenderStreamStatus =
   "idle" | "consuming" | "closed" | "error" | "stopped";
 
-export interface RenderReasoning {
-  text: string;
-  state: RenderReasoningState;
-  startedAt?: string;
-  completedAt?: string;
-}
-
 export interface RenderApprovalAction {
   id: string;
   label: string;
-  kind: "approve" | "deny" | "custom";
   input: JsonValue;
   toolCallId?: string;
 }
@@ -67,25 +60,14 @@ export interface RenderTool {
   completedAt?: string;
 }
 
-export interface RenderMessage {
-  id: string;
-  runId: string | null;
-  role: RenderMessageRole;
-  content: readonly ContentPart[];
-  state: RenderMessageState;
-  reasoning?: RenderReasoning;
-  tool?: RenderTool;
-  approval?: RenderApproval;
-  error?: RenderError;
-}
-
-export interface RenderMessageSource {
-  /** Events accepted by the store, grouped by turn across resumed invocations. */
-  turnEvents?: readonly (readonly AgentEvent[])[];
-  runs: readonly import("@agentdock-ai/contracts").AgentReducerState[];
-  events: readonly AgentEvent[];
-  /** Durable turn snapshots may be supplied when diagnostic events are evicted. */
-  history?: readonly RenderTurn[];
+export interface RenderModelSource {
+  history?: readonly AgentHistoryMessage[];
+  historyContinuation?: boolean;
+  runs: readonly AgentReducerState[];
+  /** Complete accepted events per turn, including resumed invocations. */
+  turnEvents: readonly (readonly AgentEvent[])[];
+  /** Local transport outcomes retained when a later turn begins. */
+  turnStreamStatuses?: readonly RenderStreamStatus[];
   streamStatus?: RenderStreamStatus;
   streamError?: unknown | null;
 }
@@ -95,8 +77,7 @@ export interface RenderTurn {
   runId: string | null;
   sessionId: string | null;
   state: RenderTurnState;
-  messages: readonly RenderMessage[];
-  /** Ordered V1 transcript; messages remains the legacy compatibility view. */
+  /** Ordered transcript of messages, tools, approvals and errors. */
   items: readonly RenderTurnItem[];
   /** Local transport state, separate from canonical run lifecycle. */
   transportState?: RenderStreamStatus;
@@ -170,7 +151,6 @@ export interface RenderTransportError {
 
 export interface RenderModel {
   turns: readonly RenderTurn[];
-  messages: readonly RenderMessage[];
   streamStatus: RenderStreamStatus;
   transportError?: RenderTransportError;
 }

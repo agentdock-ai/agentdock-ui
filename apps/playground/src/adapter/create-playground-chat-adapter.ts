@@ -1,4 +1,5 @@
 import { decodeAgentEventStream, type ChatAdapter } from "@agentdock-ai/react";
+import { uploadResponse, responseError } from "./upload-response.js";
 import { playgroundAttachmentPolicy } from "./attachment-policy.js";
 
 /** The playground owns identity, credentials, URLs and request construction. */
@@ -49,19 +50,12 @@ export function createPlaygroundChatAdapter({
           },
         );
         if (!response.ok) {
-          const body = (await response.json().catch(() => ({}))) as {
-            error?: string;
-          };
-          throw new Error(body.error || "The file could not be uploaded.");
+          const body: unknown = await response.json().catch(() => null);
+          throw new Error(
+            responseError(body, "The file could not be uploaded."),
+          );
         }
-        const item = (await response.json()) as {
-          id: string;
-          name: string;
-          size: number;
-          mimeType: string;
-        };
-        if (!item.id || !item.name || typeof item.size !== "number")
-          throw new Error("The upload could not be confirmed.");
+        const item = uploadResponse(await response.json());
         const url = new URL(
           `/api/attachments/${encodeURIComponent(item.id)}?threadId=${encodeURIComponent(threadId)}`,
           window.location.origin,
@@ -84,7 +78,8 @@ export function createPlaygroundChatAdapter({
     },
     respondToInterrupt: ({ runId, interruptId, decisions, signal }) =>
       stream({ runId, interruptId, decisions }, signal),
-    continueRun: ({ runId, signal }) => stream({ runId, continue: true }, signal),
+    continueRun: ({ runId, signal }) =>
+      stream({ runId, continue: true }, signal),
     async cancelRun({ runId, signal }) {
       const response = await request("/api/agent/cancel", {
         method: "POST",

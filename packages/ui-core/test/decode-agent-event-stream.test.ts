@@ -71,7 +71,9 @@ describe("decodeAgentEventStream", () => {
       messageId: "answer",
       part: { type: "text", text: "你好 👋 café" },
     };
-    const bytes = new TextEncoder().encode(JSON.stringify(value) + "\n");
+    const bytes = new TextEncoder().encode(
+      `data: ${JSON.stringify(value)}\n\n`,
+    );
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
         for (const byte of bytes) controller.enqueue(Uint8Array.of(byte));
@@ -112,7 +114,7 @@ describe("decodeAgentEventStream", () => {
   it("does not yield buffered events after abort", async () => {
     const abort = new AbortController();
     const body = readable([
-      JSON.stringify(event) + "\n" + JSON.stringify(event) + "\n",
+      `data: ${JSON.stringify(event)}\n\ndata: ${JSON.stringify(event)}\n\n`,
     ]);
     const iterator = decodeAgentEventStream(body, { signal: abort.signal })[
       Symbol.asyncIterator
@@ -140,8 +142,8 @@ describe("decodeAgentEventStream", () => {
           controller.enqueue(
             new TextEncoder().encode(
               mode === "invalid"
-                ? "invalid-json\n"
-                : `${JSON.stringify(event)}\n${JSON.stringify(terminal)}\n`,
+                ? "data: invalid-json\n\n"
+                : `data: ${JSON.stringify(event)}\n\ndata: ${JSON.stringify(terminal)}\n\n`,
             ),
           );
         },
@@ -164,7 +166,7 @@ describe("decodeAgentEventStream", () => {
   it("preserves the parse error when cleanup rejects", async () => {
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
-        controller.enqueue(new TextEncoder().encode("invalid\n"));
+        controller.enqueue(new TextEncoder().encode("data: invalid\n\n"));
       },
       cancel() {
         return Promise.reject(new Error("cleanup failed"));
@@ -175,18 +177,13 @@ describe("decodeAgentEventStream", () => {
     ).rejects.toThrow(SyntaxError);
     expect(body.locked).toBe(false);
   });
-  it("decodes NDJSON events across chunk boundaries and CRLF lines", async () => {
-    const serialized = JSON.stringify(event);
-    const decoded = [];
-    for await (const value of decodeAgentEventStream(
-      readable([
-        `${serialized.slice(0, 13)}`,
-        `${serialized.slice(13)}\r\n${serialized}`,
-      ]),
-    ))
-      decoded.push(value);
-
-    expect(decoded).toEqual([event, event]);
+  it("rejects unframed JSON instead of accepting another transport format", async () => {
+    const iterator = decodeAgentEventStream(
+      readable([JSON.stringify(event) + "\n"]),
+    )[Symbol.asyncIterator]();
+    await expect(iterator.next()).rejects.toThrow(
+      "Agent streams must use SSE data frames.",
+    );
   });
 
   it("decodes SSE data frames across chunk boundaries", async () => {
@@ -203,20 +200,20 @@ describe("decodeAgentEventStream", () => {
     expect(decoded).toEqual([event, event]);
   });
 
-  it("turns transport error frames into readable stream errors", async () => {
+  it("rejects obsolete transport error objects", async () => {
     const body = readable([
-      `${JSON.stringify({ type: "agentdock.transport.error", message: "OpenRouter request failed." })}\n`,
+      `data: ${JSON.stringify({ type: "agentdock.transport.error", message: "OpenRouter request failed." })}\n\n`,
     ]);
     await expect(async () => {
       for await (const _event of decodeAgentEventStream(body)) {
         /* consume */
       }
-    }).rejects.toThrow("OpenRouter request failed.");
+    }).rejects.toThrow("Unsupported Agent event protocol version: undefined.");
   });
 
   it("rejects malformed event frames at the decoder boundary", async () => {
     const body = readable([
-      '{"type":"message.started","messageId":"missing-envelope"}\n',
+      'data: {"type":"message.started","messageId":"missing-envelope"}\n\n',
     ]);
     await expect(async () => {
       for await (const _event of decodeAgentEventStream(body)) {
@@ -224,4 +221,60 @@ describe("decodeAgentEventStream", () => {
       }
     }).rejects.toThrow("Unsupported Agent event protocol version: undefined.");
   });
+});
+
+it.each(["\n", "\r\n", "\r"])(
+  "handles SSE line endings %j across every byte boundary",
+  async (ending) => {
+    const bytes = new TextEncoder().encode(
+      `event: run.started${ending}data: ${JSON.stringify(event)}${ending}${ending}`,
+    );
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const byte of bytes) controller.enqueue(Uint8Array.of(byte));
+        controller.close();
+      },
+    });
+    const values = [];
+    for await (const value of decodeAgentEventStream(body)) values.push(value);
+    expect(values).toEqual([event]);
+  },
+);
+it("decodes canonical run failures without a second transport error protocol", async () => {
+  const failure = {
+    ...event,
+    type: "run.failed",
+    code: "FAILURE",
+    message: "Agent failed",
+  };
+  const values = [];
+  for await (const value of decodeAgentEventStream(
+    readable([`data: ${JSON.stringify(failure)}\n\n`]),
+  ))
+    values.push(value);
+  expect(values).toEqual([failure]);
+});
+it("releases a pending read when the iterator is explicitly thrown into", async () => {
+  const cancel = vi.fn();
+  const body = new ReadableStream<Uint8Array>({ cancel });
+  const iterator = decodeAgentEventStream(body)[Symbol.asyncIterator]();
+  const pending = iterator.next();
+  const failed = iterator.throw?.(new Error("Stop"));
+  await expect(pending).resolves.toMatchObject({ done: true });
+  await expect(failed).rejects.toThrow("Stop");
+  expect(cancel).toHaveBeenCalledTimes(1);
+  expect(body.locked).toBe(false);
+});
+it("decodes an EOF data field and rejects unframed EOF JSON", async () => {
+  const values = [];
+  for await (const value of decodeAgentEventStream(
+    readable([`data: ${JSON.stringify(event)}`]),
+  ))
+    values.push(value);
+  expect(values).toEqual([event]);
+  await expect(
+    decodeAgentEventStream(readable([JSON.stringify(event)]))
+      [Symbol.asyncIterator]()
+      .next(),
+  ).rejects.toThrow("SSE data frames");
 });

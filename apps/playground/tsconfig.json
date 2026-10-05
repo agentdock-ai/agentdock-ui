@@ -3,13 +3,9 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "noEmit": true,
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["./src/*"]
     },
     "module": "ESNext",
     "moduleResolution": "Bundler"

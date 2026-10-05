@@ -1,32 +1,40 @@
 import {
+  cloneAgentEvent,
   createAgentReducerState,
   reduceAgentEvent,
   type AgentEvent,
-  type AgentReducerMessage,
   type AgentReducerState,
   type ContentPart,
 } from "@agentdock-ai/contracts";
-import { selectRenderModel } from "../select-render-messages.js";
+import { selectRenderModel } from "../select-render-model.js";
 import type { RenderModel } from "../render-model.js";
+import {
+  cloneHistoryMessages,
+  cloneResumeState,
+  type AgentHistory,
+  type AgentHistoryMessage,
+} from "../history.js";
 
 export type AgentStreamStatus =
   "idle" | "consuming" | "closed" | "error" | "stopped";
 
 export interface AgentStoreSnapshot {
+  /** Saved transcript supplied by the application, independent of execution events. */
+  history: readonly AgentHistoryMessage[];
+  /** The first live turn continues the last hydrated turn after a native pause. */
+  historyContinuation: boolean;
   /** State for the latest run, reduced by the canonical AgentDock contract. */
   agent: AgentReducerState;
   /** Per-run snapshots, retained so a multi-turn chat keeps its history. */
   runs: readonly AgentReducerState[];
-  /** Flattened message projection used directly by chat components. */
-  messages: readonly AgentReducerMessage[];
   /** Raw events retained for diagnostics and replay-style debugging. */
   events: readonly AgentEvent[];
   /** Validated events per conversation turn, including resumed invocations. */
   turnEvents: readonly (readonly AgentEvent[])[];
-  /** Render snapshots retained independently of the diagnostic event cap. */
-  renderHistory: readonly RenderModel["turns"][number][];
   /** Transport lifecycle, separate from the agent run lifecycle. */
   streamStatus: AgentStreamStatus;
+  /** Transport outcomes per turn, retained independently of canonical lifecycle. */
+  turnStreamStatuses: readonly AgentStreamStatus[];
   streamError: unknown | null;
   /** Normalized state for framework consumers; raw events remain diagnostic only. */
   renderModel: RenderModel;
@@ -36,13 +44,14 @@ export type AgentStoreListener = () => void;
 
 function createInitialSnapshot(): AgentStoreSnapshot {
   const snapshot: Omit<AgentStoreSnapshot, "renderModel"> = {
+    history: [],
+    historyContinuation: false,
     agent: createAgentReducerState(),
     runs: [],
-    messages: [],
     events: [],
     turnEvents: [],
-    renderHistory: [],
     streamStatus: "idle",
+    turnStreamStatuses: [],
     streamError: null,
   };
   return { ...snapshot, renderModel: selectRenderModel(snapshot) };
@@ -57,7 +66,7 @@ function isTerminalRun(status: AgentReducerState["status"]): boolean {
 /**
  * Frontend state for one AgentDock session.
  *
- * The store only reduces events for rendering. It does not run models,
+ * The store projects saved history and reduces live events for rendering. It does not run models,
  * execute tools, make requests, or persist data.
  */
 export class AgentStore {
@@ -71,7 +80,29 @@ export class AgentStore {
     return () => this.listeners.delete(listener);
   };
 
-  applyEvent(event: AgentEvent): void {
+  /** Replace saved history atomically before consuming a stream. No events are invented. */
+  hydrateHistory({ messages, resumeState }: AgentHistory): void {
+    if (
+      this.snapshot.streamStatus === "consuming" ||
+      this.snapshot.agent.status === "running"
+    )
+      throw new Error("Cannot hydrate history while a run is active.");
+    const history = cloneHistoryMessages(messages);
+    const agent = resumeState
+      ? cloneResumeState(resumeState)
+      : createAgentReducerState();
+    this.update({
+      ...createInitialSnapshot(),
+      history,
+      agent,
+      historyContinuation: Boolean(resumeState),
+      runs: resumeState ? [agent] : [],
+      turnEvents: resumeState ? [[]] : [],
+    });
+  }
+
+  applyEvent(rawEvent: AgentEvent): void {
+    const event = cloneAgentEvent(rawEvent);
     const previous = this.snapshot.agent;
     const knownRun = this.snapshot.runs.find(
       (run) => run.runId === event.runId,
@@ -87,17 +118,12 @@ export class AgentStore {
       event,
     );
 
-    if (nextAgent === previous) return;
-
     const runs = this.replaceLatestRun(nextAgent, startsNewRun);
     this.update({
       ...this.snapshot,
       agent: nextAgent,
       runs,
-      messages: runs.flatMap((run) => run.messages),
-      // Keep the complete in-page diagnostic event log for now. The store is
-      // recreated on refresh, so durable history belongs to AgentDock's
-      // session/checkpoint layer rather than this browser-side snapshot.
+      // The consuming app owns persistence; this log is diagnostic only.
       events: [...this.snapshot.events, event],
       turnEvents:
         startsNewRun || this.snapshot.turnEvents.length === 0
@@ -152,16 +178,11 @@ export class AgentStore {
       },
     ];
 
-    const runs = startsNewRun
-      ? [...this.snapshot.runs, nextAgent]
-      : this.snapshot.runs.map((run, index) =>
-          index === this.snapshot.runs.length - 1 ? nextAgent : run,
-        );
+    const runs = this.replaceLatestRun(nextAgent, startsNewRun);
     this.update({
       ...this.snapshot,
       agent: nextAgent,
       runs,
-      messages: runs.flatMap((run) => run.messages),
       turnEvents: startsNewRun
         ? [...this.snapshot.turnEvents, []]
         : this.snapshot.turnEvents,
@@ -188,34 +209,13 @@ export class AgentStore {
   }
 
   private update(snapshot: AgentStoreSnapshot): void {
-    const currentModel = selectRenderModel({
-      ...snapshot,
-      history: snapshot.renderHistory,
-    });
-    const retainedRunIds = new Set(
-      snapshot.runs
-        .map((run) => run.runId)
-        .filter((runId): runId is string => runId !== null),
+    const turnStreamStatuses = snapshot.runs.map((_, index) =>
+      index === snapshot.runs.length - 1
+        ? snapshot.streamStatus
+        : (snapshot.turnStreamStatuses[index] ?? "closed"),
     );
-    const historyByRunId = new Map(
-      snapshot.renderHistory.map((turn) => [turn.runId, turn] as const),
-    );
-    for (const turn of currentModel.turns) {
-      if (turn.runId !== null) {
-        historyByRunId.set(turn.runId, turn);
-      }
-    }
-    const renderHistory = [...historyByRunId.values()].filter(
-      (turn) => turn.runId !== null && retainedRunIds.has(turn.runId),
-    );
-    this.snapshot = {
-      ...snapshot,
-      renderHistory,
-      renderModel: selectRenderModel({
-        ...snapshot,
-        history: renderHistory,
-      }),
-    };
+    const next = { ...snapshot, turnStreamStatuses };
+    this.snapshot = { ...next, renderModel: selectRenderModel(next) };
     for (const listener of this.listeners) listener();
   }
 }

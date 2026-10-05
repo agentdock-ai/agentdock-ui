@@ -41,10 +41,14 @@ export interface ChatAdapter {
   cancelRun?(input: { runId: string; signal: AbortSignal }): Promise<void>;
 
   /** Continue a paused run with no pending interrupt; request construction stays in the app. */
-  continueRun?(input: { runId: string; signal: AbortSignal }): AgentEventStream;
+  continueRun?(input: {
+    runId: string | null;
+    signal: AbortSignal;
+  }): AgentEventStream;
 
   respondToInterrupt?(input: {
-    runId: string;
+    /** Null for a hydrated native checkpoint before a new invocation begins. */
+    runId: string | null;
     interruptId: string;
     decisions: readonly JsonValue[];
     signal: AbortSignal;

@@ -5,7 +5,7 @@ export interface ConsumeAgentStreamOptions {
   signal?: AbortSignal;
 }
 
-const owners = new WeakMap<AgentStore, object>();
+const owners = new WeakMap<AgentStore, { stop: () => void }>();
 
 /** Consume canonical events only. Abort stops local consumption without inventing a run event. */
 export async function consumeAgentStream(
@@ -14,7 +14,7 @@ export async function consumeAgentStream(
   { signal }: ConsumeAgentStreamOptions = {},
 ): Promise<void> {
   if (signal?.aborted) {
-    store.setStreamStatus("stopped");
+    if (!owners.has(store)) store.setStreamStatus("stopped");
     try {
       void Promise.resolve(events[Symbol.asyncIterator]().return?.()).catch(
         () => undefined,
@@ -24,18 +24,19 @@ export async function consumeAgentStream(
     }
     return;
   }
-  const owner = {};
+  const stopped = Symbol("stopped");
+  let interrupt!: () => void;
+  const aborted = new Promise<typeof stopped>((resolve) => {
+    interrupt = () => resolve(stopped);
+  });
+  const owner = { stop: interrupt };
+  owners.get(store)?.stop();
   owners.set(store, owner);
   const setStatus: AgentStore["setStreamStatus"] = (status, error) => {
     if (owners.get(store) === owner) store.setStreamStatus(status, error);
   };
   setStatus("consuming");
-  const stopped = Symbol("stopped");
-  let interrupt!: (value: typeof stopped) => void;
-  const aborted = new Promise<typeof stopped>((resolve) => {
-    interrupt = resolve;
-  });
-  const abort = () => interrupt(stopped);
+  const abort = interrupt;
   signal?.addEventListener("abort", abort, { once: true });
   let iterator: AsyncIterator<AgentEvent> | undefined;
   try {
@@ -60,7 +61,7 @@ export async function consumeAgentStream(
     }
     setStatus(signal?.aborted ? "stopped" : "closed");
   } catch (error) {
-    if (signal?.aborted) {
+    if (signal?.aborted || owners.get(store) !== owner) {
       setStatus("stopped");
       return;
     }
@@ -68,6 +69,7 @@ export async function consumeAgentStream(
     throw error;
   } finally {
     signal?.removeEventListener("abort", abort);
+    if (owners.get(store) === owner) owners.delete(store);
     // An uncooperative iterator must not hold the UI hostage during cancellation.
     try {
       void Promise.resolve(iterator?.return?.()).catch(() => undefined);

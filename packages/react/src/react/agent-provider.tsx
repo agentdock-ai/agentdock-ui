@@ -1,9 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { AgentStore } from "@agentdock-ai/ui-core";
 
 const AgentStoreContext = createContext<AgentStore | null>(null);
@@ -25,6 +20,7 @@ export function AgentProvider({ children, store }: AgentProviderProps) {
 
 export function useAgentStore(): AgentStore {
   const store = useContext(AgentStoreContext);
-  if (!store) throw new Error("useAgentStore must be used inside AgentProvider.");
+  if (!store)
+    throw new Error("useAgentStore must be used inside AgentProvider.");
   return store;
 }

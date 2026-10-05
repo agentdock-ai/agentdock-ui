@@ -46,11 +46,6 @@ export function ChatViewport({
   useLayoutEffect(() => {
     if (!viewport.current || !content.current) return;
     const observer = new ResizeObserver(() => {
-      if (viewport.current)
-        viewport.current.style.setProperty(
-          "--chat-viewport-height",
-          `${viewport.current.clientHeight}px`,
-        );
       if (following.current && viewport.current) {
         viewport.current.scrollTop = viewport.current.scrollHeight;
         lastScroll.current = viewport.current.scrollTop;
@@ -67,7 +62,7 @@ export function ChatViewport({
         tabIndex={0}
         role="region"
         aria-label="Conversation messages"
-        className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [overflow-anchor:none] [scrollbar-gutter:stable] [&_[data-turn]:last-child]:min-h-[calc(var(--chat-viewport-height)-5rem)]"
+        className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [overflow-anchor:none] [scrollbar-gutter:stable]"
         onScroll={() => {
           const el = viewport.current!;
           const nearBottom =
@@ -79,7 +74,10 @@ export function ChatViewport({
         }}
         onClickCapture={(event) => {
           // Expanding a disclosure should preserve the reader's place.
-          if ((event.target as HTMLElement).closest("[aria-expanded]"))
+          if (
+            event.target instanceof Element &&
+            event.target.closest("[aria-expanded]")
+          )
             following.current = false;
         }}
         onKeyDownCapture={(event) => {

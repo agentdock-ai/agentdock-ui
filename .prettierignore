@@ -1,0 +1,7 @@
+node_modules/
+dist/
+coverage/
+.sandbox/
+apps/registry/public/
+apps/playground/src/components/agentdock-ui/
+yarn.lock

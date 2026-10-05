@@ -56,7 +56,11 @@ export function createChatActions(
       await consumeAgentStream(store, source(controller.signal), {
         signal: controller.signal,
       });
-      return store.getSnapshot().streamStatus !== "error";
+      return (
+        !disposed &&
+        !controller.signal.aborted &&
+        store.getSnapshot().streamStatus !== "error"
+      );
     } catch (error) {
       if (disposed || controller.signal.aborted) return false;
       store.setStreamStatus("error", error);
@@ -119,9 +123,9 @@ export function createChatActions(
       decisions: readonly JsonValue[],
     ) {
       const { agent, streamStatus } = store.getSnapshot();
+      const respond = adapter.respondToInterrupt;
       if (
-        !adapter.respondToInterrupt ||
-        !agent.runId ||
+        !respond ||
         streamStatus === "stopped" ||
         !agent.interrupts.some(
           (interrupt) => interrupt.interruptId === interruptId,
@@ -133,7 +137,7 @@ export function createChatActions(
       const runId = agent.runId;
       return consume(
         (signal) =>
-          adapter.respondToInterrupt!({
+          respond.call(adapter, {
             runId,
             interruptId,
             decisions,
@@ -144,9 +148,10 @@ export function createChatActions(
     },
     async continueRun() {
       const { agent, streamStatus } = store.getSnapshot();
+      const resume = adapter.continueRun;
+      const runId = agent.runId;
       if (
-        !adapter.continueRun ||
-        !agent.runId ||
+        !resume ||
         agent.status !== "waiting" ||
         agent.interrupts.length > 0 ||
         streamStatus === "stopped" ||
@@ -155,7 +160,7 @@ export function createChatActions(
       )
         return false;
       return consume(
-        (signal) => adapter.continueRun!({ runId: agent.runId!, signal }),
+        (signal) => resume.call(adapter, { runId, signal }),
         undefined,
         true,
       );

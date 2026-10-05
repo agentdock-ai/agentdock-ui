@@ -52,7 +52,9 @@ it.each(["run.paused", "run.failed", "run.cancelled"] as const)(
     });
     expect(store.getSnapshot().agent.status).toBe("completed");
     expect(
-      store.getSnapshot().messages.some((message) => message.role === "user"),
+      store
+        .getSnapshot()
+        .agent.messages.some((message) => message.role === "user"),
     ).toBe(false);
   },
 );
@@ -117,7 +119,7 @@ it("keeps a failed continuation retryable and blocks overlapping attempts", asyn
   const attempt = pending.continueRun();
   expect(await pending.continueRun()).toBe(false);
   pending.dispose();
-  await expect(attempt).resolves.toBe(true);
+  await expect(attempt).resolves.toBe(false);
 });
 describe("ChatAdapter actions", () => {
   it.each(["success", "failure"])(
@@ -153,6 +155,8 @@ describe("ChatAdapter actions", () => {
         {
           sendMessage: () => stream([]),
           respondToInterrupt(input) {
+            if (input.runId === null)
+              throw new Error("Expected a live fixture invocation.");
             received.push(input.decisions);
             if (mode === "failure") throw new Error("secret");
             return stream(
@@ -235,7 +239,7 @@ describe("ChatAdapter actions", () => {
     );
     expect(await actions.sendMessage("", [attachment])).toBe(true);
     expect(received).toEqual([attachment]);
-    expect(store.getSnapshot().messages[0]?.content).toEqual([
+    expect(store.getSnapshot().agent.messages[0]?.content).toEqual([
       attachment.content,
     ]);
     expect(store.getSnapshot().events).toEqual(scenarios.conversation);
@@ -257,7 +261,7 @@ describe("ChatAdapter actions", () => {
         },
       ]),
     ).toBe(false);
-    expect(store.getSnapshot().messages).toHaveLength(0);
+    expect(store.getSnapshot().agent.messages).toHaveLength(0);
   });
   it("sends through the app and rejects overlapping submissions", async () => {
     const store = new AgentStore();
@@ -293,7 +297,7 @@ describe("ChatAdapter actions", () => {
     expect(
       store.getSnapshot().renderModel.transportError?.detail,
     ).not.toContain("secret");
-    expect(store.getSnapshot().messages[0]?.content).toEqual([
+    expect(store.getSnapshot().agent.messages[0]?.content).toEqual([
       { type: "text", text: "Keep this draft" },
     ]);
   });
@@ -306,6 +310,8 @@ describe("ChatAdapter actions", () => {
       {
         sendMessage: () => stream([]),
         respondToInterrupt: (input) => {
+          if (input.runId === null)
+            throw new Error("Expected a live fixture invocation.");
           received = input.decisions;
           return stream(
             sequence(
@@ -424,3 +430,82 @@ it("keeps a failed cancellation scoped and the active stream usable", async () =
   actions.dispose();
   await pending;
 });
+
+it("distinguishes a received approval from a pending decision after a later read failure", async () => {
+  const store = new AgentStore();
+  scenarios.approval.forEach((event) => store.applyEvent(event));
+  let state: import("../src/react/chat-actions.js").ChatActionState | undefined;
+  const actions = createChatActions(
+    store,
+    {
+      sendMessage: () => stream([]),
+      async *respondToInterrupt({ interruptId, runId }) {
+        if (runId === null)
+          throw new Error("Expected a live fixture invocation.");
+        yield* sequence(
+          [{ type: "interrupt.resolved", interruptId, decisions: [true] }],
+          runId,
+          "phase-2",
+          store.getSnapshot().agent.lastLogicalSequence,
+        );
+        throw new Error("Connection failed");
+      },
+    },
+    (value) => {
+      state = value;
+    },
+  );
+  expect(await actions.respondToInterrupt("decision-1", [true])).toBe(false);
+  expect(state?.actionError).toMatchObject({
+    scope: "approval",
+    message:
+      "Your response was received, but the connection ended before the agent finished.",
+  });
+});
+it.each(["terminal", "new-run", "dispose", "waiting"])(
+  "keeps cancellation scoped when the request completes after %s",
+  async (mode) => {
+    const store = new AgentStore();
+    scenarios.streaming.forEach((event) => store.applyEvent(event));
+    store.setStreamStatus("consuming");
+    let finish = () => {};
+    const adapter = {
+      sendMessage: () => stream([]),
+      cancelRun: () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    };
+    const actions = createChatActions(store, adapter, () => {});
+    const pending = actions.cancelRun();
+    expect(await actions.cancelRun()).toBe(false);
+    if (mode === "terminal" || mode === "new-run") {
+      sequence(
+        [complete("Done")],
+        "fixture-run",
+        "phase-1",
+        store.getSnapshot().agent.lastLogicalSequence,
+      ).forEach((event) => store.applyEvent(event));
+      if (mode === "new-run")
+        sequence([{ type: "run.started" }], "new-run").forEach((event) =>
+          store.applyEvent(event),
+        );
+    } else if (mode === "dispose") actions.dispose();
+    else
+      sequence(
+        [{ type: "run.paused", next: ["step"] }],
+        "fixture-run",
+        "phase-1",
+        store.getSnapshot().agent.lastLogicalSequence,
+      ).forEach((event) => store.applyEvent(event));
+    finish();
+    expect(await pending).toBe(mode === "terminal" || mode === "waiting");
+    expect(store.getSnapshot().streamStatus).toBe(
+      mode === "terminal"
+        ? "closed"
+        : mode === "waiting"
+          ? "stopped"
+          : "consuming",
+    );
+  },
+);

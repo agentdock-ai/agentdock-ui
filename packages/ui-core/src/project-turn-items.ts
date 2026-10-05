@@ -3,46 +3,41 @@ import type {
   AgentReducerState,
   ContentPart,
   ToolCallRecord,
+  JsonValue,
 } from "@agentdock-ai/contracts";
 import type {
   RenderApprovalItem,
-  RenderContentBlock,
   RenderMessageItem,
   RenderMessageState,
   RenderToolCallItem,
   RenderTurnItem,
 } from "./render-model.js";
+import { normalizeContent } from "./normalize-content.js";
 import { reconcileBlocks } from "./reconcile-blocks.js";
 
 /** Placement metadata only. Validation, replay and lifecycle belong to the canonical reducer. */
 export function projectTurnItems(
   run: AgentReducerState,
   events: readonly AgentEvent[],
-  includesPreviousInvocations = false,
 ): RenderTurnItem[] {
   const seen = new Set<string>();
   // The canonical eventIds list is a bounded replay window, not transcript history.
   // Store events have already passed the canonical reducer before reaching this projection.
-  const source = events.filter(
-    (e) =>
-      (includesPreviousInvocations || e.runId === run.runId) &&
-      !seen.has(e.eventId) &&
-      !!seen.add(e.eventId),
-  );
+  const source = events.filter((event) => {
+    if (seen.has(event.eventId)) return false;
+    seen.add(event.eventId);
+    return true;
+  });
   const items: RenderTurnItem[] = [];
   const messages = new Map<string, RenderMessageItem[]>();
   const tools = new Map<string, RenderToolCallItem>();
   const approvals = new Map<string, RenderApprovalItem>();
   const completed = new Set<string>();
   const running = run.status === "running" || run.status === "waiting";
-  const state: RenderMessageState =
-    run.status === "cancelled"
-      ? "stopped"
-      : run.status === "failed"
-        ? "error"
-        : running
-          ? "streaming"
-          : "complete";
+  let state: RenderMessageState = "complete";
+  if (run.status === "cancelled") state = "stopped";
+  else if (run.status === "failed") state = "error";
+  else if (running) state = "streaming";
   const base = (id: string, position: number, phaseId: string | null) => ({
     id,
     runId: run.runId,
@@ -87,6 +82,8 @@ export function projectTurnItems(
       const item = tool(part.result, position, phaseId);
       item.tool.output = part.result.output;
       item.tool.status = part.result.isError ? "failed" : "complete";
+      if (part.result.isError)
+        item.tool.error = resultError(part.result.output);
       item.active = false;
       return;
     }
@@ -119,7 +116,7 @@ export function projectTurnItems(
         position,
         state: segment.state,
         startedAt: timestamp,
-      } as RenderContentBlock);
+      });
     }
     segment.blocks = blocks;
     lastVisible = segment.id;
@@ -140,12 +137,14 @@ export function projectTurnItems(
   for (const [p, event] of source.entries()) {
     switch (event.type) {
       case "message.part.delta": {
-        const role =
-          run.messages.find((m) => m.messageId === event.messageId)?.role ??
-          "assistant";
+        const message = run.messages.find(
+          (m) => m.messageId === event.messageId,
+        );
+        if (!message)
+          throw new Error("Turn event history references an unknown message.");
         append(
           event.messageId,
-          role,
+          message.role,
           event.part,
           p,
           event.phaseId,
@@ -203,6 +202,9 @@ export function projectTurnItems(
             ...item.tool,
             output: event.result.output,
             status: event.result.isError ? "failed" : "complete",
+            ...(event.result.isError
+              ? { error: resultError(event.result.output) }
+              : {}),
             completedAt: event.timestamp,
           };
           item.active = false;
@@ -247,7 +249,6 @@ export function projectTurnItems(
               id: a.id,
               label: a.name,
               input: a.input,
-              kind: "custom",
               toolCallId: a.toolCallId,
             })),
           },
@@ -289,22 +290,11 @@ export function projectTurnItems(
           parts.map((p) =>
             "text" in p ? `${p.type}:${p.text}` : JSON.stringify(p),
           );
-        const normalize = (parts: readonly ContentPart[]) =>
-          parts.reduce<ContentPart[]>((all, part) => {
-            const last = all.at(-1);
-            if (
-              (part.type === "text" || part.type === "reasoning") &&
-              last?.type === part.type
-            )
-              all[all.length - 1] = { ...last, text: last.text + part.text };
-            else all.push(part);
-            return all;
-          }, []);
         const matches = [...assistantSegments, assistantSegments.flat()].some(
           (segments) =>
             JSON.stringify(
               signature(
-                normalize(
+                normalizeContent(
                   segments.flatMap((s) =>
                     s.blocks.map(
                       ({
@@ -319,7 +309,7 @@ export function projectTurnItems(
                   ),
                 ),
               ),
-            ) === JSON.stringify(signature(normalize(final))),
+            ) === JSON.stringify(signature(normalizeContent(final))),
         );
         if (final.length && !matches) {
           const latest = assistantSegments.at(-1);
@@ -370,33 +360,37 @@ export function projectTurnItems(
     }
   }
 
-  // Reducer-only history still uses the same tree; event history supplies richer placement.
-  for (const message of run.messages) {
-    if (!messages.has(message.messageId))
-      for (const part of message.content)
-        append(
-          message.messageId,
-          message.role,
-          part,
-          items.length + 100000,
-          null,
-        );
+  // A fresh checkpoint seed can contain native pending controls without wire events.
+  for (const interrupt of run.interrupts) {
+    if (approvals.has(interrupt.interruptId)) continue;
+    const item: RenderApprovalItem = {
+      ...base(`approval-${interrupt.interruptId}`, source.length, null),
+      type: "approval",
+      toolCallId: interrupt.actions.find((action) => action.toolCallId)
+        ?.toolCallId,
+      approval: {
+        interruptId: interrupt.interruptId,
+        kind: interrupt.kind,
+        title:
+          interrupt.kind === "tool-approval"
+            ? "Your approval is needed"
+            : "Your input is needed",
+        detail: interrupt.prompt,
+        state: "pending",
+        decisions: [],
+        payload: interrupt.payload,
+        actions: interrupt.actions.map((action) => ({
+          id: action.id,
+          label: action.name,
+          input: action.input,
+          toolCallId: action.toolCallId,
+        })),
+      },
+    };
+    approvals.set(interrupt.interruptId, item);
+    items.push(item);
   }
-  for (const call of run.toolCalls) {
-    const item = tool(call, items.length + 100000, null);
-    const result = run.toolResults.find(
-      (t) => t.toolCallId === call.toolCallId,
-    );
-    const error = run.toolErrors.find((t) => t.toolCallId === call.toolCallId);
-    if (result) {
-      item.tool.output = result.output;
-      item.tool.status = result.isError ? "failed" : "complete";
-    }
-    if (error) {
-      item.tool.error = error.error;
-      item.tool.errorCode = error.code;
-      item.tool.status = "failed";
-    }
+  for (const item of tools.values()) {
     item.active = running && item.tool.status === "running";
   }
   for (const segments of messages.values())
@@ -452,4 +446,13 @@ export function projectTurnItems(
     grouped.push(item);
   }
   return grouped;
+}
+
+function resultError(output: JsonValue): string {
+  if (typeof output === "string") return output;
+  if (output && typeof output === "object" && !Array.isArray(output)) {
+    if (typeof output.error === "string") return output.error;
+    if (typeof output.message === "string") return output.message;
+  }
+  return "The tool could not complete.";
 }

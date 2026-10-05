@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 /** Read JSONC project config without changing comments or formatting in the original. */
-export async function readJson(path: string): Promise<Record<string, any>> {
+export async function readJson(path: string): Promise<Record<string, unknown>> {
   const source = await readFile(path, "utf8");
   let result = "",
     quoted = false,
@@ -24,7 +24,10 @@ export async function readJson(path: string): Promise<Record<string, any>> {
       i += 2;
       while (i < source.length && !(source[i] === "*" && source[i + 1] === "/"))
         i++;
+      if (i >= source.length)
+        throw new SyntaxError("Unterminated JSON comment.");
       i++;
+      result += " ";
     } else result += c;
   }
   let clean = "";
@@ -44,5 +47,8 @@ export async function readJson(path: string): Promise<Record<string, any>> {
       else if (c === '"') quoted = false;
     } else if (c === '"') quoted = true;
   }
-  return JSON.parse(clean);
+  const value: unknown = JSON.parse(clean);
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error(`${path} must contain a JSON object.`);
+  return value as Record<string, unknown>;
 }

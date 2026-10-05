@@ -92,3 +92,27 @@ describe("visible chat activity", () => {
     expect(renderChat(createPreviewStore())).not.toContain(">working</span>");
   });
 });
+
+it("keeps stopped answers visible without pause controls or viewport-sized turn spacing", () => {
+  const store = new AgentStore();
+  store.hydrateHistory({
+    messages: [
+      {
+        messageId: "sun",
+        role: "user",
+        content: [{ type: "text", text: "Explain the Sun" }],
+      },
+      {
+        messageId: "partial",
+        role: "assistant",
+        content: [{ type: "text", text: "The Sun moves" }],
+        state: "stopped",
+      },
+    ],
+  });
+  const html = renderChat(store, { ...adapter, async *continueRun() {} });
+  expect(html).toContain("The Sun moves");
+  expect(html).toContain("Your partial answer is preserved");
+  expect(html).not.toContain("Continue run");
+  expect(html).not.toContain("--chat-viewport-height");
+});

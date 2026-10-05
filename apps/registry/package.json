@@ -7,7 +7,8 @@
     "dev": "vite --host 127.0.0.1 --port 5180",
     "typecheck": "tsc --noEmit",
     "build": "node --experimental-strip-types scripts/build-registry.ts",
-    "verify": "node --experimental-strip-types scripts/verify-registry.ts"
+    "verify": "node --experimental-strip-types scripts/verify-registry.ts",
+    "build:review": "vite build"
   },
   "dependencies": {
     "@agentdock-ai/react": "0.1.0",

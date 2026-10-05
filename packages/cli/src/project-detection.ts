@@ -1,6 +1,14 @@
 import { access, readFile, realpath } from "node:fs/promises";
 import { resolve, relative, dirname, isAbsolute } from "node:path";
 import { readJson } from "./json.js";
+import {
+  object,
+  string,
+  readProjectPackage,
+  readComponentsConfig,
+  type ProjectPackage,
+  type ComponentsConfig,
+} from "./project-config.js";
 export type PrimitiveFlavor = "radix" | "base";
 export type PackageManager = "npm" | "pnpm" | "yarn" | "bun";
 export interface Project {
@@ -8,9 +16,9 @@ export interface Project {
   manager: PackageManager;
   flavor: PrimitiveFlavor;
   destination: string;
-  config: Record<string, any>;
+  config: ComponentsConfig;
   needsConfig: boolean;
-  package: Record<string, any>;
+  package: ProjectPackage;
   workspaceRoot?: string;
 }
 async function findWorkspaceRoot(cwd: string): Promise<string | undefined> {
@@ -19,7 +27,7 @@ async function findWorkspaceRoot(cwd: string): Promise<string | undefined> {
     if (await exists(resolve(parent, "pnpm-workspace.yaml"))) return parent;
     const path = resolve(parent, "package.json");
     if (await exists(path)) {
-      const pkg = await readJson(path);
+      const pkg = await readProjectPackage(path);
       const patterns = Array.isArray(pkg.workspaces)
         ? pkg.workspaces
         : pkg.workspaces?.packages;
@@ -44,8 +52,15 @@ export async function exists(path: string) {
   try {
     await access(path);
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ENOENT"
+    )
+      return false;
+    throw error;
   }
 }
 export function inside(cwd: string, path: string) {
@@ -69,7 +84,8 @@ async function compilerPaths(
   for (const file of ["tsconfig.json", "tsconfig.app.json", "jsconfig.json"]) {
     if (!(await exists(resolve(cwd, file)))) continue;
     const config = await readJson(resolve(cwd, file));
-    const paths = config.compilerOptions?.paths ?? {};
+    const compiler = object(config.compilerOptions ?? {}, "compilerOptions");
+    const paths = object(compiler.paths ?? {}, "compilerOptions.paths");
     for (const [name, targets] of Object.entries(paths)) {
       if (
         !name.endsWith("/*") ||
@@ -82,7 +98,7 @@ async function compilerPaths(
         cwd,
         resolve(
           cwd,
-          config.compilerOptions?.baseUrl ?? ".",
+          string(compiler.baseUrl, "compilerOptions.baseUrl") ?? ".",
           targets[0].slice(0, -2),
         ),
       );
@@ -99,7 +115,7 @@ export async function detectProject(directory: string): Promise<Project> {
     throw new Error(
       "No package.json found. Use --cwd to select a React application.",
     );
-  const pkg = await readJson(resolve(cwd, "package.json"));
+  const pkg = await readProjectPackage(resolve(cwd, "package.json"));
   const workspaceRoot = await findWorkspaceRoot(cwd);
   const deps = { ...pkg.dependencies, ...pkg.devDependencies };
   if (!deps.react || !deps.tailwindcss)
@@ -108,15 +124,14 @@ export async function detectProject(directory: string): Promise<Project> {
     );
   const rootPackage =
     workspaceRoot && (await exists(resolve(workspaceRoot, "package.json")))
-      ? await readJson(resolve(workspaceRoot, "package.json"))
+      ? await readProjectPackage(resolve(workspaceRoot, "package.json"))
       : undefined;
   const declaredManager = pkg.packageManager ?? rootPackage?.packageManager;
-  let manager = (declaredManager?.split("@")[0] ?? "npm") as PackageManager;
+  let manager = declaredManager?.split("@")[0] ?? "npm";
   for (const [lock, value] of [
     ["pnpm-lock.yaml", "pnpm"],
     ["yarn.lock", "yarn"],
     ["bun.lock", "bun"],
-    ["bun.lockb", "bun"],
     ["package-lock.json", "npm"],
   ] as const)
     if (
@@ -126,7 +141,12 @@ export async function detectProject(directory: string): Promise<Project> {
       manager = value;
       break;
     }
-  if (!["npm", "pnpm", "yarn", "bun"].includes(manager))
+  if (
+    manager !== "npm" &&
+    manager !== "pnpm" &&
+    manager !== "yarn" &&
+    manager !== "bun"
+  )
     throw new Error("Unsupported package manager. Use npm, pnpm, yarn or bun.");
   const alias = await compilerPaths(cwd);
   const configPath = resolve(cwd, "components.json");
@@ -144,7 +164,7 @@ export async function detectProject(directory: string): Promise<Project> {
       css = path;
       break;
     }
-  const config = needsConfig
+  const config: ComponentsConfig = needsConfig
     ? {
         $schema: "https://ui.shadcn.com/schema.json",
         style: "new-york",
@@ -157,20 +177,16 @@ export async function detectProject(directory: string): Promise<Project> {
           utils: `${alias.alias}/lib/utils`,
         },
       }
-    : await readJson(configPath);
+    : await readComponentsConfig(configPath);
   css = config.tailwind?.css;
   if (!css || !(await exists(inside(cwd, resolve(cwd, css)))))
     throw new Error(
       "Configure the host Tailwind CSS file in components.json (tailwind.css). No files were copied.",
     );
   const styles = await readFile(resolve(cwd, css), "utf8");
-  if (
-    !/(?:@import\s+["']tailwindcss["']|@tailwind\s+(?:base|utilities))/.test(
-      styles,
-    )
-  )
+  if (!/@import\s+["']tailwindcss["']/.test(styles))
     throw new Error(
-      "The host CSS must import Tailwind before chat can be installed.",
+      "The host CSS must import Tailwind CSS 4 before chat can be installed.",
     );
   if (
     ![
@@ -205,7 +221,7 @@ export async function detectProject(directory: string): Promise<Project> {
       "agentdock-ui",
     ),
   );
-  const flavor: PrimitiveFlavor = String(config.style).startsWith("base")
+  const flavor: PrimitiveFlavor = config.style?.startsWith("base")
     ? "base"
     : "radix";
   return {
