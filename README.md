@@ -4,8 +4,8 @@
   <h1>Composable chat UI for Agentdock</h1>
 
   <p>
-    Build polished agent experiences with a typed React runtime and editable,
-    installable chat components powered by Agentdock's event protocol.
+    Add a chat interface to your Agentdock app with React components that are
+    easy to add and customize.
   </p>
 
   <p>
@@ -16,7 +16,7 @@
   </p>
 </div>
 
-Agentdock UI pairs `@agentdock-ai/react`—a headless store, provider, hooks, and adapter types—with chat components the CLI installs directly into your app, so you can shape the interface to your product. Your app keeps control of requests, authentication, and transport while the UI consumes canonical Agentdock events.
+Agentdock UI gives you ready-to-use React chat components that the CLI adds to your app. Customize them to fit your product. The `@agentdock-ai/react` package helps connect the chat to Agentdock, while your app controls requests and authentication.
 
 ## Install Chat
 

@@ -32,7 +32,12 @@ function ChatSurface({
   welcomeDescription,
   placeholder,
 }: ChatProps) {
-  const { renderModel: model, agent, streamStatus } = useAgentState();
+  const {
+    renderModel: model,
+    agent,
+    streamStatus,
+    conversationActions,
+  } = useAgentState();
   const actions = useAgentActions(adapter);
   const [draft, setDraft] = useState("");
   const attachments = useChatAttachments(adapter.attachments);
@@ -42,6 +47,7 @@ function ChatSurface({
       !["completed", "failed", "cancelled"].includes(agent.status));
   const waiting = agent.status === "waiting" && streamStatus !== "stopped";
   const paused = waiting && agent.interrupts.length === 0;
+  const blocksInput = waiting && !conversationActions?.canStart;
   const items = model.turns.at(-1)?.items ?? [];
   const activity = items.some(
     (item) =>
@@ -67,7 +73,7 @@ function ChatSurface({
     if (
       disabled ||
       active ||
-      waiting ||
+      blocksInput ||
       attachments.blocked ||
       (!text.trim() && attachments.items.length === 0)
     )
@@ -118,7 +124,7 @@ function ChatSurface({
                 : undefined
             }
             busy={active}
-            waiting={waiting}
+            waiting={blocksInput}
             cancelling={actions.cancelling}
             disabled={disabled}
             placeholder={placeholder}

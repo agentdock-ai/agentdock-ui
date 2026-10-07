@@ -103,7 +103,8 @@ export function createChatActions(
         active ||
         disposed ||
         (store.getSnapshot().agent.status === "waiting" &&
-          store.getSnapshot().streamStatus !== "stopped")
+          store.getSnapshot().streamStatus !== "stopped" &&
+          !store.getSnapshot().conversationActions?.canStart)
       )
         return false;
       store.appendUserMessage(

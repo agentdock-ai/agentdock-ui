@@ -23,7 +23,8 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@agentdock-ai/ui-core": "0.1.0"
+    "@agentdock-ai/ui-core": "0.1.0",
+    "@agentdock-ai/contracts": "^0.2.0"
   },
   "peerDependencies": {
     "react": ">=18"

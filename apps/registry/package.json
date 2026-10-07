@@ -11,6 +11,7 @@
     "build:review": "vite build"
   },
   "dependencies": {
+    "@agentdock-ai/contracts": "link:../../../agentdock/packages/contracts",
     "@agentdock-ai/react": "0.1.0",
     "@agentdock-ai/ui-core": "0.1.0",
     "react": "^19.3.0",

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { AgentStore } from "../src/core/agent-store.js";
+import { createAgentReducerState } from "@agentdock-ai/contracts";
 import {
   intro,
   sequence,
@@ -93,4 +94,82 @@ it("appends multiple local messages to the current pending turn", () => {
     { role: "user", blocks: [{ text: "First" }] },
     { role: "user", blocks: [{ text: "Second" }] },
   ]);
+});
+
+it("hydrates conversation records and genuine native controls without replaying events", () => {
+  const store = new AgentStore();
+  const nativeInterrupt = {
+    kind: "tool-approval" as const,
+    interruptId: "approval",
+    prompt: "Approve the tool call",
+    actions: [
+      {
+        id: "action",
+        toolCallId: "call",
+        name: "write_file",
+        input: { path: "x" },
+      },
+    ],
+  };
+  const history = {
+    protocolVersion: 1 as const,
+    thread: {
+      id: "thread",
+      title: "Title",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    },
+    messages: [
+      {
+        id: "answer",
+        turnId: "turn",
+        operationId: "operation",
+        position: 0,
+        role: "assistant" as const,
+        content: [{ type: "text" as const, text: "Partial" }],
+        outcome: "stopped" as const,
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    ],
+    nextCursor: null,
+    snapshotId: "snapshot",
+    execution: {
+      operationId: "operation",
+      runId: null,
+      status: "paused" as const,
+      action: "start" as const,
+    },
+    nativeControls: { pendingNodes: [], interrupts: [nativeInterrupt] },
+    interrupts: [nativeInterrupt],
+    actions: {
+      canStart: false,
+      canStop: false,
+      canContinue: false,
+      canRespondToInterrupt: true,
+    },
+  };
+  store.hydrateConversationHistory(history);
+  expect(store.getSnapshot().history).toEqual([
+    {
+      messageId: "answer",
+      role: "assistant",
+      content: [{ type: "text", text: "Partial" }],
+      state: "stopped",
+    },
+  ]);
+  expect(store.getSnapshot().agent).toMatchObject({
+    threadId: "thread",
+    status: "waiting",
+    runId: null,
+    interrupts: [nativeInterrupt],
+  });
+  expect(store.getSnapshot().events).toEqual([]);
+
+  const noControls = {
+    ...history,
+    messages: [],
+    nativeControls: { pendingNodes: [], interrupts: [] },
+  };
+  store.hydrateConversationHistory(noControls);
+  expect(store.getSnapshot().agent).toEqual(createAgentReducerState());
 });

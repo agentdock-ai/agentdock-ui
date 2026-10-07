@@ -102,7 +102,7 @@ export function ChatWorkspace({
             onClick={(event) => {
               if (
                 event.target instanceof Element &&
-                event.target.closest("button")
+                event.target.closest("[data-thread-navigation]")
               )
                 mobile.current?.close();
             }}

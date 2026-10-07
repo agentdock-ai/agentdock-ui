@@ -1,10 +1,13 @@
 import {
   cloneAgentEvent,
+  AGENT_EVENT_PROTOCOL_VERSION,
   createAgentReducerState,
   reduceAgentEvent,
   type AgentEvent,
   type AgentReducerState,
   type ContentPart,
+  type ConversationHistory,
+  type ConversationActions,
 } from "@agentdock-ai/contracts";
 import { selectRenderModel } from "../select-render-model.js";
 import type { RenderModel } from "../render-model.js";
@@ -23,6 +26,7 @@ export interface AgentStoreSnapshot {
   history: readonly AgentHistoryMessage[];
   /** The first live turn continues the last hydrated turn after a native pause. */
   historyContinuation: boolean;
+  conversationActions: ConversationActions | null;
   /** State for the latest run, reduced by the canonical AgentDock contract. */
   agent: AgentReducerState;
   /** Per-run snapshots, retained so a multi-turn chat keeps its history. */
@@ -46,6 +50,7 @@ function createInitialSnapshot(): AgentStoreSnapshot {
   const snapshot: Omit<AgentStoreSnapshot, "renderModel"> = {
     history: [],
     historyContinuation: false,
+    conversationActions: null,
     agent: createAgentReducerState(),
     runs: [],
     events: [],
@@ -98,6 +103,44 @@ export class AgentStore {
       historyContinuation: Boolean(resumeState),
       runs: resumeState ? [agent] : [],
       turnEvents: resumeState ? [[]] : [],
+    });
+  }
+
+  /** Hydrate the durable conversation contract without inventing execution events. */
+  hydrateConversationHistory(history: ConversationHistory): void {
+    const messages = history.messages.map((message) => ({
+      messageId: message.id,
+      role: message.role,
+      content: message.content,
+      ...(message.outcome === "complete"
+        ? {}
+        : {
+            state:
+              message.outcome === "streaming"
+                ? ("stopped" as const)
+                : message.outcome,
+          }),
+    }));
+    const hasNativePending =
+      history.nativeControls.pendingNodes.length > 0 ||
+      history.nativeControls.interrupts.length > 0;
+    const resumeState: AgentReducerState | null = hasNativePending
+      ? {
+          ...createAgentReducerState(),
+          protocolVersion: AGENT_EVENT_PROTOCOL_VERSION,
+          threadId: history.thread.id,
+          status: "waiting",
+          interrupts: structuredClone(history.nativeControls.interrupts),
+          interrupt: structuredClone(
+            history.nativeControls.interrupts[0] ?? null,
+          ),
+          pausedNodes: [...history.nativeControls.pendingNodes],
+        }
+      : null;
+    this.hydrateHistory({ messages, resumeState });
+    this.update({
+      ...this.snapshot,
+      conversationActions: { ...history.actions },
     });
   }
 

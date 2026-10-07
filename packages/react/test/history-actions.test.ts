@@ -81,3 +81,49 @@ it.each(["approval", "pause"] as const)(
     });
   },
 );
+
+it("allows a fresh prompt after reloading a stopped conversation with native pending work", async () => {
+  const store = new AgentStore();
+  store.hydrateConversationHistory({
+    protocolVersion: 1,
+    thread: {
+      id: "thread",
+      title: "Stopped",
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+    },
+    messages: [],
+    nextCursor: null,
+    snapshotId: "snapshot",
+    execution: {
+      operationId: "stopped",
+      runId: null,
+      status: "settled",
+      action: "start",
+    },
+    nativeControls: { pendingNodes: ["model"], interrupts: [] },
+    interrupts: [],
+    actions: {
+      canStart: true,
+      canContinue: true,
+      canStop: false,
+      canRespondToInterrupt: false,
+    },
+  });
+  let prompt: string | undefined;
+  const actions = createChatActions(
+    store,
+    {
+      async *sendMessage(input) {
+        prompt = input.text;
+        yield* sequence(
+          [{ type: "run.started" }, complete("Latest answer")],
+          "fresh",
+        );
+      },
+    },
+    () => {},
+  );
+  expect(await actions.sendMessage("What is my name?")).toBe(true);
+  expect(prompt).toBe("What is my name?");
+});

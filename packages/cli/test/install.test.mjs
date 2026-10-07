@@ -17,6 +17,7 @@ const dependencies = {
   tailwindcss: "^4.0.0",
   "@agentdock-ai/react": "^0.1.0",
   "@agentdock-ai/ui-core": "^0.1.0",
+  "@agentdock-ai/contracts": "^0.2.0",
   "react-markdown": "^10.1.0",
   "remark-gfm": "^4.0.1",
   "lucide-react": "^1.46.0",
