@@ -18,10 +18,15 @@ export function ChatWorkspace({
   actions?: ReactNode;
   className?: string;
 }) {
+  const doubleClickDelayMs = 250;
   const [expanded, setExpanded] = useState(true);
   const mobile = useRef<HTMLDialogElement>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     mobile.current?.close();
+    return () => {
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+    };
   }, [title]);
   const brandRow = (
     <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-4 text-[13px]">
@@ -103,8 +108,24 @@ export function ChatWorkspace({
               if (
                 event.target instanceof Element &&
                 event.target.closest("[data-thread-navigation]")
-              )
-                mobile.current?.close();
+              ) {
+                if (event.target.closest("[data-thread-editable]")) {
+                  if (closeTimer.current) clearTimeout(closeTimer.current);
+                  closeTimer.current = setTimeout(() => {
+                    closeTimer.current = null;
+                    mobile.current?.close();
+                  }, doubleClickDelayMs);
+                } else mobile.current?.close();
+              }
+            }}
+            onDoubleClick={(event) => {
+              if (
+                event.target instanceof Element &&
+                event.target.closest("[data-thread-editable]")
+              ) {
+                if (closeTimer.current) clearTimeout(closeTimer.current);
+                closeTimer.current = null;
+              }
             }}
           >
             {sidebar}

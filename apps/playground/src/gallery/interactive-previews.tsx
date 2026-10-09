@@ -216,7 +216,7 @@ export function ScrollButtonPreview() {
   const [scrolled, setScrolled] = useState(false);
   return (
     <div className="relative h-16 w-full">
-      <ScrollToLatest onClick={() => setScrolled(true)} />
+      <ScrollToLatest onClick={() => setScrolled(true)} visible />
       <span role="status" className="sr-only">
         {scrolled ? "Scrolled to the latest message" : ""}
       </span>

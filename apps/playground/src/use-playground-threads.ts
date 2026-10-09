@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { AgentStore, type ChatAdapter } from "@agentdock-ai/react";
 import { createPlaygroundChatAdapter } from "./adapter/create-playground-chat-adapter.js";
 function newThread() {
@@ -15,6 +15,16 @@ export function usePlaygroundThreads() {
   const [threads, setThreads] = useState(() => [newThread()]);
   const [selectedId, setSelectedId] = useState(threads[0]!.id);
   const active = threads.find((thread) => thread.id === selectedId)!;
+  const onActivityChange = useCallback(
+    (isRunning: boolean) => {
+      setThreads((current) =>
+        current.map((thread) =>
+          thread.id === active.id ? { ...thread, isRunning } : thread,
+        ),
+      );
+    },
+    [active.id],
+  );
   const adapter = useMemo<ChatAdapter>(
     () => ({
       ...active.adapter,
@@ -42,6 +52,7 @@ export function usePlaygroundThreads() {
     threads,
     active,
     adapter,
+    onActivityChange,
     onSelect: setSelectedId,
     onNew() {
       const thread = newThread();

@@ -310,6 +310,7 @@ export function ChatPage({
             "Explain a concept",
             "Review an idea",
           ]}
+          onActivityChange={navigation.onActivityChange}
           placeholder={
             configured
               ? "Send a message…"

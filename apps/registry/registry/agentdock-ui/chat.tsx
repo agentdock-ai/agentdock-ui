@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AgentProvider,
   useAgentActions,
@@ -31,6 +31,7 @@ function ChatSurface({
   welcomeTitle,
   welcomeDescription,
   placeholder,
+  onActivityChange,
 }: ChatProps) {
   const {
     renderModel: model,
@@ -45,6 +46,9 @@ function ChatSurface({
     actions.busy ||
     (streamStatus === "consuming" &&
       !["completed", "failed", "cancelled"].includes(agent.status));
+  useEffect(() => {
+    onActivityChange?.(active);
+  }, [active, onActivityChange]);
   const waiting = agent.status === "waiting" && streamStatus !== "stopped";
   const paused = waiting && agent.interrupts.length === 0;
   const blocksInput = waiting && !conversationActions?.canStart;

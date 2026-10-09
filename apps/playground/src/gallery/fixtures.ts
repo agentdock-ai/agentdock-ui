@@ -58,7 +58,7 @@ export const approval = createPreviewStore("approval")
   .find((item) => item.type === "approval")!.approval;
 
 export const threads = [
-  { id: "design", title: "A simple chat interface" },
+  { id: "design", title: "A simple chat interface", isRunning: true },
   { id: "week", title: "Plan my week" },
   { id: "idea", title: "Review an idea" },
 ];
