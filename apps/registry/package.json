@@ -12,8 +12,8 @@
   },
   "dependencies": {
     "@agentdock-ai/contracts": "link:../../../agentdock/packages/contracts",
-    "@agentdock-ai/react": "0.1.0",
-    "@agentdock-ai/ui-core": "0.1.0",
+    "@agentdock-ai/react": "0.1.1",
+    "@agentdock-ai/ui-core": "0.1.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-markdown": "^10.1.0",

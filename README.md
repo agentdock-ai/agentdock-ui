@@ -20,13 +20,13 @@ Agentdock UI gives you ready-to-use React chat components that the CLI adds to y
 
 ## Install Chat
 
-The intended released installer command is:
+Install the chat source with the CLI:
 
 ```sh
-npx agentdock-ui add chat
+npx @agentdock-ai/agentdock-ui add chat
 ```
 
-The UI is implemented locally; publishing is a separate release step. To use this checkout:
+To use this checkout instead of the published CLI:
 
 ```sh
 yarn install

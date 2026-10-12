@@ -1,6 +1,6 @@
 {
   "name": "@agentdock-ai/ui-core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Framework-independent state and stream primitives for Agentdock UI",
   "license": "MIT",
   "type": "module",

@@ -1,6 +1,6 @@
 {
   "name": "@agentdock-ai/react",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "React primitives for consuming Agentdock event streams",
   "license": "MIT",
   "type": "module",
@@ -23,7 +23,7 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@agentdock-ai/ui-core": "0.1.0",
+    "@agentdock-ai/ui-core": "0.1.1",
     "@agentdock-ai/contracts": "^0.2.0"
   },
   "peerDependencies": {
