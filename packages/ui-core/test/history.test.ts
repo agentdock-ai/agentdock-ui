@@ -5,6 +5,7 @@ import {
   type AgentReducerMessage,
 } from "@agentdock-ai/contracts";
 import { AgentStore } from "../src/core/agent-store.js";
+import { projectHistory } from "../src/history.js";
 import { sequence } from "../../../scripts/fixtures/events.js";
 
 const message = (
@@ -35,6 +36,89 @@ const roles = (store: AgentStore) =>
     .renderModel.turns.flatMap((turn) => turn.items)
     .filter((item) => item.type === "message")
     .map((item) => item.role);
+
+it("restores two tool batches with the assistant message between them", () => {
+  const calls = Array.from({ length: 6 }, (_, index) => ({
+    toolCallId: `read-${index}`,
+    name: "read_file",
+    input: { path: `file-${index}.txt` },
+  }));
+  const batch = (offset: number): AgentReducerMessage[] =>
+    calls.slice(offset, offset + 3).flatMap((toolCall) => [
+      {
+        messageId: `call-${toolCall.toolCallId}`,
+        role: "assistant",
+        content: [{ type: "tool-call", toolCall }],
+      },
+      {
+        messageId: `result-${toolCall.toolCallId}`,
+        role: "tool",
+        content: [
+          { type: "tool-result", result: { ...toolCall, output: "Read" } },
+        ],
+      },
+      message(`empty-${toolCall.toolCallId}`, "assistant", " \n"),
+    ]);
+  const store = new AgentStore();
+  store.hydrateHistory({
+    messages: [
+      message("user", "user", "Explore the workspace"),
+      ...batch(0),
+      message(
+        "between",
+        "assistant",
+        "Found the portfolio. Reading its files.",
+      ),
+      ...batch(3),
+      message("answer", "assistant", "Here is what I found."),
+    ],
+  });
+  const items = store.getSnapshot().renderModel.turns[0]!.items;
+  expect(items.map((item) => item.type)).toEqual([
+    "message",
+    "tool-timeline",
+    "message",
+    "tool-timeline",
+    "message",
+  ]);
+  expect(
+    items
+      .filter((item) => item.type === "tool-timeline")
+      .map((group) => group.tools.map((item) => item.tool.toolCallId)),
+  ).toEqual([
+    calls.slice(0, 3).map((tool) => tool.toolCallId),
+    calls.slice(3).map((tool) => tool.toolCallId),
+  ]);
+});
+
+it("keeps legacy tool-only history visible inside a collapsed tool group", () => {
+  const turns = projectHistory([
+    message("legacy-1", "tool", "First result"),
+    message("legacy-2", "tool", "Second result"),
+  ]);
+  const items = turns[0]!.items;
+
+  expect(items).toHaveLength(1);
+  expect(items[0]).toMatchObject({
+    type: "tool-timeline",
+    tools: [
+      {
+        tool: {
+          name: "Tool",
+          output: "First result",
+          status: "complete",
+        },
+      },
+      {
+        tool: {
+          name: "Tool",
+          output: "Second result",
+          status: "complete",
+        },
+      },
+    ],
+  });
+});
 
 describe("checkpoint history hydration", () => {
   it("atomically loads ordered messages without creating runs, events, or invocation IDs", () => {

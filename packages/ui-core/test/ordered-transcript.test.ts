@@ -173,7 +173,7 @@ describe("ordered transcript", () => {
       "I’ll check the existing components.The structure looks good. Both files use the host’s theme tokens.",
     );
   });
-  it("retains interleaved reasoning and text; groups only within a phase", () => {
+  it("retains interleaved reasoning and text; groups adjacent calls across phases", () => {
     const events = sequence([
       ...intro,
       text("First"),
@@ -202,11 +202,14 @@ describe("ordered transcript", () => {
         { type: "text", text: "Second" },
       ],
     });
-    expect(result.map((i) => i.type)).toEqual([
-      "message",
-      "tool-call",
-      "tool-call",
-    ]);
+    expect(result.map((i) => i.type)).toEqual(["message", "tool-timeline"]);
+    expect(result[1]).toMatchObject({
+      phaseId: null,
+      tools: [
+        { phaseId: "phase-1", tool: { toolCallId: call.toolCallId } },
+        { phaseId: "phase-2", tool: { toolCallId: "another" } },
+      ],
+    });
   });
   it("coalesces embedded tools and never guesses action semantics", () => {
     const events = sequence([

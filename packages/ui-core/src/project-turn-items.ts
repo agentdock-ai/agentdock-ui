@@ -14,6 +14,7 @@ import type {
 } from "./render-model.js";
 import { normalizeContent } from "./normalize-content.js";
 import { reconcileBlocks } from "./reconcile-blocks.js";
+import { matchesToolOutput, toolMessageOutput } from "./tool-activity.js";
 
 /** Placement metadata only. Validation, replay and lifecycle belong to the canonical reducer. */
 export function projectTurnItems(
@@ -409,36 +410,75 @@ export function projectTurnItems(
       }));
     }
   const ordered = items
-    .filter((item) => item.type !== "message" || item.blocks.length > 0)
+    .filter(
+      (item) =>
+        item.type !== "message" ||
+        item.blocks.some((block) =>
+          block.type === "text" || block.type === "reasoning"
+            ? block.text.trim().length > 0
+            : true,
+        ),
+    )
     .sort((a, b) => a.position - b.position);
+
+  // Tool callbacks carry the structured result shown in the tool card. LangGraph
+  // also streams that result as a tool-role message; omit that message when its
+  // content is already represented by a structured tool result.
+  const visible = ordered.flatMap((item): RenderTurnItem[] => {
+    if (item.type !== "message" || item.role !== "tool") return [item];
+    if (
+      run.toolResults.some((result) => matchesToolOutput(item, result.output))
+    )
+      return [];
+
+    return [
+      {
+        ...base(`tool-output-${item.messageId}`, item.position, item.phaseId),
+        type: "tool-call",
+        active: false,
+        tool: {
+          toolCallId: `tool-output-${item.messageId}`,
+          name: "Tool",
+          input: {},
+          progress: [],
+          output: toolMessageOutput(item),
+          status: "complete",
+        },
+      },
+    ];
+  });
+
   // One interrupt card, directly after its associated tool (never duplicated per action).
   for (const item of approvals.values()) {
-    const target = ordered.findIndex(
+    const target = visible.findIndex(
       (i) => i.type === "tool-call" && i.tool.toolCallId === item.toolCallId,
     );
-    const at = ordered.indexOf(item);
+    const at = visible.indexOf(item);
     if (target >= 0 && at > target + 1) {
-      ordered.splice(at, 1);
-      ordered.splice(target + 1, 0, item);
+      visible.splice(at, 1);
+      visible.splice(target + 1, 0, item);
     }
   }
+
+  // Group adjacent tool activity in one turn; messages and approvals split groups.
   const grouped: RenderTurnItem[] = [];
-  for (const item of ordered) {
+  for (const item of visible) {
     const previous = grouped.at(-1);
-    if (
-      item.type === "tool-call" &&
-      item.phaseId !== null &&
-      previous?.phaseId === item.phaseId
-    ) {
+    if (item.type === "tool-call" && previous) {
       if (previous.type === "tool-call") {
         grouped[grouped.length - 1] = {
-          ...base(previous.id, previous.position, previous.phaseId),
+          ...base(
+            previous.id,
+            previous.position,
+            previous.phaseId === item.phaseId ? previous.phaseId : null,
+          ),
           type: "tool-timeline",
           tools: [previous, item],
         };
         continue;
       }
       if (previous.type === "tool-timeline") {
+        if (previous.phaseId !== item.phaseId) previous.phaseId = null;
         previous.tools = [...previous.tools, item];
         continue;
       }

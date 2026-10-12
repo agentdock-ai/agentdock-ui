@@ -50,15 +50,14 @@ describe("visible chat activity", () => {
     expect(html).not.toContain("animate-pulse");
   });
 
-  it("shows running tool names and progress without expanding the group", () => {
+  it("keeps running groups collapsed until the user expands them", () => {
     const html = renderToStaticMarkup(
       createElement(ToolTimeline, { tools: runningTools }),
     );
-    expect(html).toContain('aria-expanded="true"');
-    expect(html).toContain("read_file Running");
-    expect(html).toContain("src/app.tsx");
-    expect(html).toContain("src/theme.css");
-    expect(html).toContain("Reading the component source…");
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain("running");
+    expect(html).not.toContain("read_file Running");
+    expect(html).not.toContain("Reading the component source…");
   });
 
   it("keeps completed groups compact and inspectable", () => {
@@ -83,8 +82,8 @@ describe("visible chat activity", () => {
     );
     store.setStreamStatus("consuming");
     const html = renderChat(store);
-    expect(html).toContain("read_file Running");
-    expect(html).toContain("Reading the component source…");
+    expect(html).toContain("running");
+    expect(html).not.toContain("Reading the component source…");
     expect(html).not.toContain(">working</span>");
   });
 

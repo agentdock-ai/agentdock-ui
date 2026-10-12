@@ -11,7 +11,9 @@ import type {
   RenderMessageItem,
   RenderToolCallItem,
   RenderTurn,
+  RenderTurnItem,
 } from "./render-model.js";
+import { matchesToolOutput, toolMessageOutput } from "./tool-activity.js";
 
 /** Durable display status; it never changes native execution state. */
 export interface AgentHistoryMessage extends AgentReducerMessage {
@@ -103,9 +105,10 @@ export function projectHistory(
   messages: readonly AgentHistoryMessage[],
 ): RenderTurn[] {
   const turns: RenderTurn[] = [];
-  const tools = new Map<string, RenderToolCallItem>();
+  let tools = new Map<string, RenderToolCallItem>();
   for (const message of messages) {
     if (!turns.length || message.role === "user") {
+      tools = new Map();
       turns.push({
         id: `history-${message.messageId}`,
         runId: null,
@@ -134,7 +137,9 @@ export function projectHistory(
           item = {
             id: `tool-${record.toolCallId}`,
             runId: null,
-            phaseId: null,
+            // Calls serialized in one assistant message are a parallel batch.
+            // Durable tool-result-only messages have no such batch metadata.
+            phaseId: `history-${message.messageId}`,
             position: items.length,
             type: "tool-call",
             active: false,
@@ -184,5 +189,70 @@ export function projectHistory(
     }
     turn.items = items;
   }
+
+  for (const turn of turns) {
+    const knownTools = turn.items.filter(
+      (item): item is RenderToolCallItem => item.type === "tool-call",
+    );
+    const visible = turn.items.flatMap((item): RenderTurnItem[] => {
+      if (
+        item.type === "message" &&
+        !item.blocks.some((block) =>
+          block.type === "text" || block.type === "reasoning"
+            ? block.text.trim().length > 0
+            : true,
+        )
+      )
+        return [];
+      if (item.type !== "message" || item.role !== "tool") return [item];
+      if (knownTools.some((tool) => matchesToolOutput(item, tool.tool.output)))
+        return [];
+
+      return [
+        {
+          id: `tool-output-${item.messageId}`,
+          runId: item.runId,
+          phaseId: item.phaseId,
+          position: item.position,
+          type: "tool-call",
+          active: false,
+          tool: {
+            toolCallId: `tool-output-${item.messageId}`,
+            name: "Tool",
+            input: {},
+            progress: [],
+            output: toolMessageOutput(item),
+            status: "complete",
+          },
+        },
+      ];
+    });
+    const grouped: RenderTurnItem[] = [];
+    for (const item of visible) {
+      const previous = grouped.at(-1);
+      if (item.type === "tool-call" && previous) {
+        if (previous.type === "tool-call") {
+          grouped[grouped.length - 1] = {
+            id: previous.id,
+            runId: previous.runId,
+            phaseId:
+              previous.phaseId === item.phaseId ? previous.phaseId : null,
+            position: previous.position,
+            type: "tool-timeline",
+            tools: [previous, item],
+          };
+          continue;
+        }
+        if (previous.type === "tool-timeline") {
+          if (previous.phaseId !== item.phaseId) previous.phaseId = null;
+          previous.tools = [...previous.tools, item];
+          continue;
+        }
+      }
+      grouped.push(item);
+    }
+    turn.items = grouped;
+  }
+
   return turns;
 }

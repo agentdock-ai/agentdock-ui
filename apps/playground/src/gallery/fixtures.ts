@@ -29,10 +29,26 @@ function findMessage(model: RenderModel, role: RenderMessageItem["role"]) {
 export const conversation = createPreviewStore().getSnapshot().renderModel;
 export const userMessage = findMessage(conversation, "user");
 export const assistantMessage = findMessage(conversation, "assistant");
-export const toolMessage = findMessage(
-  createPreviewStore("toolMessage").getSnapshot().renderModel,
-  "tool",
-);
+// Standalone component sample; transcript tool output is projected as tool cards.
+export const toolMessage: RenderMessageItem = {
+  id: "tool-output:0",
+  messageId: "tool-output",
+  runId: null,
+  phaseId: null,
+  position: 0,
+  type: "message",
+  role: "tool",
+  state: "complete",
+  blocks: [
+    {
+      id: "tool-output:0:block-0",
+      position: 0,
+      state: "complete",
+      type: "text",
+      text: "Tool input failed.\n    at Tool.call (file:///private/runtime.js:10:1)",
+    },
+  ],
+};
 function toolItems(store: AgentStore) {
   return store
     .getSnapshot()

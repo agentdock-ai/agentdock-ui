@@ -387,6 +387,60 @@ it("places a linked approval after its tool and groups remaining consecutive cal
     tools: [{ active: false }, { active: false }, { active: false }],
   });
 });
+it.each(["shared", "different"] as const)(
+  "keeps two batches of three tools separate across assistant text with %s phases",
+  (phases) => {
+    const calls = Array.from({ length: 6 }, (_, index) => ({
+      ...call,
+      toolCallId: `batch-tool-${index}`,
+    }));
+    const batch = (offset: number): AgentEventInput[] =>
+      calls.slice(offset, offset + 3).flatMap((toolCall) => [
+        { type: "tool.called", toolCall },
+        { type: "tool.completed", result: { ...toolCall, output: "Read" } },
+        {
+          type: "message.completed",
+          messageId: `empty-${toolCall.toolCallId}`,
+          role: "assistant",
+          content: [{ type: "text", text: " \n" }],
+        },
+      ]);
+    const events = sequence([
+      ...intro,
+      text("Looking at the workspace."),
+      ...batch(0),
+      text("Found the portfolio. Reading its files."),
+      ...batch(3),
+      text("Here is what I found."),
+      { type: "run.completed", finishReason: "stop", content: [] },
+    ]).map((event, index) => ({
+      ...event,
+      phaseId: phases === "different" ? `phase-${index}` : event.phaseId,
+    }));
+    const turn = selectRenderModel({
+      runs: [reduceAgentEvents(events)],
+      turnEvents: [events],
+      streamStatus: "closed",
+    }).turns[0]!;
+    expect(turn.items.map((item) => item.type)).toEqual([
+      "message",
+      "tool-timeline",
+      "message",
+      "tool-timeline",
+      "message",
+    ]);
+    const groups = turn.items.filter((item) => item.type === "tool-timeline");
+    expect(
+      groups.map((group) => group.tools.map((item) => item.tool.toolCallId)),
+    ).toEqual([
+      calls.slice(0, 3).map((tool) => tool.toolCallId),
+      calls.slice(3).map((tool) => tool.toolCallId),
+    ]);
+    expect(
+      groups.every((group) => group.tools.every((item) => !item.active)),
+    ).toBe(true);
+  },
+);
 it("reconciles final run text with the last existing assistant rather than adding an answer", () => {
   const result = items([
     ...intro,
