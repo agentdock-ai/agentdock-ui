@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { CirclePause } from "lucide-react";
 import {
   AgentProvider,
   useAgentActions,
@@ -13,6 +14,7 @@ import { EmptyState, Suggestions } from "./empty-state.js";
 import { Composer } from "./composer.js";
 import { ErrorState } from "./error-state.js";
 import { Button } from "../ui/button.js";
+import { ChatIcon } from "./icon.js";
 import { useChatAttachments } from "./use-chat-attachments.js";
 
 export function Chat(props: ChatProps) {
@@ -186,16 +188,17 @@ function ChatSurface({
         {paused && (
           <div
             role="status"
-            className="mx-auto w-full max-w-[44rem] px-4 py-3 text-[13px] text-muted-foreground"
+            className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-xl border border-border bg-card px-4 py-3 text-[13px] leading-5 shadow-[0_1px_2px_0_rgb(0_0_0/0.04)]"
           >
-            <p>
+            <p className="flex min-w-0 flex-1 basis-56 items-center gap-2.5 text-muted-foreground">
+              <ChatIcon icon={CirclePause} size={16} aria-hidden="true" />
               {actions.canContinue
                 ? "The run is paused. Continue when you’re ready."
                 : "The run is paused. Continue it in your app."}
             </p>
             {actions.canContinue && (
               <Button
-                className="mt-2"
+                variant="primary"
                 disabled={active || disabled}
                 onClick={() => {
                   void actions.continueRun();

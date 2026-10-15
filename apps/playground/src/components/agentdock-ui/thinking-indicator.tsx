@@ -1,3 +1,4 @@
+import { ShimmerText } from "./shimmer-text";
 export function ThinkingIndicator({
   label = "thinking",
 }: {
@@ -5,11 +6,12 @@ export function ThinkingIndicator({
 }) {
   return (
     <div
-      className="flex min-h-6 items-center gap-2 px-2 font-mono text-xs leading-5 text-muted-foreground"
+      className="flex min-h-7 items-center px-1 text-[13px] leading-5 text-muted-foreground"
       aria-hidden="true"
     >
-      <span className="text-primary motion-safe:animate-pulse">&gt;</span>
-      <span className="motion-safe:animate-pulse">{label}</span>
+      <ShimmerText className="inline-block first-letter:uppercase">
+        {label}
+      </ShimmerText>
     </div>
   );
 }

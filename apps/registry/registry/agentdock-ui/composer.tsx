@@ -73,7 +73,7 @@ export function Composer({
         event.preventDefault();
         if (canSend) onSubmit();
       }}
-      className="rounded-2xl border border-border bg-background p-2 transition-colors focus-within:border-ring motion-reduce:transition-none"
+      className="rounded-3xl border border-border bg-card p-2 shadow-[0_1px_2px_0_rgb(0_0_0/0.04),0_8px_24px_-12px_rgb(0_0_0/0.12)] transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-ring/60 focus-within:ring-4 focus-within:ring-ring/10 motion-reduce:transition-none"
     >
       {attachments.length > 0 && (
         <ComposerAttachments
@@ -83,7 +83,10 @@ export function Composer({
         />
       )}
       {attachmentError && (
-        <p role="alert" className="px-2 pb-2 text-xs text-destructive">
+        <p
+          role="alert"
+          className="px-2.5 pb-2 text-xs leading-5 text-destructive"
+        >
           {attachmentError}
         </p>
       )}
@@ -121,7 +124,7 @@ export function Composer({
           }
         }}
       />
-      <div className="flex min-h-7 items-center justify-end gap-2 pt-1">
+      <div className="flex min-h-8 items-center justify-end gap-2 pt-1">
         {onFiles && (
           <ComposerAttachmentPicker
             accept={attachmentAccept}
@@ -148,7 +151,8 @@ export function Composer({
             variant="primary"
             disabled={cancelling || disabled}
             onClick={onStop}
-            className="size-7 min-h-7 rounded-lg px-0 [@media(pointer:coarse)]:size-9"
+            size="icon"
+            className="size-8 [@media(pointer:coarse)]:size-9"
           >
             <ChatIcon
               icon={Square}
@@ -165,7 +169,8 @@ export function Composer({
             disabled={!canSend}
             aria-label="Send message"
             title="Send message"
-            className="size-7 min-h-7 rounded-lg px-0 [@media(pointer:coarse)]:size-9"
+            size="icon"
+            className="size-8 [@media(pointer:coarse)]:size-9"
           >
             <ChatIcon
               icon={ArrowUp}
