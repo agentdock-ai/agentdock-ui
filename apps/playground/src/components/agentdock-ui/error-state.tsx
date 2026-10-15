@@ -1,3 +1,5 @@
+import { CircleAlert } from "lucide-react";
+import { ChatIcon } from "./icon";
 import { errorDetail } from "./utils";
 export function ErrorState({
   title,
@@ -9,14 +11,22 @@ export function ErrorState({
   return (
     <div
       role="alert"
-      className="min-w-0 border-l-2 border-destructive pl-3 text-[13px] leading-5"
+      className="flex min-w-0 items-start gap-2.5 rounded-xl border border-destructive/25 bg-destructive/5 px-3.5 py-3 text-[13px] leading-5"
     >
-      <p className="text-destructive">{title}</p>
-      {detail !== title && (
-        <p className="mt-1 text-muted-foreground [overflow-wrap:anywhere]">
-          {errorDetail(detail)}
-        </p>
-      )}
+      <ChatIcon
+        icon={CircleAlert}
+        size={16}
+        aria-hidden="true"
+        className="mt-0.5 text-destructive"
+      />
+      <div className="min-w-0 flex-1">
+        <p className="font-medium text-destructive">{title}</p>
+        {detail !== title && (
+          <p className="mt-0.5 text-muted-foreground [overflow-wrap:anywhere]">
+            {errorDetail(detail)}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

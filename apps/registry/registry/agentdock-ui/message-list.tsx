@@ -1,4 +1,6 @@
+import { CircleStop } from "lucide-react";
 import type { JsonValue, RenderModel } from "@agentdock-ai/ui-core";
+import { ChatIcon } from "./icon.js";
 import { Message } from "./message.js";
 import { ToolTimeline } from "./tool-timeline.js";
 import { ApprovalCard } from "./approval-card.js";
@@ -22,7 +24,7 @@ export function MessageList({
   onRespond: (interruptId: string, decisions: readonly JsonValue[]) => void;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-7">
+    <div className="flex min-w-0 flex-col gap-8">
       {model.turns.map((turn) => (
         <div
           key={
@@ -88,7 +90,8 @@ export function MessageList({
             />
           )}
           {(turn.state === "stopped" || turn.transportState === "stopped") && (
-            <p className="text-xs text-muted-foreground">
+            <p className="flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
+              <ChatIcon icon={CircleStop} size={13} aria-hidden="true" />
               Stopped · Your partial answer is preserved.
             </p>
           )}

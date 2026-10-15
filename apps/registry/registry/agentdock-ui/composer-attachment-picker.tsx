@@ -35,7 +35,7 @@ export function ComposerAttachmentPicker({
     input.value = "";
   };
   const itemStyle =
-    "flex min-h-9 cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 text-[13px] outline-none data-[highlighted]:bg-muted focus:bg-muted data-[disabled]:pointer-events-none data-[disabled]:opacity-40";
+    "flex min-h-9 cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] outline-none transition-colors data-[highlighted]:bg-muted focus:bg-muted data-[disabled]:pointer-events-none data-[disabled]:opacity-40";
   return (
     <div className="mr-auto flex items-center gap-0.5">
       <input
@@ -66,13 +66,13 @@ export function ComposerAttachmentPicker({
           aria-label="Add attachments"
           title="Add attachments"
           disabled={disabled}
-          className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 [@media(pointer:coarse)]:size-9"
+          className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 data-[state=open]:bg-muted data-[state=open]:text-foreground data-[popup-open]:bg-muted data-[popup-open]:text-foreground disabled:opacity-40 motion-reduce:transition-none [@media(pointer:coarse)]:size-9"
         >
           <ChatIcon icon={Plus} size={18} />
         </DropdownMenuTrigger>
         <DropdownMenuContent
           aria-label="Attachments"
-          className="z-50 w-60 max-w-[calc(100vw-1.5rem)] rounded-xl border border-border bg-background p-1.5 text-foreground shadow-md"
+          className="z-50 w-56 max-w-[calc(100vw-1.5rem)] rounded-xl border border-border bg-background p-1 text-foreground shadow-lg shadow-black/5 outline-none"
         >
           {imageAccept && (
             <DropdownMenuItem
