@@ -42,7 +42,10 @@ export type { AgentEvent } from "@agentdock-ai/ui-core";
 
 export { useAgentActions } from "./react/use-agent-actions.js";
 export type { ChatActionState } from "./react/chat-actions.js";
-export { createConversationClient } from "./react/conversation-client.js";
+export {
+  ConversationRequestError,
+  createConversationClient,
+} from "./react/conversation-client.js";
 export type {
   ConversationClient,
   ConversationClientOptions,

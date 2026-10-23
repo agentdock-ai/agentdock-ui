@@ -115,3 +115,18 @@ it("keeps stopped answers visible without pause controls or viewport-sized turn 
   expect(html).not.toContain("Continue run");
   expect(html).not.toContain("--chat-viewport-height");
 });
+
+it("explains a busy thread instead of a generic stream error", () => {
+  const store = createPreviewStore();
+  store.setStreamStatus(
+    "error",
+    Object.assign(new Error("A run is already active."), {
+      code: "thread_busy",
+    }),
+  );
+  const html = renderChat(store);
+  expect(html).toContain("Another run is active");
+  expect(html).toContain("thread_busy");
+  store.setStreamStatus("error", new Error("socket hang up"));
+  expect(renderChat(store)).toContain("Agent stream error");
+});

@@ -732,3 +732,28 @@ it("carries a custom interrupt's response schema and when it was requested", () 
   });
   expect(restored.approval).not.toHaveProperty("requestedAt");
 });
+
+it.each([
+  [{ code: "thread_busy" }, "thread_busy"],
+  [
+    Object.assign(new Error("Busy"), { code: "approval_expired" }),
+    "approval_expired",
+  ],
+  [{ code: "Has Spaces" }, undefined],
+  [new Error("No code"), undefined],
+  [null, undefined],
+])(
+  "carries a safe stream error code into the transport error: %j",
+  (streamError, code) => {
+    const events = sequence([{ type: "run.started" }]);
+    const result = selectRenderModel({
+      runs: [reduceAgentEvents(events)],
+      turnEvents: [events],
+      streamStatus: "error",
+      streamError,
+    });
+    expect(result.transportError?.scope).toBe("transport");
+    expect(result.transportError?.code).toBe(code);
+    expect(result.transportError?.detail).not.toContain("Busy");
+  },
+);

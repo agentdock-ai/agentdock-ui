@@ -41,6 +41,40 @@ export interface ConversationClient {
   ): Promise<ConversationHistory>;
 }
 
+/** A failed conversation request, carrying the server's status and safe error code. */
+export class ConversationRequestError extends Error {
+  readonly status: number;
+  /** Machine-readable server code, such as `thread_busy` or `approval_expired`. */
+  declare readonly code?: string;
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = "ConversationRequestError";
+    this.status = status;
+    if (code !== undefined)
+      Object.defineProperty(this, "code", { value: code, enumerable: true });
+  }
+}
+
+async function requestError(
+  response: Response,
+  fallback: string,
+): Promise<ConversationRequestError> {
+  const result = (await response.json().catch(() => null)) as {
+    message?: unknown;
+    code?: unknown;
+  } | null;
+  const code =
+    typeof result?.code === "string" &&
+    /^[a-z][a-z0-9_.]{0,63}$/.test(result.code)
+      ? result.code
+      : undefined;
+  return new ConversationRequestError(
+    typeof result?.message === "string" ? result.message : fallback,
+    response.status,
+    code,
+  );
+}
+
 /** Authenticated HTTP client; the supplied fetcher owns cookies/tokens and refresh policy. */
 export function createConversationClient(
   options: ConversationClientOptions,
@@ -52,14 +86,11 @@ export function createConversationClient(
 
   async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const response = await fetcher(`${baseUrl}${path}`, init);
-    if (!response.ok) {
-      const result = (await response.json().catch(() => null)) as {
-        message?: string;
-      } | null;
-      throw new Error(
-        result?.message ?? `Conversation request failed (${response.status}).`,
+    if (!response.ok)
+      throw await requestError(
+        response,
+        `Conversation request failed (${response.status}).`,
       );
-    }
     if (response.status === 204) return undefined as T;
     return response.json() as Promise<T>;
   }
@@ -90,12 +121,13 @@ export function createConversationClient(
       throw error;
     }
     if (!response.ok || !response.body) {
-      const result = (await response.json().catch(() => null)) as {
-        message?: string;
-      } | null;
+      const error = await requestError(
+        response,
+        "The conversation request failed.",
+      );
       if (activeOperationIds.get(threadId) === operationId)
         activeOperationIds.delete(threadId);
-      throw new Error(result?.message ?? "The conversation request failed.");
+      throw error;
     }
     try {
       for await (const event of readConversationEvents(response.body, signal, {

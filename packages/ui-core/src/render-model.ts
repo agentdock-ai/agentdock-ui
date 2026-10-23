@@ -154,6 +154,8 @@ export interface RenderTransportError {
   detail: string;
   retryable: boolean;
   scope: "transport";
+  /** Safe server code from the stream error, such as `thread_busy`. */
+  code?: string;
 }
 
 export interface RenderModel {

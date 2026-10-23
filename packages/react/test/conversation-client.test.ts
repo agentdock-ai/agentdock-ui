@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { createConversationClient } from "../src/react/conversation-client.js";
+import {
+  ConversationRequestError,
+  createConversationClient,
+} from "../src/react/conversation-client.js";
 
 const thread = {
   id: "thread-1",
@@ -551,4 +554,58 @@ it("captures the thread when creating a stream rather than when iteration begins
   for await (const _event of stream) {
   }
   expect(captured).toBe("one");
+});
+
+describe("server error codes", () => {
+  it.each([
+    [{ code: "thread_busy", message: "A run is active." }, "thread_busy"],
+    [{ code: "approval_expired", message: "Expired." }, "approval_expired"],
+    [{ code: "<script>", message: "Bad code." }, undefined],
+    [{ message: "No code." }, undefined],
+  ])("keeps a safe code from a failed stream: %j", async (body, code) => {
+    const client = createConversationClient({
+      fetcher: async () => Response.json(body, { status: 409 }),
+      getThreadId: () => thread.id,
+    });
+    const failure = await (async () => {
+      try {
+        for await (const _ of client.adapter.sendMessage({
+          text: "Hello",
+          signal: new AbortController().signal,
+        }));
+      } catch (error) {
+        return error;
+      }
+    })();
+    expect(failure).toBeInstanceOf(ConversationRequestError);
+    expect(failure).toMatchObject({ status: 409, message: body.message });
+    expect((failure as ConversationRequestError).code).toBe(code);
+  });
+
+  it("keeps the code and status from a failed request and tolerates bodies without JSON", async () => {
+    let response = Response.json(
+      { code: "thread_busy", message: "Wait for the run." },
+      { status: 409 },
+    );
+    const client = createConversationClient({
+      fetcher: async () => response,
+      getThreadId: () => thread.id,
+    });
+    await expect(
+      client.renameThread(thread.id, "Rename"),
+    ).rejects.toMatchObject({
+      status: 409,
+      code: "thread_busy",
+      message: "Wait for the run.",
+    });
+    response = new Response("not json", { status: 502 });
+    const failure = await client
+      .renameThread(thread.id, "Rename")
+      .catch((error: unknown) => error);
+    expect(failure).toMatchObject({
+      status: 502,
+      message: "Conversation request failed (502).",
+    });
+    expect(failure).not.toHaveProperty("code");
+  });
 });
