@@ -27,7 +27,7 @@ describe("visible chat activity", () => {
     const html = renderChat(store, { ...adapter, async *continueRun() {} });
     expect(html).toContain("Continue run");
     expect(html).toContain("Continue when you’re ready");
-    expect(renderChat(store)).toContain("Continue it in your app");
+    expect(renderChat(store)).toContain("Continue this run in your app");
     expect(renderChat(store)).not.toContain(">Continue run</button>");
   });
   it("keeps approval waiting distinct from continuation", () => {
@@ -71,7 +71,7 @@ describe("visible chat activity", () => {
     const store = createPreviewStore("streaming");
     store.setStreamStatus("consuming");
     const html = renderChat(store);
-    expect(html).toContain(">working</span>");
+    expect(html).toContain(">Working</span>");
     expect(html).not.toContain("read_file");
   });
 
@@ -84,11 +84,11 @@ describe("visible chat activity", () => {
     const html = renderChat(store);
     expect(html).toContain("running");
     expect(html).not.toContain("Reading the component source…");
-    expect(html).not.toContain(">working</span>");
+    expect(html).not.toContain(">Working</span>");
   });
 
   it("removes the working indicator after the run completes", () => {
-    expect(renderChat(createPreviewStore())).not.toContain(">working</span>");
+    expect(renderChat(createPreviewStore())).not.toContain(">Working</span>");
   });
 });
 
@@ -111,7 +111,7 @@ it("keeps stopped answers visible without pause controls or viewport-sized turn 
   });
   const html = renderChat(store, { ...adapter, async *continueRun() {} });
   expect(html).toContain("The Sun moves");
-  expect(html).toContain("Your partial answer is preserved");
+  expect(html).toContain("your partial answer is kept");
   expect(html).not.toContain("Continue run");
   expect(html).not.toContain("--chat-viewport-height");
 });

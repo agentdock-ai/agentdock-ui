@@ -53,4 +53,12 @@ export interface ChatAdapter {
     decisions: readonly JsonValue[];
     signal: AbortSignal;
   }): AgentEventStream;
+
+  /** Answer a custom (non-approval) interrupt with the value its graph expects. */
+  answerInterrupt?(input: {
+    runId: string | null;
+    interruptId: string;
+    value: JsonValue;
+    signal: AbortSignal;
+  }): AgentEventStream;
 }

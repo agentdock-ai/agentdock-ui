@@ -12,6 +12,9 @@ import { ComponentPreview } from "../gallery/component-preview";
 import {
   ApprovalPreview,
   AttachmentPickerPreview,
+  BatchApprovalPreview,
+  InterruptPreview,
+  SingleApprovalPreview,
   AttachmentsPreview,
   ChatPreview,
   ComposerPreview,
@@ -23,6 +26,7 @@ import {
 import {
   assistantMessage,
   conversation,
+  interrupts,
   reasoning,
   runningTools,
   toolMessage,
@@ -41,6 +45,11 @@ import { ToolCall } from "../components/agentdock-ui/tool-call";
 import { ToolTimeline } from "../components/agentdock-ui/tool-timeline";
 import { ToolMessage } from "../components/agentdock-ui/tool-message";
 import { ErrorState } from "../components/agentdock-ui/error-state";
+import { Alert, InlineAlert } from "../components/agentdock-ui/alert";
+import {
+  RunStatusBanner,
+  TurnStatus,
+} from "../components/agentdock-ui/run-status-banner";
 import { EmptyState } from "../components/agentdock-ui/empty-state";
 import { ChatShell } from "../components/agentdock-ui/chat-shell";
 import { ChatViewport } from "../components/agentdock-ui/chat-viewport";
@@ -58,6 +67,7 @@ const categories = [
   "Conversation",
   "Composer",
   "Activity",
+  "Status",
   "Layout",
   "Controls",
 ];
@@ -70,6 +80,8 @@ const transcript = (
     onRespond={() => {}}
   />
 );
+
+const startedAgo = (seconds: number) => Date.now() - seconds * 1000;
 
 export function ComponentsPage() {
   return (
@@ -174,7 +186,16 @@ export function ComponentsPage() {
               />
             </ComponentPreview>
             <ComponentPreview name="ThinkingIndicator">
-              <ThinkingIndicator />
+              <ThinkingIndicator startedAt={startedAgo(4)} />
+            </ComponentPreview>
+            <ComponentPreview name="ThinkingIndicator · Step">
+              <ThinkingIndicator
+                startedAt={startedAgo(12)}
+                step={{ label: "Searching the web", tool: "web_search" }}
+              />
+            </ComponentPreview>
+            <ComponentPreview name="ThinkingIndicator · Long" wide>
+              <ThinkingIndicator startedAt={startedAgo(64)} onStop={() => {}} />
             </ComponentPreview>
             <ComponentPreview name="Reasoning">
               <Reasoning text={reasoning} active={false} />
@@ -194,11 +215,160 @@ export function ComponentsPage() {
             <ComponentPreview name="ApprovalCard" wide>
               <ApprovalPreview />
             </ComponentPreview>
-            <ComponentPreview name="ErrorState" wide>
+            <ComponentPreview name="ApprovalCard · Single action" wide>
+              <SingleApprovalPreview />
+            </ComponentPreview>
+            <ComponentPreview name="ApprovalCard · Several actions" wide>
+              <BatchApprovalPreview />
+            </ComponentPreview>
+            <ComponentPreview name="InterruptCard · Choice" wide>
+              <InterruptPreview sample={interrupts.choice} />
+            </ComponentPreview>
+            <ComponentPreview name="InterruptCard · Yes or no" wide>
+              <InterruptPreview sample={interrupts.confirm} />
+            </ComponentPreview>
+            <ComponentPreview name="InterruptCard · Text" wide>
+              <InterruptPreview sample={interrupts.text} />
+            </ComponentPreview>
+            <ComponentPreview name="InterruptCard · Form" wide>
+              <InterruptPreview sample={interrupts.form} />
+            </ComponentPreview>
+            <ComponentPreview name="InterruptCard · Read-only" wide>
+              <InterruptPreview sample={interrupts.fallback} />
+            </ComponentPreview>
+          </div>
+        </section>
+
+        <section
+          id="status"
+          className="gallery-category"
+          aria-labelledby="status-heading"
+        >
+          <h2 id="status-heading">Status</h2>
+          <div className="gallery-grid">
+            <ComponentPreview name="Alert · Tones" wide>
+              <div className="grid w-full gap-4 sm:grid-cols-2">
+                <Alert
+                  tone="error"
+                  status="Error"
+                  meta="graph_error"
+                  title="The run failed"
+                  hint="Your conversation is saved."
+                  actions={<Button variant="primary">Retry</Button>}
+                >
+                  The agent hit an error while calling the model.
+                </Alert>
+                <Alert
+                  tone="warning"
+                  status="Warning"
+                  title="Connection interrupted"
+                  actions={<Button variant="outline">Reconnect</Button>}
+                >
+                  The stream closed before the run finished.
+                </Alert>
+                <Alert
+                  tone="info"
+                  status="Notice"
+                  title="Another run is active"
+                >
+                  This conversation is busy in another tab.
+                </Alert>
+                <Alert tone="success" status="Resolved" title="Back online">
+                  Streaming resumed where it left off.
+                </Alert>
+              </div>
+            </ComponentPreview>
+            <ComponentPreview name="InlineAlert" wide>
+              <div className="flex w-full flex-col gap-2">
+                <InlineAlert
+                  action={
+                    <button
+                      type="button"
+                      className="text-xs font-medium underline underline-offset-2"
+                    >
+                      Retry
+                    </button>
+                  }
+                >
+                  Couldn’t send your response.
+                </InlineAlert>
+                <InlineAlert tone="info">
+                  Edits change arguments, never the tool.
+                </InlineAlert>
+                <InlineAlert tone="success">Response sent.</InlineAlert>
+              </div>
+            </ComponentPreview>
+            <ComponentPreview name="ErrorState · Run failed" wide>
+              <ErrorState
+                title="The agent couldn’t finish"
+                detail="Agent execution failed."
+                code="graph_error"
+                scope="run"
+                onRetry={() => {}}
+                retryLabel="Retry from last step"
+              />
+            </ComponentPreview>
+            <ComponentPreview name="ErrorState · Connection" wide>
               <ErrorState
                 title="Connection interrupted"
                 detail="Your answer has been preserved. Try again when you’re ready."
+                scope="transport"
               />
+            </ComponentPreview>
+            <ComponentPreview name="ErrorState · Approval expired" wide>
+              <ErrorState
+                title="Response not confirmed"
+                detail="Approval expired."
+                code="approval_expired"
+              />
+            </ComponentPreview>
+            <ComponentPreview name="ErrorState · Thread busy" wide>
+              <ErrorState
+                title="Response not confirmed"
+                detail="A run is already active on this thread."
+                code="thread_busy"
+              />
+            </ComponentPreview>
+            <ComponentPreview name="RunStatusBanner · Paused" wide>
+              <RunStatusBanner
+                state="paused"
+                actions={<Button variant="primary">Continue run</Button>}
+              />
+            </ComponentPreview>
+            <ComponentPreview name="RunStatusBanner · Stopped" wide>
+              <RunStatusBanner
+                state="stopped"
+                actions={<Button variant="primary">Continue</Button>}
+              />
+            </ComponentPreview>
+            <ComponentPreview name="RunStatusBanner · Stopped by the app" wide>
+              <RunStatusBanner state="cancelled" meta="run.cancelled" />
+            </ComponentPreview>
+            <ComponentPreview name="RunStatusBanner · Reconnecting" wide>
+              <RunStatusBanner
+                state="reconnecting"
+                meta="attempt 2 of 5"
+                progress={0.4}
+                actions={<Button variant="outline">Retry now</Button>}
+              />
+            </ComponentPreview>
+            <ComponentPreview name="RunStatusBanner · Offline" wide>
+              <RunStatusBanner
+                state="offline"
+                actions={<Button variant="primary">Try again</Button>}
+              />
+            </ComponentPreview>
+            <ComponentPreview name="RunStatusBanner · Paused elsewhere" wide>
+              <RunStatusBanner state="paused-elsewhere" />
+            </ComponentPreview>
+            <ComponentPreview name="TurnStatus" wide>
+              <div className="flex w-full flex-col gap-4">
+                <TurnStatus state="stopped">
+                  Stopped · your partial answer is kept
+                </TurnStatus>
+                <TurnStatus state="cancelled">Stopped by the app</TurnStatus>
+                <TurnStatus state="paused">Paused at a breakpoint</TurnStatus>
+              </div>
             </ComponentPreview>
           </div>
         </section>

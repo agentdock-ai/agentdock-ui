@@ -1,16 +1,19 @@
 // @vitest-environment jsdom
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { JsonValue } from "@agentdock-ai/contracts";
 import type { RenderApproval } from "@agentdock-ai/ui-core";
-import { ApprovalCard } from "../../../apps/registry/registry/agentdock-ui/approval-card.js";
+import {
+  ApprovalCard,
+  type ToolRisk,
+} from "../../../apps/registry/registry/agentdock-ui/approval-card.js";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 let host: HTMLDivElement;
 let root: Root;
 let responses: (readonly JsonValue[])[];
-const approval = (): RenderApproval => ({
+const batch = (): RenderApproval => ({
   interruptId: "i",
   kind: "tool-approval",
   title: "Review",
@@ -33,6 +36,24 @@ const approval = (): RenderApproval => ({
     },
   ],
 });
+const single = (
+  allowedDecisions: ("approve" | "edit" | "reject")[] = [
+    "approve",
+    "edit",
+    "reject",
+  ],
+): RenderApproval => ({
+  ...batch(),
+  actions: [
+    {
+      id: "c",
+      label: "run_command",
+      description: "Run a shell command",
+      input: { command: "npm test" },
+      allowedDecisions,
+    },
+  ],
+});
 beforeEach(() => {
   host = document.createElement("div");
   document.body.append(host);
@@ -42,65 +63,91 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   host.remove();
+  vi.useRealTimers();
 });
-async function render(value = approval(), enabled = true, pending = false) {
+async function render(
+  value = batch(),
+  options: {
+    enabled?: boolean;
+    pending?: boolean;
+    error?: string;
+    errorCode?: string;
+    expiresAt?: number;
+    riskOf?: (name: string) => ToolRisk | undefined;
+  } = {},
+) {
   await act(async () =>
     root.render(
       <ApprovalCard
         approval={value}
-        enabled={enabled}
-        pending={pending}
+        enabled={options.enabled ?? true}
+        pending={options.pending ?? false}
+        error={options.error}
+        errorCode={options.errorCode}
+        expiresAt={options.expiresAt}
+        riskOf={options.riskOf}
         onRespond={(decisions) => responses.push(decisions)}
       />,
     ),
   );
 }
-async function click(text: string) {
-  const button = [...host.querySelectorAll("button")].find(
-    (button) => button.textContent === text,
+const button = (text: string) =>
+  [...host.querySelectorAll("button")].find((item) =>
+    item.textContent?.startsWith(text),
   );
-  if (!button) throw new Error(`Missing button ${text}`);
-  await act(async () => button.click());
+async function click(text: string) {
+  const target = button(text);
+  if (!target) throw new Error(`Missing button ${text}`);
+  await act(async () => target.click());
 }
-async function choose(name: string, value: string) {
-  const select = host.querySelector<HTMLSelectElement>(
-    `select[aria-label="${name} decision"]`,
-  )!;
-  await act(async () => {
-    select.value = value;
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-  });
+async function choose(tool: string, decision: string) {
+  const input = host.querySelector<HTMLInputElement>(
+    `[aria-label="${tool} decision"] input[aria-label="${decision}"]`,
+  );
+  if (!input) throw new Error(`Missing ${decision} for ${tool}`);
+  await act(async () => input.click());
 }
-async function edit(value: string) {
-  const textarea = host.querySelector("textarea")!;
+async function type(
+  element: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+) {
   await act(async () => {
     Object.getOwnPropertyDescriptor(
-      HTMLTextAreaElement.prototype,
+      Object.getPrototypeOf(element),
       "value",
-    )!.set!.call(textarea, value);
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    )!.set!.call(element, value);
+    element.dispatchEvent(new Event("input", { bubbles: true }));
   });
 }
-it("submits approve and reject in original action order", async () => {
+async function key(target: Element, init: KeyboardEventInit) {
+  await act(async () => {
+    target.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, ...init }),
+    );
+  });
+}
+
+it("submits per-action decisions in the original order", async () => {
   await render();
-  await choose("run_command", "reject");
-  await click("Submit decisions");
+  await choose("run_command", "Reject");
+  await click("Submit");
   expect(responses).toEqual([[{ type: "approve" }, { type: "reject" }]]);
   expect(host.textContent).toContain("Writes a file");
+  expect(host.textContent).toContain("1 approved · 1 rejected");
 });
-it("exposes only allowed decisions and edits arguments without changing the tool", async () => {
+
+it("offers only allowed decisions and edits arguments without changing the tool", async () => {
   await render();
-  const command = host.querySelector<HTMLSelectElement>(
-    'select[aria-label="run_command decision"]',
-  )!;
-  expect([...command.options].map((option) => option.value)).toEqual([
-    "approve",
-    "reject",
-  ]);
+  const options = [
+    ...host.querySelectorAll<HTMLInputElement>(
+      '[aria-label="run_command decision"] input',
+    ),
+  ].map((input) => input.value);
+  expect(options).toEqual(["approve", "reject"]);
   expect(host.querySelector("textarea")).toBeNull();
-  await choose("write_file", "edit");
-  await edit('{"path":"edited"}');
-  await click("Submit decisions");
+  await choose("write_file", "Edit");
+  await type(host.querySelector("textarea")!, '{"path":"edited"}');
+  await click("Submit");
   expect(responses).toEqual([
     [
       {
@@ -111,17 +158,32 @@ it("exposes only allowed decisions and edits arguments without changing the tool
     ],
   ]);
 });
+
+it("sends an optional rejection reason to the agent", async () => {
+  await render();
+  await choose("run_command", "Reject");
+  await type(
+    host.querySelector<HTMLInputElement>('input[type="text"]')!,
+    "  Not now  ",
+  );
+  await click("Submit");
+  expect(responses).toEqual([
+    [{ type: "approve" }, { type: "reject", message: "Not now" }],
+  ]);
+});
+
 it("rejects invalid edited JSON before sending a batch", async () => {
   await render();
-  await choose("write_file", "edit");
+  await choose("write_file", "Edit");
   for (const value of ["broken", "[]"]) {
-    await edit(value);
-    await click("Submit decisions");
+    await type(host.querySelector("textarea")!, value);
+    await click("Submit");
     expect(host.querySelector('[role="alert"]')).not.toBeNull();
   }
   expect(responses).toEqual([]);
 });
-it("batch shortcuts are available only when every action permits them", async () => {
+
+it("shows batch shortcuts only when every action permits them", async () => {
   await render();
   await click("Approve all");
   await click("Reject all");
@@ -129,32 +191,92 @@ it("batch shortcuts are available only when every action permits them", async ()
     [{ type: "approve" }, { type: "approve" }],
     [{ type: "reject" }, { type: "reject" }],
   ]);
-  const restricted = approval();
+  const restricted = batch();
   restricted.actions = [
-    { id: "a", label: "restricted", input: {}, allowedDecisions: ["reject"] },
+    { id: "a", label: "first", input: {}, allowedDecisions: ["reject"] },
+    { id: "b", label: "second", input: {}, allowedDecisions: ["reject"] },
   ];
   await render(restricted);
-  expect(host.textContent).not.toContain("Approve all");
-  await click("Submit decisions");
-  expect(responses.at(-1)).toEqual([{ type: "reject" }]);
+  expect(button("Approve all")).toBeUndefined();
+  await click("Submit");
+  expect(responses.at(-1)).toEqual([{ type: "reject" }, { type: "reject" }]);
 });
-it("disables unavailable and pending approvals and keeps resolved/custom approvals read-only", async () => {
-  await render(approval(), true, true);
+
+it("handles a single action with buttons and keyboard shortcuts", async () => {
+  await render(single());
+  const card = host.querySelector("section")!;
+  expect(host.textContent).toContain("Run a shell command");
+  await key(card, { key: "Enter" });
+  await key(card, { key: "Escape" });
+  expect(responses).toEqual([[{ type: "approve" }], [{ type: "reject" }]]);
+  await click("Edit");
+  await type(host.querySelector("textarea")!, '{"command":"npm run lint"}');
+  await key(host.querySelector("textarea")!, { key: "Enter", metaKey: true });
+  expect(responses.at(-1)).toEqual([
+    {
+      type: "edit",
+      editedAction: { name: "run_command", args: { command: "npm run lint" } },
+    },
+  ]);
+});
+
+it("explains when editing isn't allowed and shows the tool's risk", async () => {
+  await render(single(["approve", "reject"]), {
+    riskOf: (name) => (name === "run_command" ? "high" : undefined),
+  });
+  expect(button("Edit")).toBeUndefined();
+  expect(host.textContent).toContain("Editing isn’t allowed");
+  expect(host.textContent).toContain("High risk");
+});
+
+it("counts down and leaves only Reject once an approval expires", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-10-23T12:00:00Z"));
+  await render(single(), { expiresAt: Date.now() + 125_000 });
+  expect(host.textContent).toContain("2:05 left");
+  await act(async () => {
+    vi.advanceTimersByTime(126_000);
+  });
+  expect(host.textContent).toContain("Expired");
+  expect(button("Approve")).toBeUndefined();
+  expect(button("Edit")).toBeUndefined();
+  await click("Reject");
+  expect(responses).toEqual([[{ type: "reject" }]]);
+});
+
+it("offers Reject and continue when the server reports an expired approval", async () => {
+  await render(single(), {
+    error: "Approval expired.",
+    errorCode: "approval_expired",
+  });
+  expect(host.textContent).toContain("This approval can no longer be given");
+  await click("Reject and continue");
+  expect(responses).toEqual([[{ type: "reject" }]]);
+});
+
+it("disables controls when pending or unavailable and collapses once resolved", async () => {
+  await render(batch(), { pending: true });
   expect(
-    [...host.querySelectorAll("button")].every((button) => button.disabled),
+    [...host.querySelectorAll("button")].every((item) => item.disabled),
   ).toBe(true);
-  await render(approval(), false);
+  await render(batch(), { enabled: false });
   expect(
-    [...host.querySelectorAll("button")].every((button) => button.disabled),
+    [...host.querySelectorAll("button")].every((item) => item.disabled),
   ).toBe(true);
-  const unavailable = approval();
+  const unavailable = batch();
   unavailable.actions = [
     { id: "a", label: "none", input: {}, allowedDecisions: [] },
+    { id: "b", label: "other", input: {} },
   ];
   await render(unavailable);
-  expect(host.querySelector<HTMLButtonElement>("button")!.disabled).toBe(true);
-  await render({ ...approval(), state: "resolved" });
+  expect(button("Submit")!.disabled).toBe(true);
+  await render({
+    ...batch(),
+    state: "resolved",
+    decisions: [{ type: "edit" }, { type: "reject", message: "Later" }],
+  });
   expect(host.querySelector("button")).toBeNull();
-  await render({ ...approval(), kind: "custom" });
-  expect(host.querySelector("select")).toBeNull();
+  expect(host.textContent).toContain("Edited, then approved");
+  expect(host.textContent).toContain("Rejected");
+  expect(host.textContent).toContain("“Later”");
 });

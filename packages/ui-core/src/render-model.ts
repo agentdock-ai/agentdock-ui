@@ -40,6 +40,10 @@ export interface RenderApproval {
   state: RenderApprovalState;
   decisions: readonly JsonValue[];
   payload?: JsonValue;
+  /** JSON Schema for a custom interrupt's answer, when the graph supplies one. */
+  responseSchema?: JsonValue;
+  /** When the interrupt was raised; absent for approvals restored from a checkpoint. */
+  requestedAt?: string;
 }
 
 export interface RenderError {

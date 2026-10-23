@@ -248,6 +248,10 @@ export function projectTurnItems(
             state: "pending",
             decisions: [],
             payload: interrupt.payload,
+            ...(interrupt.responseSchema === undefined
+              ? {}
+              : { responseSchema: interrupt.responseSchema }),
+            requestedAt: event.timestamp,
             actions: approvalActions(interrupt),
           },
         };
@@ -377,6 +381,9 @@ export function projectTurnItems(
         state: "pending",
         decisions: [],
         payload: interrupt.payload,
+        ...(interrupt.responseSchema === undefined
+          ? {}
+          : { responseSchema: interrupt.responseSchema }),
         actions: approvalActions(interrupt),
       },
     };

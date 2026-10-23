@@ -509,3 +509,98 @@ it.each(["terminal", "new-run", "dispose", "waiting"])(
     );
   },
 );
+
+describe("custom interrupt answers and error codes", () => {
+  const customStore = () => {
+    const store = new AgentStore();
+    sequence(
+      [
+        { type: "run.started" },
+        {
+          type: "interrupt.required",
+          interrupt: {
+            kind: "custom",
+            interruptId: "pick",
+            prompt: "Which environment?",
+            actions: [],
+          },
+        },
+      ],
+      "custom-run",
+    ).forEach((event) => store.applyEvent(event));
+    store.setStreamStatus("closed");
+    return store;
+  };
+
+  it("sends the raw answer through the app and ignores unknown interrupts", async () => {
+    const store = customStore();
+    let received: unknown;
+    const actions = createChatActions(
+      store,
+      {
+        sendMessage: () => stream([]),
+        answerInterrupt(input) {
+          received = input;
+          return stream(
+            sequence(
+              [
+                {
+                  type: "interrupt.resolved",
+                  interruptId: input.interruptId,
+                  decisions: [input.value],
+                },
+                complete("Deploying"),
+              ],
+              input.runId ?? "custom-run",
+              "phase-2",
+              store.getSnapshot().agent.lastLogicalSequence,
+            ),
+          );
+        },
+      },
+      () => {},
+    );
+    expect(await actions.answerInterrupt("other", "staging")).toBe(false);
+    expect(await actions.answerInterrupt("pick", "staging")).toBe(true);
+    expect(received).toMatchObject({
+      runId: "custom-run",
+      interruptId: "pick",
+      value: "staging",
+      signal: expect.any(AbortSignal),
+    });
+    expect(store.getSnapshot().agent.status).toBe("completed");
+  });
+
+  it("refuses to answer without the adapter capability", async () => {
+    const actions = createChatActions(
+      customStore(),
+      { sendMessage: () => stream([]) },
+      () => {},
+    );
+    expect(await actions.answerInterrupt("pick", "staging")).toBe(false);
+  });
+
+  it("keeps a safe machine-readable code from the thrown error", async () => {
+    const states: unknown[] = [];
+    const failing = (code: unknown) => ({
+      sendMessage: () => stream([]),
+      answerInterrupt: () => {
+        throw Object.assign(new Error("Approval expired."), { code });
+      },
+    });
+    const store = customStore();
+    const actions = createChatActions(store, failing("approval_expired"), (s) =>
+      states.push(s.actionError),
+    );
+    expect(await actions.answerInterrupt("pick", "staging")).toBe(false);
+    expect(states.at(-1)).toMatchObject({
+      scope: "approval",
+      code: "approval_expired",
+    });
+    const unsafe = createChatActions(customStore(), failing("<script>"), (s) =>
+      states.push(s.actionError),
+    );
+    await unsafe.answerInterrupt("pick", "staging");
+    expect(states.at(-1)).not.toHaveProperty("code");
+  });
+});

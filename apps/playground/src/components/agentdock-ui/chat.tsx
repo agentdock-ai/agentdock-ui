@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import { CirclePause } from "lucide-react";
 import {
   AgentProvider,
   useAgentActions,
@@ -14,7 +13,7 @@ import { EmptyState, Suggestions } from "./empty-state";
 import { Composer } from "./composer";
 import { ErrorState } from "./error-state";
 import { Button } from "./ui/button";
-import { ChatIcon } from "./icon";
+import { RunStatusBanner } from "./run-status-banner";
 import { useChatAttachments } from "./use-chat-attachments";
 
 export function Chat(props: ChatProps) {
@@ -34,6 +33,8 @@ function ChatSurface({
   welcomeDescription,
   placeholder,
   onActivityChange,
+  toolRisk,
+  approvalTtlMs,
 }: ChatProps) {
   const {
     renderModel: model,
@@ -180,35 +181,55 @@ function ChatSurface({
                 ? actions.actionError.message
                 : undefined
             }
+            approvalErrorCode={
+              actions.actionError?.scope === "approval"
+                ? actions.actionError.code
+                : undefined
+            }
             onRespond={(id, decisions) => {
               void actions.respondToInterrupt(id, decisions);
             }}
+            onAnswer={
+              actions.canAnswer &&
+              !active &&
+              !disabled &&
+              streamStatus !== "stopped"
+                ? (id, value) => {
+                    void actions.answerInterrupt(id, value);
+                  }
+                : undefined
+            }
+            onStop={
+              actions.canCancel && agent.runId
+                ? () => {
+                    void actions.cancelRun();
+                  }
+                : undefined
+            }
+            toolRisk={toolRisk}
+            approvalTtlMs={approvalTtlMs}
           />
         )}
-        {paused && (
-          <div
-            role="status"
-            className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-xl border border-border bg-card px-4 py-3 text-[13px] leading-5 shadow-[0_1px_2px_0_rgb(0_0_0/0.04)]"
-          >
-            <p className="flex min-w-0 flex-1 basis-56 items-center gap-2.5 text-muted-foreground">
-              <ChatIcon icon={CirclePause} size={16} aria-hidden="true" />
-              {actions.canContinue
-                ? "The run is paused. Continue when you’re ready."
-                : "The run is paused. Continue it in your app."}
-            </p>
-            {actions.canContinue && (
-              <Button
-                variant="primary"
-                disabled={active || disabled}
-                onClick={() => {
-                  void actions.continueRun();
-                }}
-              >
-                {active ? "Continuing…" : "Continue run"}
-              </Button>
-            )}
-          </div>
-        )}
+        {paused &&
+          (actions.canContinue ? (
+            <RunStatusBanner
+              state="paused"
+              hint="Continue when you’re ready."
+              actions={
+                <Button
+                  variant="primary"
+                  disabled={active || disabled}
+                  onClick={() => {
+                    void actions.continueRun();
+                  }}
+                >
+                  {active ? "Continuing…" : "Continue run"}
+                </Button>
+              }
+            />
+          ) : (
+            <RunStatusBanner state="paused-elsewhere" />
+          ))}
         {model.transportError &&
           actions.actionError?.scope !== "approval" &&
           actions.actionError?.scope !== "continue" && (
@@ -218,12 +239,14 @@ function ChatSurface({
           <ErrorState
             title="Unable to stop"
             detail={actions.actionError.message}
+            code={actions.actionError.code}
           />
         )}
         {actions.actionError?.scope === "continue" && (
           <ErrorState
             title="Unable to continue"
             detail={actions.actionError.message}
+            code={actions.actionError.code}
           />
         )}
       </ChatViewport>
