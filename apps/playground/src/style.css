@@ -92,13 +92,10 @@ body {
   white-space: nowrap;
 }
 .playground-brand-mark {
-  width: 22px;
-  height: 24px;
+  width: 18px;
+  height: 20px;
   flex-shrink: 0;
-  background: currentColor;
-  mask-size: auto 24px;
-  mask-repeat: no-repeat;
-  mask-position: left center;
+  fill: currentColor;
 }
 .playground-brand-label {
   margin-left: 4px;

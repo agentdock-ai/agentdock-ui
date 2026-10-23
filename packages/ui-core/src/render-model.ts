@@ -1,5 +1,6 @@
 import type {
   AgentEvent,
+  AgentToolApprovalInterruptAction,
   AgentReducerMessage,
   AgentReducerState,
   ContentPart,
@@ -24,6 +25,8 @@ export type RenderStreamStatus =
 export interface RenderApprovalAction {
   id: string;
   label: string;
+  allowedDecisions?: AgentToolApprovalInterruptAction["allowedDecisions"];
+  description?: string;
   input: JsonValue;
   toolCallId?: string;
 }

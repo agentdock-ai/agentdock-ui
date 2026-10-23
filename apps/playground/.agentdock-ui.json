@@ -2,7 +2,7 @@
   "flavor": "radix",
   "source": "agentdock-ui bundled registry",
   "files": {
-    "src/components/agentdock-ui/approval-card.tsx": "52d51773499a4c4de1260b5745a6342f35aacc163ff9aa249203c60d86ca1840",
+    "src/components/agentdock-ui/approval-card.tsx": "9ff2c4bf20d02b195eec5a3f9305f4a2f03f6886cf29113319bf26523b1b432e",
     "src/components/agentdock-ui/chat-action-bar.tsx": "d7fd826b5707220fae9c04278ba887fd48f4740ddc4b956e187a8f64be1cf37a",
     "src/components/agentdock-ui/chat-shell.tsx": "8fe2b2f50794574c87d6581b6b5d076f44db87884dac3091f0b22e24399d1491",
     "src/components/agentdock-ui/chat-viewport.tsx": "946f7b15b4fadc0d86182822ebcca8b650c9e9b1b52823a7c10d5924846f8189",

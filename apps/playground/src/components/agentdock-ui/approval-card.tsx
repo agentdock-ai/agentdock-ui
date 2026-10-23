@@ -1,10 +1,20 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useState } from "react";
 import { Check, ShieldCheck } from "lucide-react";
-import { cloneJsonValue } from "@agentdock-ai/contracts";
+import { cloneJsonValue, type JsonValue } from "@agentdock-ai/contracts";
+import type {
+  RenderApproval,
+  RenderApprovalAction,
+} from "@agentdock-ai/ui-core";
 import { ChatIcon } from "./icon";
-import type { JsonValue, RenderApproval } from "@agentdock-ai/ui-core";
 import { ErrorState } from "./error-state";
 import { Button } from "./ui/button";
+
+type Decision = "approve" | "edit" | "reject";
+const decisionTypes: Decision[] = ["approve", "edit", "reject"];
+const labels = { approve: "Approve", edit: "Edit", reject: "Reject" };
+const allowed = (action: RenderApprovalAction) =>
+  action.allowedDecisions ?? decisionTypes;
+
 export function ApprovalCard({
   approval,
   enabled,
@@ -19,32 +29,42 @@ export function ApprovalCard({
   onRespond: (decisions: readonly JsonValue[]) => void;
 }) {
   const resolved = approval.state === "resolved";
-  const initialEdits = useMemo(
-    () =>
-      Object.fromEntries(
-        approval.actions.map((action) => [
-          action.id,
-          JSON.stringify(action.input, null, 2),
-        ]),
-      ),
-    [approval.actions],
-  );
-  const [edits, setEdits] = useState(initialEdits);
-  const [editing, setEditing] = useState(false);
+  const [choices, setChoices] = useState<Record<string, Decision>>({});
+  const [edits, setEdits] = useState<Record<string, string>>({});
   const [editError, setEditError] = useState<string | null>(null);
   const locked = !enabled || pending;
   const toolApproval = approval.kind === "tool-approval";
   const hasActions = approval.actions.length > 0;
   const plural = approval.actions.length > 1 ? " all" : "";
+  const selected = (action: RenderApprovalAction) => {
+    const choice = choices[action.id];
+    if (choice && allowed(action).includes(choice)) return choice;
+    if (allowed(action).includes("approve")) return "approve";
+    return allowed(action)[0];
+  };
+  const disabled =
+    locked ||
+    !hasActions ||
+    approval.actions.some((action) => allowed(action).length === 0);
+  const everyAllows = (type: Decision) =>
+    approval.actions.every((action) => allowed(action).includes(type));
 
-  function submitEdits() {
+  function submit() {
     try {
-      const decisions = approval.actions.map((action) => {
-        const args = cloneJsonValue(JSON.parse(edits[action.id] ?? ""));
-        if (typeof args !== "object" || args === null || Array.isArray(args))
-          throw new Error("Edited arguments must be a JSON object.");
-        return { type: "edit", editedAction: { name: action.label, args } };
-      });
+      const decisions: JsonValue[] = approval.actions.map(
+        (action): JsonValue => {
+          const type = selected(action);
+          if (!type)
+            throw new Error("No decision is available for this action.");
+          if (type !== "edit") return { type };
+          const args = cloneJsonValue(
+            JSON.parse(edits[action.id] ?? JSON.stringify(action.input)),
+          );
+          if (typeof args !== "object" || args === null || Array.isArray(args))
+            throw new Error("Edited arguments must be a JSON object.");
+          return { type: "edit", editedAction: { name: action.label, args } };
+        },
+      );
       setEditError(null);
       onRespond(decisions);
     } catch (cause) {
@@ -52,11 +72,6 @@ export function ApprovalCard({
         cause instanceof Error ? cause.message : "Enter valid JSON arguments.",
       );
     }
-  }
-  function cancelEdits() {
-    setEdits(initialEdits);
-    setEditError(null);
-    setEditing(false);
   }
 
   if (resolved)
@@ -106,21 +121,55 @@ export function ApprovalCard({
       </p>
       {toolApproval && hasActions && (
         <ul className="mt-3 space-y-1.5">
-          {approval.actions.map((action) => (
-            <li
-              key={action.id}
-              className="min-w-0 rounded-lg bg-muted/50 px-3 py-2"
-            >
-              {editing ? (
-                <label className="block min-w-0">
-                  <span className="block text-[12.5px] font-medium leading-5">
+          {approval.actions.map((action) => {
+            const decision = selected(action);
+            return (
+              <li
+                key={action.id}
+                className="min-w-0 rounded-lg bg-muted/50 px-3 py-2"
+              >
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                  <p className="min-w-0 text-[12.5px] font-medium leading-5 [overflow-wrap:anywhere]">
                     {action.label}
-                  </span>
+                  </p>
+                  <select
+                    aria-label={`${action.label} decision`}
+                    className="rounded-md border border-border bg-background px-2 py-0.5 text-[12px] leading-5 text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-ring/60 focus:ring-4 focus:ring-ring/10 disabled:opacity-60 motion-reduce:transition-none"
+                    value={decision ?? ""}
+                    disabled={locked || allowed(action).length === 0}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (
+                        value === "approve" ||
+                        value === "edit" ||
+                        value === "reject"
+                      )
+                        setChoices((current) => ({
+                          ...current,
+                          [action.id]: value,
+                        }));
+                    }}
+                  >
+                    {allowed(action).map((type) => (
+                      <option key={type} value={type}>
+                        {labels[type]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {action.description && (
+                  <p className="mt-0.5 text-[12px] leading-5 text-muted-foreground">
+                    {action.description}
+                  </p>
+                )}
+                {decision === "edit" ? (
                   <textarea
                     aria-label={`${action.label} arguments`}
                     spellCheck={false}
                     className="mt-1.5 min-h-24 w-full resize-y rounded-md border border-border bg-background px-2.5 py-1.5 font-mono text-[12px] leading-5 text-foreground outline-none transition-[border-color,box-shadow] duration-150 focus:border-ring/60 focus:ring-4 focus:ring-ring/10 disabled:opacity-60 motion-reduce:transition-none"
-                    value={edits[action.id] ?? "{}"}
+                    value={
+                      edits[action.id] ?? JSON.stringify(action.input, null, 2)
+                    }
                     disabled={locked}
                     onChange={(event) =>
                       setEdits((current) => ({
@@ -129,20 +178,20 @@ export function ApprovalCard({
                       }))
                     }
                   />
-                </label>
-              ) : (
-                <>
-                  <p className="text-[12.5px] font-medium leading-5">
-                    {action.label}
-                  </p>
+                ) : (
                   <Arguments
                     label={`${action.label} arguments`}
                     value={action.input}
                   />
-                </>
-              )}
-            </li>
-          ))}
+                )}
+                {allowed(action).length === 0 && (
+                  <p className="mt-1 text-[12px] leading-5 text-muted-foreground">
+                    This action has no available decisions.
+                  </p>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
       {editError && (
@@ -161,44 +210,31 @@ export function ApprovalCard({
         </p>
         {toolApproval && hasActions && (
           <div className="flex flex-wrap items-center gap-1.5">
-            {editing ? (
-              <Fragment key="editing">
-                <Button disabled={locked} onClick={cancelEdits}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  disabled={locked}
-                  onClick={submitEdits}
-                >
-                  Submit edits
-                </Button>
-              </Fragment>
-            ) : (
-              <Fragment key="reviewing">
-                <Button disabled={locked} onClick={() => setEditing(true)}>
-                  Edit
-                </Button>
-                <Button
-                  variant="outline"
-                  disabled={locked}
-                  onClick={() =>
-                    onRespond(approval.actions.map(() => ({ type: "reject" })))
-                  }
-                >
-                  Reject{plural}
-                </Button>
-                <Button
-                  variant="primary"
-                  disabled={locked}
-                  onClick={() =>
-                    onRespond(approval.actions.map(() => ({ type: "approve" })))
-                  }
-                >
-                  Approve{plural}
-                </Button>
-              </Fragment>
+            {everyAllows("reject") && (
+              <Button
+                variant="outline"
+                disabled={disabled}
+                onClick={() =>
+                  onRespond(approval.actions.map(() => ({ type: "reject" })))
+                }
+              >
+                Reject{plural}
+              </Button>
             )}
+            {everyAllows("approve") && (
+              <Button
+                variant="outline"
+                disabled={disabled}
+                onClick={() =>
+                  onRespond(approval.actions.map(() => ({ type: "approve" })))
+                }
+              >
+                Approve{plural}
+              </Button>
+            )}
+            <Button variant="primary" disabled={disabled} onClick={submit}>
+              Submit decisions
+            </Button>
           </div>
         )}
       </div>
