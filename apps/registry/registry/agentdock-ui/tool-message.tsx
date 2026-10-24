@@ -20,19 +20,24 @@ export function ToolMessage({ message }: { message: RenderMessageItem }) {
       : block,
   );
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="min-w-0">
-      <CollapsibleTrigger className="flex min-h-7 w-full items-center gap-2 rounded-lg px-2 text-left font-mono text-xs text-muted-foreground outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring">
+    <Collapsible open={open} onOpenChange={setOpen} className="min-w-0 px-1">
+      <CollapsibleTrigger className="group/output flex min-h-7 items-center gap-2 rounded-md text-left text-[13px] leading-5 text-muted-foreground outline-none transition-colors duration-150 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none [@media(pointer:coarse)]:min-h-10">
+        <ChatIcon
+          icon={Terminal}
+          aria-hidden="true"
+          size={13}
+          className="opacity-60"
+        />
+        <span>Tool output</span>
         <ChatIcon
           icon={ChevronRight}
           aria-hidden="true"
-          size={14}
-          className={open ? "rotate-90" : ""}
+          size={13}
+          className={`-ml-1 transition-[transform,opacity] duration-200 motion-reduce:transition-none ${open ? "rotate-90 opacity-100" : "opacity-50 group-hover/output:opacity-100"}`}
         />
-        <ChatIcon icon={Terminal} aria-hidden="true" size={14} />
-        <span>Tool output</span>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="ml-3 max-h-64 overflow-auto border-l border-border py-2 pl-4">
+        <div className="mb-2 ml-[1.3125rem] mt-1 max-h-64 overflow-auto rounded-lg bg-muted/60 px-3 py-2 text-foreground/80 [&_*]:text-[13px] [&_*]:leading-5">
           <MessageContent blocks={blocks} showReasoning={false} />
         </div>
       </CollapsibleContent>

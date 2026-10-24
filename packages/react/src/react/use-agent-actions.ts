@@ -22,6 +22,7 @@ export function useAgentActions(adapter: ChatAdapter) {
     canCancel: Boolean(adapter.cancelRun),
     canRespond: Boolean(adapter.respondToInterrupt),
     canContinue: Boolean(adapter.continueRun),
+    canAnswer: Boolean(adapter.answerInterrupt),
     sendMessage: (text: string, attachments?: readonly ChatAttachment[]) =>
       actions.current?.sendMessage(text, attachments) ?? Promise.resolve(false),
     cancelRun: () => actions.current?.cancelRun() ?? Promise.resolve(false),
@@ -33,6 +34,14 @@ export function useAgentActions(adapter: ChatAdapter) {
       >[0]["decisions"],
     ) =>
       actions.current?.respondToInterrupt(interruptId, decisions) ??
+      Promise.resolve(false),
+    answerInterrupt: (
+      interruptId: string,
+      value: Parameters<
+        NonNullable<ChatAdapter["answerInterrupt"]>
+      >[0]["value"],
+    ) =>
+      actions.current?.answerInterrupt(interruptId, value) ??
       Promise.resolve(false),
   };
 }

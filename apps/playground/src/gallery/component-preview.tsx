@@ -15,6 +15,7 @@ export function ComponentPreview({
   return (
     <section
       aria-labelledby={id}
+      data-component-preview={name}
       className={`component-preview ${wide ? "component-preview-wide" : ""}`}
     >
       <h3 id={id}>{name}</h3>

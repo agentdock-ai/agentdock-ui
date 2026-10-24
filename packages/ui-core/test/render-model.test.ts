@@ -645,3 +645,90 @@ it("rejects a history paired with the wrong reducer messages instead of guessing
     selectRenderModel({ runs: [run], turnEvents: [events] }),
   ).toThrow("unknown message");
 });
+
+it("projects native decision permissions and descriptions for streamed and reloaded approvals", () => {
+  const interrupt = {
+    kind: "tool-approval" as const,
+    interruptId: "permissions",
+    prompt: "Review",
+    actions: [
+      {
+        id: "call",
+        toolCallId: "call",
+        name: "lookup",
+        input: {},
+        allowedDecisions: ["approve", "reject"] as ("approve" | "reject")[],
+        description: "Review lookup",
+      },
+    ],
+  };
+  const events = sequence([
+    { type: "run.started" },
+    { type: "interrupt.required", interrupt },
+  ]);
+  for (const source of [
+    { runs: [reduceAgentEvents(events)], turnEvents: [events] },
+    {
+      runs: [
+        {
+          ...createAgentReducerState(),
+          status: "waiting" as const,
+          interrupts: [interrupt],
+          interrupt,
+        },
+      ],
+      turnEvents: [[]],
+    },
+  ]) {
+    const item = selectRenderModel(source).turns[0]!.items.find(
+      (item) => item.type === "approval",
+    );
+    if (!item || item.type !== "approval") throw new Error("Missing approval");
+    expect(item.approval.actions[0]).toMatchObject({
+      label: "lookup",
+      allowedDecisions: ["approve", "reject"],
+      description: "Review lookup",
+    });
+  }
+});
+
+it("carries a custom interrupt's response schema and when it was requested", () => {
+  const interrupt = {
+    kind: "custom" as const,
+    interruptId: "pick",
+    prompt: "Which environment?",
+    actions: [],
+    responseSchema: { enum: ["staging", "production"] },
+  };
+  const events = sequence([
+    { type: "run.started" },
+    { type: "interrupt.required", interrupt },
+  ]);
+  const live = selectRenderModel({
+    runs: [reduceAgentEvents(events)],
+    turnEvents: [events],
+  }).turns[0]!.items.find((item) => item.type === "approval");
+  if (!live || live.type !== "approval") throw new Error("Missing approval");
+  expect(live.approval.responseSchema).toEqual({
+    enum: ["staging", "production"],
+  });
+  expect(live.approval.requestedAt).toBe(events.at(-1)!.timestamp);
+
+  const restored = selectRenderModel({
+    runs: [
+      {
+        ...createAgentReducerState(),
+        status: "waiting" as const,
+        interrupts: [interrupt],
+        interrupt,
+      },
+    ],
+    turnEvents: [[]],
+  }).turns[0]!.items.find((item) => item.type === "approval");
+  if (!restored || restored.type !== "approval")
+    throw new Error("Missing restored approval");
+  expect(restored.approval.responseSchema).toEqual({
+    enum: ["staging", "production"],
+  });
+  expect(restored.approval).not.toHaveProperty("requestedAt");
+});

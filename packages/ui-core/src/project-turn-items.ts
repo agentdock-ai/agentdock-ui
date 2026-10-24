@@ -1,5 +1,6 @@
 import type {
   AgentEvent,
+  AgentInterrupt,
   AgentReducerState,
   ContentPart,
   ToolCallRecord,
@@ -7,6 +8,7 @@ import type {
 } from "@agentdock-ai/contracts";
 import type {
   RenderApprovalItem,
+  RenderApprovalAction,
   RenderMessageItem,
   RenderMessageState,
   RenderToolCallItem,
@@ -246,12 +248,11 @@ export function projectTurnItems(
             state: "pending",
             decisions: [],
             payload: interrupt.payload,
-            actions: interrupt.actions.map((a) => ({
-              id: a.id,
-              label: a.name,
-              input: a.input,
-              toolCallId: a.toolCallId,
-            })),
+            ...(interrupt.responseSchema === undefined
+              ? {}
+              : { responseSchema: interrupt.responseSchema }),
+            requestedAt: event.timestamp,
+            actions: approvalActions(interrupt),
           },
         };
         approvals.set(interrupt.interruptId, item);
@@ -380,12 +381,10 @@ export function projectTurnItems(
         state: "pending",
         decisions: [],
         payload: interrupt.payload,
-        actions: interrupt.actions.map((action) => ({
-          id: action.id,
-          label: action.name,
-          input: action.input,
-          toolCallId: action.toolCallId,
-        })),
+        ...(interrupt.responseSchema === undefined
+          ? {}
+          : { responseSchema: interrupt.responseSchema }),
+        actions: approvalActions(interrupt),
       },
     };
     approvals.set(interrupt.interruptId, item);
@@ -495,4 +494,20 @@ function resultError(output: JsonValue): string {
     if (typeof output.message === "string") return output.message;
   }
   return "The tool could not complete.";
+}
+
+function approvalActions(interrupt: AgentInterrupt): RenderApprovalAction[] {
+  return interrupt.actions.map((action, index) => {
+    const result: RenderApprovalAction = {
+      id: action.id,
+      label: action.name,
+      input: action.input,
+      toolCallId: action.toolCallId,
+    };
+    if (interrupt.kind === "tool-approval") {
+      result.allowedDecisions = interrupt.actions[index].allowedDecisions;
+      result.description = interrupt.actions[index].description;
+    }
+    return result;
+  });
 }

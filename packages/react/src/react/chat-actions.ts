@@ -16,6 +16,8 @@ export interface ChatActionState {
   actionError: {
     scope: "cancel" | "approval" | "continue";
     message: string;
+    /** Machine-readable code from the thrown error, such as `approval_expired`. */
+    code?: string;
   } | null;
 }
 export const idleChatActions: ChatActionState = {
@@ -35,6 +37,15 @@ export function createChatActions(
   let active: AbortController | null = null;
   let cancelRequest: AbortController | null = null;
   let disposed = false;
+  const errorCode = (error: unknown) => {
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? (error as { code: unknown }).code
+        : undefined;
+    return typeof code === "string" && /^[a-z][a-z0-9_.]{0,63}$/.test(code)
+      ? { code }
+      : {};
+  };
   const update = (patch: Partial<ChatActionState>) => {
     state = { ...state, ...patch };
     if (!disposed) changed(state);
@@ -75,6 +86,7 @@ export function createChatActions(
               )
               ? "The response could not be confirmed. Your decision is still pending."
               : "Your response was received, but the connection ended before the agent finished.",
+            ...errorCode(error),
           },
         });
       else if (continuation)
@@ -83,6 +95,7 @@ export function createChatActions(
             scope: "continue",
             message:
               "The continuation could not be confirmed. Try again when the connection is available.",
+            ...errorCode(error),
           },
         });
       return false;
@@ -144,6 +157,25 @@ export function createChatActions(
             decisions,
             signal,
           }),
+        interruptId,
+      );
+    },
+    async answerInterrupt(interruptId: string, value: JsonValue) {
+      const { agent, streamStatus } = store.getSnapshot();
+      const answer = adapter.answerInterrupt;
+      if (
+        !answer ||
+        streamStatus === "stopped" ||
+        !agent.interrupts.some(
+          (interrupt) => interrupt.interruptId === interruptId,
+        ) ||
+        active ||
+        disposed
+      )
+        return false;
+      const runId = agent.runId;
+      return consume(
+        (signal) => answer.call(adapter, { runId, interruptId, value, signal }),
         interruptId,
       );
     },

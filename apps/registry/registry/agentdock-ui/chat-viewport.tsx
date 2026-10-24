@@ -102,5 +102,5 @@ export function ChatViewport({
   );
 }
 function cnContent(empty: boolean) {
-  return `mx-auto flex w-full max-w-[44rem] flex-col px-4 pt-6 pb-8 sm:px-4 ${empty ? "min-h-full justify-center" : "gap-6 pb-10"}`;
+  return `mx-auto flex w-full max-w-[44rem] flex-col px-4 pt-8 pb-8 ${empty ? "min-h-full justify-center" : "gap-6 pb-12"}`;
 }

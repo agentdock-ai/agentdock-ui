@@ -1,4 +1,5 @@
 import type { ChatAdapter, AgentStore } from "@agentdock-ai/react";
+import type { ToolRisk } from "./approval-card";
 export interface ChatProps {
   adapter: ChatAdapter;
   store?: AgentStore;
@@ -11,4 +12,8 @@ export interface ChatProps {
   placeholder?: string;
   /** Reports whether this chat currently has an active agent run. */
   onActivityChange?: (active: boolean) => void;
+  /** Labels each tool’s risk on approval cards; unlabelled tools show none. */
+  toolRisk?: (toolName: string) => ToolRisk | undefined;
+  /** Set to the server’s `approvalTtlMs` so approvals count down and expire. */
+  approvalTtlMs?: number;
 }
