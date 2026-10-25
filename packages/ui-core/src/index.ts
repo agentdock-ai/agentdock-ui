@@ -53,3 +53,10 @@ export type {
   ToolErrorRecord,
   ToolResultRecord,
 } from "@agentdock-ai/contracts";
+export { parseTagAttributes } from "./blocks/tag-attributes.js";
+export { parseTaggedBlocks } from "./blocks/tagged-blocks.js";
+export type {
+  TaggedBlock,
+  TaggedSegment,
+  TaggedBlockOptions,
+} from "./blocks/tagged-blocks.js";
