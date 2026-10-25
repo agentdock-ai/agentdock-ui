@@ -609,3 +609,52 @@ describe("server error codes", () => {
     expect(failure).not.toHaveProperty("code");
   });
 });
+
+it("opts in to multipart transcription using the app fetcher and safe request errors", async () => {
+  const { createConversationClient } =
+    await import("../src/react/conversation-client.js");
+  const responses: unknown[] = [
+    { text: "A voice draft" },
+    { text: "MP4" },
+    null,
+    42,
+    {},
+    { text: 42 },
+  ];
+  const fetcher = vi.fn<typeof fetch>(
+    async () =>
+      new Response(JSON.stringify(responses.shift()), {
+        headers: { "content-type": "application/json" },
+      }),
+  );
+  expect(
+    createConversationClient({ getThreadId: () => null, fetcher }).adapter
+      .transcribe,
+  ).toBeUndefined();
+  const transcribe = createConversationClient({
+    baseUrl: "/api/",
+    getThreadId: () => null,
+    fetcher,
+    transcription: true,
+  }).adapter.transcribe;
+  const signal = new AbortController().signal;
+  expect(
+    await transcribe?.({
+      audio: new Blob(["recorded"]),
+      mimeType: "audio/webm",
+      signal,
+    }),
+  ).toEqual({ text: "A voice draft" });
+  expect(fetcher.mock.calls[0]?.[0]).toBe("/api/transcribe");
+  const init = fetcher.mock.calls[0]?.[1];
+  expect(init?.signal).toBe(signal);
+  expect(init?.headers).toBeUndefined();
+  expect((init?.body as FormData).get("audio")).toBeInstanceOf(Blob);
+  expect(
+    await transcribe?.({ audio: new Blob(), mimeType: "audio/mp4", signal }),
+  ).toEqual({ text: "MP4" });
+  for (let i = 0; i < 4; i++)
+    await expect(
+      transcribe?.({ audio: new Blob(), mimeType: "audio/webm", signal }),
+    ).rejects.toThrow("did not contain text");
+});

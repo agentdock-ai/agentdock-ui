@@ -1,3 +1,5 @@
+import { actionErrorCode } from "./action-error-code.js";
+import { createTranscriptionActions } from "./transcription-actions.js";
 import {
   consumeAgentStream,
   type AgentStore,
@@ -11,10 +13,11 @@ import type {
 
 export interface ChatActionState {
   busy: boolean;
+  transcribing: boolean;
   cancelling: boolean;
   respondingTo: string | null;
   actionError: {
-    scope: "cancel" | "approval" | "continue";
+    scope: "cancel" | "approval" | "continue" | "transcribe";
     message: string;
     /** Machine-readable code from the thrown error, such as `approval_expired`. */
     code?: string;
@@ -22,6 +25,7 @@ export interface ChatActionState {
 }
 export const idleChatActions: ChatActionState = {
   busy: false,
+  transcribing: false,
   cancelling: false,
   respondingTo: null,
   actionError: null,
@@ -37,19 +41,11 @@ export function createChatActions(
   let active: AbortController | null = null;
   let cancelRequest: AbortController | null = null;
   let disposed = false;
-  const errorCode = (error: unknown) => {
-    const code =
-      error && typeof error === "object" && "code" in error
-        ? (error as { code: unknown }).code
-        : undefined;
-    return typeof code === "string" && /^[a-z][a-z0-9_.]{0,63}$/.test(code)
-      ? { code }
-      : {};
-  };
   const update = (patch: Partial<ChatActionState>) => {
     state = { ...state, ...patch };
     if (!disposed) changed(state);
   };
+  const transcription = createTranscriptionActions(adapter, update);
   async function consume(
     source: (signal: AbortSignal) => AgentEventStream,
     interruptId?: string,
@@ -86,7 +82,7 @@ export function createChatActions(
               )
               ? "The response could not be confirmed. Your decision is still pending."
               : "Your response was received, but the connection ended before the agent finished.",
-            ...errorCode(error),
+            ...actionErrorCode(error),
           },
         });
       else if (continuation)
@@ -95,7 +91,7 @@ export function createChatActions(
             scope: "continue",
             message:
               "The continuation could not be confirmed. Try again when the connection is available.",
-            ...errorCode(error),
+            ...actionErrorCode(error),
           },
         });
       return false;
@@ -105,6 +101,8 @@ export function createChatActions(
     }
   }
   return {
+    transcribe: transcription.transcribe,
+    cancelTranscription: transcription.cancelTranscription,
     async sendMessage(
       text: string,
       attachments: readonly ChatAttachment[] = [],
@@ -246,6 +244,7 @@ export function createChatActions(
     },
     dispose() {
       disposed = true;
+      transcription.dispose();
       active?.abort();
       cancelRequest?.abort();
     },

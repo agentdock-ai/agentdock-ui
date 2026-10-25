@@ -19,6 +19,11 @@ export function useAgentActions(adapter: ChatAdapter) {
   }, [store, adapter]);
   return {
     ...state,
+    canTranscribe: Boolean(adapter.transcribe),
+    transcribe: (audio: Blob, mimeType: string) =>
+      actions.current?.transcribe(audio, mimeType) ??
+      Promise.resolve(undefined),
+    cancelTranscription: () => actions.current?.cancelTranscription(),
     canCancel: Boolean(adapter.cancelRun),
     canRespond: Boolean(adapter.respondToInterrupt),
     canContinue: Boolean(adapter.continueRun),

@@ -1,3 +1,4 @@
+import { conversationTranscription } from "./conversation-transcription.js";
 import {
   cloneConversationEventEnvelope,
   cloneConversationAttachment,
@@ -12,6 +13,8 @@ import {
 import type { ChatAdapter, ChatAttachment } from "./chat-adapter.js";
 
 export interface ConversationClientOptions {
+  /** Enable only when the host exposes POST /transcribe. Off by default. */
+  transcription?: boolean;
   baseUrl?: string;
   fetcher?: typeof fetch;
   getThreadId(): string | null;
@@ -147,6 +150,9 @@ export function createConversationClient(
   }
 
   const adapter: ChatAdapter = {
+    ...(options.transcription
+      ? { transcribe: conversationTranscription(request) }
+      : {}),
     sendMessage({ text, attachments = [], signal }) {
       const threadId = requireThread();
       return stream(
