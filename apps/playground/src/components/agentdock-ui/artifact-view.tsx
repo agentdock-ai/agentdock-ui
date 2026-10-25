@@ -10,7 +10,15 @@ import { ArtifactViewMarkdown } from "./artifact-view-markdown";
 import { ArtifactViewJson } from "./artifact-view-json";
 import { ArtifactViewCsv } from "./artifact-view-csv";
 import { ArtifactViewFile } from "./artifact-view-file";
+import { ArtifactViewHtml } from "./artifact-view-html";
+import { ArtifactViewImage } from "./artifact-view-image";
+import { ArtifactViewPdf } from "./artifact-view-pdf";
+import { ArtifactViewLink } from "./artifact-view-link";
 const viewers: Partial<Record<ArtifactKind, ArtifactViewer>> = {
+  html: ArtifactViewHtml,
+  image: ArtifactViewImage,
+  pdf: ArtifactViewPdf,
+  link: ArtifactViewLink,
   code: ArtifactViewCode,
   text: ArtifactViewText,
   markdown: ArtifactViewMarkdown,

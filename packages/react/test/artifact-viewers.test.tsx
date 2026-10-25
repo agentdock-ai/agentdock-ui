@@ -66,3 +66,77 @@ it("renders text viewers, invalid JSON, sorting, paging and size fallback", asyn
   expect(host.textContent).toContain("Download file");
   await act(async () => root.unmount());
 });
+
+it("sandboxes HTML, renders safe media URLs, and revokes viewer blobs", async () => {
+  const { vi } = await import("vitest");
+  const create = vi.fn().mockReturnValue("blob:owned");
+  const revoke = vi.fn();
+  Object.assign(URL, { createObjectURL: create, revokeObjectURL: revoke });
+  const host = document.createElement("div");
+  const root = createRoot(host);
+  const html = artifact(
+    "html",
+    '<script>window.bad=true</script><a href="https://example.com">Link</a>',
+  );
+  await act(async () => root.render(<ArtifactView artifact={html} />));
+  expect(host.querySelector("iframe")?.getAttribute("sandbox")).toBe("");
+  expect(host.querySelector("iframe")?.getAttribute("srcdoc")).toContain(
+    '<base target="_blank">',
+  );
+  await act(async () =>
+    root.render(<ArtifactView artifact={html} allowHtmlScripts />),
+  );
+  expect(host.querySelector("iframe")?.getAttribute("sandbox")).toBe(
+    "allow-scripts",
+  );
+  await act(async () =>
+    root.render(<ArtifactView artifact={html} mode="code" />),
+  );
+  expect(host.querySelector("code")).not.toBeNull();
+  const image = {
+    ...artifact("image", "<svg/>"),
+    id: "icon.svg",
+    mimeType: "image/svg+xml",
+  };
+  await act(async () => root.render(<ArtifactView artifact={image} />));
+  expect(host.querySelector("img")?.getAttribute("src")).toBe("blob:owned");
+  expect(host.querySelector("svg")).toBeNull();
+  await act(async () =>
+    root.render(
+      <ArtifactView
+        artifact={{
+          ...artifact("pdf", "pdf"),
+          url: "https://example.com/a.pdf",
+        }}
+      />,
+    ),
+  );
+  expect(revoke).toHaveBeenCalledWith("blob:owned");
+  expect(host.querySelector("iframe")?.getAttribute("src")).toBe("blob:owned");
+  await act(async () =>
+    root.render(
+      <ArtifactView
+        artifact={{
+          ...artifact("image", ""),
+          content: undefined,
+          url: "data:text/html,unsafe",
+        }}
+      />,
+    ),
+  );
+  expect(host.querySelector("img")).toBeNull();
+  expect(host.textContent).toContain("Download file");
+  await act(async () =>
+    root.render(
+      <ArtifactView
+        artifact={{
+          ...artifact("image", ""),
+          content: undefined,
+          url: "data:image/png;base64,AA==",
+        }}
+      />,
+    ),
+  );
+  expect(host.querySelector("img")).not.toBeNull();
+  await act(async () => root.unmount());
+});
