@@ -19,7 +19,9 @@ function PendingVoice({ text, cancel }: { text: string; cancel: () => void }) {
       <span role="status" className="text-xs text-muted-foreground">
         {text}
       </span>
-      <Button onClick={cancel}>Cancel</Button>
+      <Button autoFocus onClick={cancel}>
+        Cancel
+      </Button>
     </>
   );
 }
@@ -30,6 +32,9 @@ function RecordingVoice({
 }: Pick<ControlsProps, "timer" | "level" | "transcript">) {
   return (
     <>
+      <span role="status" className="sr-only">
+        Recording started.
+      </span>
       <AlertStatus tone="error" icon={Mic}>
         Recording{" "}
         <span aria-live="off" className="font-mono tabular-nums">
@@ -37,7 +42,9 @@ function RecordingVoice({
         </span>
       </AlertStatus>
       <VoiceLevel level={level} />
-      <Button onClick={() => void transcript.stop()}>Stop recording</Button>
+      <Button autoFocus onClick={() => void transcript.stop()}>
+        Stop recording
+      </Button>
       <Button onClick={transcript.cancel}>Cancel recording</Button>
     </>
   );

@@ -76,3 +76,86 @@ it("renders two fixture charts and preserves the fenced chart example", async ()
   expect(html).toContain("Monthly sales");
   expect(html).toContain("&lt;chart");
 });
+
+it("keeps the active stream and composer mounted while opening and closing a preview", async () => {
+  const { AgentStore } = await import("@agentdock-ai/react");
+  const { sequence, complete } =
+    await import("../../../scripts/fixtures/events");
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  );
+  HTMLDialogElement.prototype.show = vi.fn();
+  HTMLDialogElement.prototype.close = vi.fn();
+  let signal: AbortSignal | undefined;
+  let finish: (() => void) | undefined;
+  const call = {
+    toolCallId: "stream-file",
+    name: "create_file",
+    input: { path: "index.html", content: "<h1>Stream stays active</h1>" },
+  };
+  const adapter = {
+    async *sendMessage(input: { signal: AbortSignal }) {
+      signal = input.signal;
+      yield* sequence(
+        [
+          { type: "run.started" },
+          { type: "tool.called", toolCall: call },
+          { type: "tool.completed", result: { ...call, output: "Created" } },
+        ],
+        "live-preview",
+      );
+      await new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      yield* sequence(
+        [complete("Still streaming after preview opens.")],
+        "live-preview",
+        "phase-1",
+        3,
+      );
+    },
+  };
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  await act(async () =>
+    root.render(
+      createElement(Chat, {
+        store: new AgentStore(),
+        adapter,
+        artifacts: {},
+        suggestions: ["Start streaming file"],
+      }),
+    ),
+  );
+  await act(async () => {
+    [...host.querySelectorAll("button")]
+      .find((b) => b.textContent === "Start streaming file")
+      ?.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  const composer = host.querySelector("textarea");
+  await act(async () =>
+    host
+      .querySelector<HTMLButtonElement>('[aria-label="Open index.html"]')
+      ?.click(),
+  );
+  expect(signal?.aborted).toBe(false);
+  expect(host.querySelector("textarea")).toBe(composer);
+  await act(async () =>
+    host
+      .querySelector<HTMLButtonElement>('[aria-label="Close artifact panel"]')
+      ?.click(),
+  );
+  expect(host.querySelector("textarea")).toBe(composer);
+  expect(signal?.aborted).toBe(false);
+  await act(async () => finish?.());
+  expect(host.textContent).toContain("Still streaming after preview opens.");
+  await act(async () => root.unmount());
+  host.remove();
+  vi.unstubAllGlobals();
+});

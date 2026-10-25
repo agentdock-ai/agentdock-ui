@@ -2,8 +2,11 @@
 import { artifactBytes } from "@agentdock-ai/ui-core";
 import type { ArtifactViewerProps } from "./artifact-types.js";
 import { artifactDownload } from "./artifact-download.js";
+import { artifactDownloadUrl } from "./artifact-url.js";
 import { Button } from "../ui/button.js";
 export function ArtifactViewFile({ artifact }: ArtifactViewerProps) {
+  const available =
+    artifact.content !== undefined || Boolean(artifactDownloadUrl(artifact));
   return (
     <div className="flex flex-col items-start gap-3 p-6">
       <h3 className="text-sm font-medium">{artifact.title}</h3>
@@ -11,9 +14,13 @@ export function ArtifactViewFile({ artifact }: ArtifactViewerProps) {
         {artifact.content !== undefined
           ? `${artifactBytes(artifact.content).toLocaleString()} bytes · `
           : ""}
-        Download this file to view its contents.
+        {available
+          ? "Download this file to view its contents."
+          : "This file has no downloadable content."}
       </p>
-      <Button onClick={() => artifactDownload(artifact)}>Download file</Button>
+      <Button disabled={!available} onClick={() => artifactDownload(artifact)}>
+        Download file
+      </Button>
     </div>
   );
 }

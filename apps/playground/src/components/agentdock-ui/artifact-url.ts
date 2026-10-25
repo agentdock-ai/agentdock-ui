@@ -20,3 +20,18 @@ export function artifactLinkSandbox(url: string) {
   const sameOrigin = new URL(url).origin === globalThis.location?.origin;
   return `allow-scripts allow-forms allow-popups${sameOrigin ? "" : " allow-same-origin"}`;
 }
+
+export function artifactExternalUrl(
+  artifact: Pick<import("@agentdock-ai/ui-core").Artifact, "kind" | "url">,
+) {
+  return artifact.kind === "link"
+    ? artifactLinkUrl(artifact.url)
+    : artifactMediaUrl(artifact.url);
+}
+export function artifactDownloadUrl(
+  artifact: Pick<import("@agentdock-ai/ui-core").Artifact, "kind" | "url">,
+) {
+  return artifact.kind === "image"
+    ? artifactMediaUrl(artifact.url, true)
+    : artifactExternalUrl(artifact);
+}

@@ -145,6 +145,10 @@ export function Composer({
         {voice?.transcribe && (
           <VoiceInput
             {...voice}
+            onCancelTranscription={() => {
+              voice.onCancelTranscription?.();
+              input.current?.focus();
+            }}
             disabled={disabled}
             onTranscript={(text) => {
               const inserted = insertDraftText(

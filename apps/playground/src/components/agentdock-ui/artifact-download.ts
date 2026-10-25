@@ -1,10 +1,10 @@
 import type { Artifact } from "@agentdock-ai/ui-core";
-import { safeUrl } from "./utils";
+import { artifactDownloadUrl } from "./artifact-url";
 export function artifactDownload(artifact: Artifact) {
   const content = artifact.content;
   const url =
     content === undefined
-      ? safeUrl(artifact.url)
+      ? artifactDownloadUrl(artifact)
       : URL.createObjectURL(
           new Blob([content], {
             type: artifact.mimeType || "application/octet-stream",
@@ -16,6 +16,8 @@ export function artifactDownload(artifact: Artifact) {
   link.download = artifact.title.split(/[\\/]/).pop() || "download";
   link.target = "_blank";
   link.rel = "noopener noreferrer";
+  document.body.append(link);
   link.click();
-  if (content !== undefined) setTimeout(() => URL.revokeObjectURL(url), 0);
+  link.remove();
+  if (content !== undefined) setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

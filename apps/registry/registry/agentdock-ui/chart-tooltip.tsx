@@ -30,7 +30,7 @@ export function ChartTooltip({
         >
           <span
             role="tooltip"
-            className="inline-block rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-sm"
+            className="inline-block rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground shadow-sm"
           >
             {label}
           </span>

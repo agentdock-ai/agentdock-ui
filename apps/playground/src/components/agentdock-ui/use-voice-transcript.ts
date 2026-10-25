@@ -19,10 +19,16 @@ export function useVoiceTranscript(
     setProcessing(false);
     setFailed(false);
   }, []);
-  useVoiceCancellation(cancel, props.disabled, () => {
-    generation.current++;
-    latest.current.props.onCancelTranscription?.();
-  });
+  useVoiceCancellation(
+    cancel,
+    props.disabled,
+    () => {
+      generation.current++;
+      if (processing || props.transcribing || recorder.status !== "idle")
+        latest.current.props.onCancelTranscription?.();
+    },
+    Boolean(processing || props.transcribing || recorder.status !== "idle"),
+  );
   const stop = useVoiceStop(latest, generation, setProcessing, setFailed);
   return {
     busy: processing || props.transcribing,

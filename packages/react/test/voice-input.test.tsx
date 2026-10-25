@@ -147,3 +147,38 @@ it("shows safe provider errors, permits retry and cancels transcription without 
   await act(async () => root.unmount());
   vi.unstubAllGlobals();
 });
+
+it("leaves silent transcripts and unrelated Escape presses out of the draft", async () => {
+  mockVoice();
+  const host = document.createElement("div");
+  const root = createRoot(host);
+  const transcript = vi.fn(),
+    cancel = vi.fn();
+  await act(async () =>
+    root.render(
+      <VoiceInput
+        transcribe={async () => "   "}
+        onTranscript={transcript}
+        onCancelTranscription={cancel}
+      />,
+    ),
+  );
+  await act(async () =>
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })),
+  );
+  expect(cancel).not.toHaveBeenCalled();
+  await act(async () =>
+    host
+      .querySelector<HTMLButtonElement>('[aria-label="Start voice input"]')
+      ?.click(),
+  );
+  await act(async () =>
+    [...host.querySelectorAll("button")]
+      .find((b) => b.textContent === "Stop recording")
+      ?.click(),
+  );
+  expect(transcript).not.toHaveBeenCalled();
+  expect(host.querySelector('[role="alert"]')).not.toBeNull();
+  await act(async () => root.unmount());
+  vi.unstubAllGlobals();
+});

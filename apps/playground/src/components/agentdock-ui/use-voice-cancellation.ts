@@ -4,15 +4,18 @@ export function useVoiceCancellation(
   cancel: () => void,
   disabled: boolean | undefined,
   dispose: () => void,
+  active: boolean,
 ) {
+  const activeRef = useRef(active);
+  activeRef.current = active;
   const cleanup = useRef(dispose);
   cleanup.current = dispose;
   useEffect(() => {
     const hidden = () => {
-      if (document.hidden) cancel();
+      if (document.hidden && activeRef.current) cancel();
     };
     const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") cancel();
+      if (event.key === "Escape" && activeRef.current) cancel();
     };
     document.addEventListener("visibilitychange", hidden);
     document.addEventListener("keydown", escape);
@@ -23,6 +26,6 @@ export function useVoiceCancellation(
     };
   }, [cancel]);
   useEffect(() => {
-    if (disabled) cancel();
-  }, [disabled, cancel]);
+    if (disabled && active) cancel();
+  }, [disabled, cancel, active]);
 }

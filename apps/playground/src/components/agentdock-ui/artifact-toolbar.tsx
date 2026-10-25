@@ -5,7 +5,7 @@ import { Button } from "./ui/button";
 import type { ArtifactMode } from "./artifact-types";
 import { useArtifacts } from "./artifact-context";
 import { artifactDownload } from "./artifact-download";
-import { safeUrl } from "./utils";
+import { artifactExternalUrl, artifactDownloadUrl } from "./artifact-url";
 const modes: Partial<Record<Artifact["kind"], readonly ArtifactMode[]>> = {
   html: ["preview", "code"],
   markdown: ["preview", "source"],
@@ -38,12 +38,11 @@ function VersionPicker({ artifact }: { artifact: Artifact }) {
 }
 function ArtifactActions({ artifact }: { artifact: Artifact }) {
   const [copy, setCopy] = useState("");
-  const url = safeUrl(artifact.url);
+  const url = artifactExternalUrl(artifact);
   async function copyContent() {
     try {
-      await navigator.clipboard.writeText(
-        artifact.content ?? artifact.url ?? "",
-      );
+      const text = artifact.content ?? artifact.url ?? "";
+      await navigator.clipboard.writeText(text);
       setCopy("Copied");
     } catch {
       setCopy("Copy unavailable");
@@ -53,7 +52,14 @@ function ArtifactActions({ artifact }: { artifact: Artifact }) {
     <>
       <span className="flex-1" />
       <Button onClick={() => void copyContent()}>Copy</Button>
-      <Button onClick={() => artifactDownload(artifact)}>Download</Button>
+      <Button
+        disabled={
+          artifact.content === undefined && !artifactDownloadUrl(artifact)
+        }
+        onClick={() => artifactDownload(artifact)}
+      >
+        Download
+      </Button>
       {url && (
         <a
           href={url}

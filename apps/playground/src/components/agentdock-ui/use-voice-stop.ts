@@ -4,7 +4,10 @@ import type { VoiceInputProps } from "./voice-input";
 import type { useVoiceRecorder } from "./use-voice-recorder";
 export interface VoiceTranscriptSource {
   props: VoiceInputProps;
-  recorder: Pick<ReturnType<typeof useVoiceRecorder>, "stop" | "cancel">;
+  recorder: Pick<
+    ReturnType<typeof useVoiceRecorder>,
+    "stop" | "cancel" | "status"
+  >;
 }
 export function useVoiceStop(
   latest: { current: VoiceTranscriptSource },
@@ -21,7 +24,8 @@ export function useVoiceStop(
       if (blob && request === generation.current) {
         const text = await latest.current.props.transcribe?.(blob, blob.type);
         if (request === generation.current) {
-          if (text !== undefined) latest.current.props.onTranscript(text);
+          if (text !== undefined && text.trim())
+            latest.current.props.onTranscript(text);
           else setFailed(true);
         }
       }
