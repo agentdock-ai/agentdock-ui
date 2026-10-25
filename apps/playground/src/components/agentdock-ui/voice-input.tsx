@@ -1,12 +1,10 @@
+"use client";
 import { useVoiceTranscript } from "./use-voice-transcript";
-import { Mic } from "lucide-react";
-import { ChatIcon } from "./icon";
-import { Button } from "./ui/button";
-import { AlertStatus, InlineAlert } from "./alert";
+import { InlineAlert } from "./alert";
 import { useVoiceRecorder } from "./use-voice-recorder";
 import { useAudioLevel } from "./use-audio-level";
 import { useVoiceTimer } from "./use-voice-timer";
-import { VoiceLevel } from "./voice-level";
+import { VoiceInputControls } from "./voice-input-controls";
 export interface VoiceInputProps {
   transcribe?: (audio: Blob, mimeType: string) => Promise<string | undefined>;
   onTranscript: (text: string) => void;
@@ -22,7 +20,7 @@ export function VoiceInput(props: VoiceInputProps) {
   const timer = useVoiceTimer(recorder.startedAt);
   const transcript = useVoiceTranscript(props, recorder);
   if (!recorder.supported || !props.transcribe) return null;
-  const { busy, failed, cancel, stop } = transcript;
+  const { failed } = transcript;
   const error =
     recorder.error ||
     (failed
@@ -32,46 +30,13 @@ export function VoiceInput(props: VoiceInputProps) {
   return (
     <div className="mr-auto min-w-0">
       <div className="flex flex-wrap items-center gap-2">
-        {busy ? (
-          <>
-            <span role="status" className="text-xs text-muted-foreground">
-              Transcribing…
-            </span>
-            <Button onClick={cancel}>Cancel</Button>
-          </>
-        ) : recorder.status === "requesting" ? (
-          <>
-            <span role="status" className="text-xs text-muted-foreground">
-              Requesting microphone…
-            </span>
-            <Button onClick={cancel}>Cancel</Button>
-          </>
-        ) : recorder.status === "recording" ? (
-          <>
-            <AlertStatus tone="error" icon={Mic}>
-              Recording{" "}
-              <span aria-live="off" className="font-mono tabular-nums">
-                {timer}
-              </span>
-            </AlertStatus>
-            <VoiceLevel level={level} />
-            <Button onClick={() => void stop()}>Stop recording</Button>
-            <Button onClick={cancel}>Cancel recording</Button>
-          </>
-        ) : (
-          <Button
-            size="icon"
-            aria-label="Start voice input"
-            title="Voice input"
-            disabled={props.disabled}
-            onClick={() => {
-              transcript.reset();
-              void recorder.start();
-            }}
-          >
-            <ChatIcon icon={Mic} size={16} />
-          </Button>
-        )}
+        <VoiceInputControls
+          recorder={recorder}
+          transcript={transcript}
+          timer={timer}
+          level={level}
+          disabled={props.disabled}
+        />
       </div>
       {error && (
         <div className="mt-2">

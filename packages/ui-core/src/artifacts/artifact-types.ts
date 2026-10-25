@@ -30,5 +30,7 @@ export interface Artifact extends ArtifactDraft {
   versions: readonly ArtifactVersion[];
   sourceToolCallId?: string;
 }
-/** Return undefined for tools that do not produce displayable content. */
-export type ArtifactMapper = (tool: RenderTool) => ArtifactDraft | undefined;
+/** Return undefined to skip, or several drafts when a tool produces both a link and page text. */
+export type ArtifactMapper = (
+  tool: RenderTool,
+) => ArtifactDraft | readonly ArtifactDraft[] | undefined;

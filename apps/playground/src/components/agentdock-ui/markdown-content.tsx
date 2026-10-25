@@ -1,3 +1,4 @@
+"use client";
 import { useArtifacts } from "./artifact-context";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";

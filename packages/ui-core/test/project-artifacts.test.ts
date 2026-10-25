@@ -86,3 +86,12 @@ it("supports custom mappers and skipped tools", () => {
     versions: [{ version: 1 }, { version: 2 }, { version: 3 }],
   });
 });
+
+it("projects multiple artifacts from one tool without losing either viewer", () => {
+  const result = projectArtifacts(model, () => [
+    { id: "page", title: "example.com", url: "https://example.com" },
+    { id: "page.txt", title: "Page text", content: "Page text" },
+  ]);
+  expect(result.map((a) => a.kind)).toEqual(["link", "text"]);
+  expect(result[1].versions).toHaveLength(3);
+});

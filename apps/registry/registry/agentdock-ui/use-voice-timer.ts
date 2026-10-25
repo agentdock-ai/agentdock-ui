@@ -1,3 +1,4 @@
+"use client";
 import { useEffect, useState } from "react";
 export function useVoiceTimer(startedAt?: number) {
   const [elapsed, setElapsed] = useState(0);

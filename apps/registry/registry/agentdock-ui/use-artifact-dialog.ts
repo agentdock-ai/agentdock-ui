@@ -1,3 +1,4 @@
+"use client";
 import { useEffect, useRef } from "react";
 /** Native modal dialogs supply focus trapping and inert the chat on small screens. */
 export function useArtifactDialog(fullscreen: boolean) {

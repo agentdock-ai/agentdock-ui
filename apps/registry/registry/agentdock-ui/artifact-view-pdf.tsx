@@ -1,3 +1,4 @@
+"use client";
 import type { ArtifactViewerProps } from "./artifact-types.js";
 import { artifactMediaUrl } from "./artifact-url.js";
 import { useArtifactUrl } from "./use-artifact-url.js";

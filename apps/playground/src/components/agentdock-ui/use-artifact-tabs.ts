@@ -1,3 +1,4 @@
+"use client";
 import { useEffect, useState } from "react";
 import type { Artifact } from "@agentdock-ai/ui-core";
 export function useArtifactTabs(artifacts: readonly Artifact[]) {

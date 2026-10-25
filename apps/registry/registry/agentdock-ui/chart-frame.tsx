@@ -1,3 +1,4 @@
+"use client";
 import { useState, type ReactNode } from "react";
 import type { ChartSpec } from "@agentdock-ai/ui-core";
 import { Button } from "../ui/button.js";
@@ -18,14 +19,7 @@ export function ChartFrame({
   return (
     <section className="min-w-0 rounded-xl border border-border bg-card text-foreground">
       <header className="flex items-center gap-3 px-4 py-3">
-        <h3 className="min-w-0 flex-1 text-sm font-medium">
-          {spec.title || "Chart"}
-          {spec.unit && (
-            <span className="ml-2 text-xs text-muted-foreground">
-              {spec.unit}
-            </span>
-          )}
-        </h3>
+        <ChartTitle spec={spec} />
         <Button onClick={() => setTable(!table)} aria-pressed={table}>
           {table ? "View chart" : "View as table"}
         </Button>
@@ -43,5 +37,16 @@ export function ChartFrame({
       )}
       <ChartLegend names={names} />
     </section>
+  );
+}
+
+function ChartTitle({ spec }: { spec: ChartSpec }) {
+  return (
+    <h3 className="min-w-0 flex-1 text-sm font-medium">
+      {spec.title || "Chart"}
+      {spec.unit && (
+        <span className="ml-2 text-xs text-muted-foreground">{spec.unit}</span>
+      )}
+    </h3>
   );
 }

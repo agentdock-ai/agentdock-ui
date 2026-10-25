@@ -71,16 +71,7 @@ export function ArtifactPreviews() {
         >
           <ArtifactChatPreview />
         </ComponentPreview>
-        {artifactFixtures.map((artifact) => (
-          <ComponentPreview
-            key={artifact.id}
-            name={`Artifact · ${artifact.kind}`}
-          >
-            <div className="h-96 w-full overflow-auto">
-              <ArtifactView artifact={artifact} />
-            </div>
-          </ComponentPreview>
-        ))}
+        <StandaloneArtifacts />
         <ComponentPreview name="Link · Framing blocked">
           <div className="h-96 w-full">
             <ArtifactView
@@ -91,5 +82,22 @@ export function ArtifactPreviews() {
         </ComponentPreview>
       </div>
     </section>
+  );
+}
+
+function StandaloneArtifacts() {
+  return (
+    <>
+      {artifactFixtures.map((artifact) => (
+        <ComponentPreview
+          key={artifact.id}
+          name={`Artifact · ${artifact.kind}`}
+        >
+          <div className="h-96 w-full overflow-auto">
+            <ArtifactView artifact={artifact} />
+          </div>
+        </ComponentPreview>
+      ))}
+    </>
   );
 }

@@ -1,3 +1,4 @@
+"use client";
 import type { ReactNode } from "react";
 import { useArtifacts } from "./artifact-context.js";
 import { useArtifactSplit } from "./use-artifact-split.js";

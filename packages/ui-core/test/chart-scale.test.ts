@@ -29,3 +29,15 @@ it("scales endpoints, flat and extreme domains and formats units", () => {
   expect(formatValue(12, "%")).toBe("12 %");
   expect(formatValue(1200)).toBe("1,200");
 });
+
+it("keeps subnormal and extreme domains finite", () => {
+  expect(linearScale([0, Number.MIN_VALUE], [0, 1])(Number.MIN_VALUE)).toBe(1);
+  expect(niceTicks(-1e308, 1e308)).toEqual([-1e308, -5e307, 0, 5e307, 1e308]);
+  for (const number of [Number.MAX_VALUE, -Number.MAX_VALUE, Number.MIN_VALUE])
+    expect(niceTicks(number, number).every(Number.isFinite)).toBe(true);
+  expect(
+    niceTicks(1.79769313485e308, Number.MAX_VALUE, 100).every(Number.isFinite),
+  ).toBe(true);
+  expect(formatValue(1e308)).toBe("1E308");
+  expect(formatValue(0.000001)).toBe("1E-6");
+});

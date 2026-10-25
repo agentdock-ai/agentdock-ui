@@ -1,3 +1,4 @@
+"use client";
 import { useEffect, useState } from "react";
 /** Blob URLs belong only to this mounted viewer and are always revoked. */
 export function useArtifactUrl(content: string | undefined, mimeType: string) {

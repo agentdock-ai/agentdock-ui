@@ -1,3 +1,4 @@
+"use client";
 import type { ArtifactViewerProps } from "./artifact-types";
 import { ArtifactViewCode } from "./artifact-view-code";
 export function ArtifactViewHtml(props: ArtifactViewerProps) {

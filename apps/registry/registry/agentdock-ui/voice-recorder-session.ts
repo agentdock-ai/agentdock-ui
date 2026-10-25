@@ -1,70 +1,80 @@
 import { stopVoiceTracks, voiceMimeType } from "./voice-recorder-utils.js";
+class VoiceRecorderSession {
+  private recorder: MediaRecorder;
+  private mimeType?: string;
+  private chunks: Blob[] = [];
+  private cancelled = false;
+  private released = false;
+  private stopped?: Promise<Blob | undefined>;
+  private resolve?: (value: Blob | undefined) => void;
+  constructor(
+    private stream: MediaStream,
+    private failed: () => void,
+    private ended: () => void,
+  ) {
+    this.mimeType = voiceMimeType();
+    this.recorder = new MediaRecorder(
+      stream,
+      this.mimeType ? { mimeType: this.mimeType } : undefined,
+    );
+    this.recorder.ondataavailable = (event) => {
+      if (!this.cancelled && event.data.size) this.chunks.push(event.data);
+    };
+    this.recorder.onstop = () => this.finish();
+    this.recorder.onerror = failed;
+    this.recorder.start();
+  }
+  private release() {
+    if (!this.released) {
+      this.released = true;
+      stopVoiceTracks(this.stream);
+    }
+  }
+  private finish() {
+    this.release();
+    if (!this.cancelled) this.ended();
+    const blob = this.cancelled
+      ? undefined
+      : new Blob(this.chunks, {
+          type: this.recorder.mimeType || this.mimeType || "audio/webm",
+        });
+    this.chunks = [];
+    this.resolve?.(blob);
+  }
+  stop() {
+    if (this.stopped) return this.stopped;
+    this.stopped = new Promise<Blob | undefined>((done) => {
+      this.resolve = done;
+      this.release();
+      try {
+        this.recorder.stop();
+      } catch {
+        this.chunks = [];
+        done(undefined);
+        this.failed();
+      }
+    });
+    return this.stopped;
+  }
+  cancel() {
+    this.cancelled = true;
+    this.chunks = [];
+    this.release();
+    if (this.recorder.state !== "inactive") {
+      try {
+        this.recorder.stop();
+      } catch {
+        /* Tracks are already released. */
+      }
+    }
+    this.resolve?.(undefined);
+  }
+}
 /** Own one recorder and discard late events after cancellation. */
 export function voiceRecorderSession(
   stream: MediaStream,
   failed: () => void,
   ended: () => void,
 ) {
-  const mimeType = voiceMimeType();
-  const recorder = new MediaRecorder(
-    stream,
-    mimeType ? { mimeType } : undefined,
-  );
-  let chunks: Blob[] = [],
-    cancelled = false;
-  let stopped: Promise<Blob | undefined> | undefined;
-  let released = false;
-  const release = () => {
-    if (!released) {
-      released = true;
-      stopVoiceTracks(stream);
-    }
-  };
-  let resolve: ((value: Blob | undefined) => void) | undefined;
-  recorder.ondataavailable = (event) => {
-    if (!cancelled && event.data.size) chunks.push(event.data);
-  };
-  recorder.onstop = () => {
-    release();
-    if (!cancelled) ended();
-    const blob = cancelled
-      ? undefined
-      : new Blob(chunks, {
-          type: recorder.mimeType || mimeType || "audio/webm",
-        });
-    chunks = [];
-    resolve?.(blob);
-  };
-  recorder.onerror = failed;
-  recorder.start();
-  return {
-    stop() {
-      if (stopped) return stopped;
-      stopped = new Promise<Blob | undefined>((done) => {
-        resolve = done;
-        release();
-        try {
-          recorder.stop();
-        } catch {
-          chunks = [];
-          done(undefined);
-          failed();
-        }
-      });
-      return stopped;
-    },
-    cancel() {
-      cancelled = true;
-      chunks = [];
-      release();
-      if (recorder.state !== "inactive") {
-        try {
-          recorder.stop();
-        } catch {
-          /* Tracks are already released. */
-        }
-      }
-      resolve?.(undefined);
-    },
-  };
+  return new VoiceRecorderSession(stream, failed, ended);
 }

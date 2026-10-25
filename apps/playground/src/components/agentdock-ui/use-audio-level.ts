@@ -1,3 +1,4 @@
+"use client";
 import { useEffect, useState } from "react";
 import { audioLevelSession } from "./audio-level-session";
 export function useAudioLevel(stream: MediaStream | null) {

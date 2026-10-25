@@ -1,3 +1,4 @@
+"use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createVoiceRecorder } from "./voice-recorder.js";
 import { idleVoiceRecorder, voiceSupported } from "./voice-recorder-utils.js";

@@ -1,3 +1,4 @@
+"use client";
 import { useMemo, useState } from "react";
 import { parseArtifactJson } from "@agentdock-ai/ui-core";
 import type { ArtifactViewerProps } from "./artifact-types";

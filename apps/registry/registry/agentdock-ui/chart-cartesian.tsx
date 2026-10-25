@@ -1,3 +1,4 @@
+"use client";
 import type { ReactNode } from "react";
 import {
   chartLayout,
@@ -12,13 +13,23 @@ export function ChartCartesian({
   spec: CartesianChartSpec;
   children: ReactNode;
 }) {
-  const { ticks, x, y } = chartLayout(spec);
   return (
     <svg
       viewBox="0 0 600 220"
       className="h-[220px] w-full overflow-visible"
       aria-label={`${spec.type} chart`}
     >
+      <ChartTicks spec={spec} />
+      <ChartLabels spec={spec} />
+      {children}
+    </svg>
+  );
+}
+
+function ChartTicks({ spec }: { spec: CartesianChartSpec }) {
+  const { ticks, y } = chartLayout(spec);
+  return (
+    <>
       {ticks.map((tick) => (
         <g key={tick}>
           <line
@@ -38,6 +49,13 @@ export function ChartCartesian({
           </text>
         </g>
       ))}
+    </>
+  );
+}
+function ChartLabels({ spec }: { spec: CartesianChartSpec }) {
+  const { x } = chartLayout(spec);
+  return (
+    <>
       {spec.x.map(
         (label, i) =>
           i % Math.max(1, Math.ceil(spec.x.length / 10)) === 0 && (
@@ -52,7 +70,6 @@ export function ChartCartesian({
             </text>
           ),
       )}
-      {children}
-    </svg>
+    </>
   );
 }

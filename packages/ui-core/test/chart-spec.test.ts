@@ -98,3 +98,20 @@ it("validates pie bounds, labels, values and totals", () => {
   ])
     expect(parse(value, "pie").ok).toBe(false);
 });
+
+it("rejects stacked totals that overflow the finite chart domain", () => {
+  for (const value of [1e308, -1e308])
+    expect(
+      parse(
+        {
+          x: ["A"],
+          series: [
+            { name: "A", data: [value] },
+            { name: "B", data: [value] },
+          ],
+        },
+        "bar",
+        { stacked: "true" },
+      ).ok,
+    ).toBe(false);
+});

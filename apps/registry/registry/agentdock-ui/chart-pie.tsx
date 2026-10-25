@@ -1,3 +1,4 @@
+"use client";
 import {
   chartSlices,
   formatValue,
@@ -24,7 +25,9 @@ export function ChartPie({ spec }: { spec: PieChartSpec }) {
               y={slice.y}
               textAnchor="middle"
               dominantBaseline="middle"
-              className="fill-white stroke-none text-[10px] font-semibold dark:fill-slate-950"
+              paintOrder="stroke"
+              strokeWidth={3}
+              className="fill-foreground stroke-card text-[10px] font-semibold"
             >
               {slice.percent}%
             </text>

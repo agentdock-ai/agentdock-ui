@@ -1,3 +1,4 @@
+"use client";
 import { Alert } from "./alert.js";
 export function ChartFallback({
   reason,

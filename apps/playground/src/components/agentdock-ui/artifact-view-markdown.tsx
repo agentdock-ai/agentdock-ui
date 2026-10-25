@@ -1,3 +1,4 @@
+"use client";
 import type { ArtifactViewerProps } from "./artifact-types";
 import { MarkdownContent } from "./markdown-content";
 import { ArtifactViewCode } from "./artifact-view-code";

@@ -1,3 +1,4 @@
+"use client";
 import { artifactBytes } from "@agentdock-ai/ui-core";
 import type { ArtifactViewerProps } from "./artifact-types.js";
 import { artifactDownload } from "./artifact-download.js";

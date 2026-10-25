@@ -1,3 +1,4 @@
+"use client";
 import { parseTaggedBlocks } from "@agentdock-ai/ui-core";
 import { MarkdownContent } from "./markdown-content.js";
 import { ChartBlock } from "./chart-block.js";

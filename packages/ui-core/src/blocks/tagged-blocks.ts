@@ -1,80 +1,112 @@
 import { parseTagAttributes } from "./tag-attributes.js";
 import { scanFence, type TaggedFence } from "./tagged-fence.js";
-
-export interface TaggedBlock {
-  kind: "block";
+import type {
+  TaggedBlock,
+  TaggedSegment,
+  TaggedBlockOptions,
+} from "./tagged-types.js";
+export type {
+  TaggedBlock,
+  TaggedSegment,
+  TaggedBlockOptions,
+} from "./tagged-types.js";
+interface Opening {
   tag: string;
-  attributes: Record<string, string>;
-  body: string;
-  state: "complete" | "streaming" | "unterminated";
-  /** Exact source retained for the fallback viewer. */
-  raw: string;
+  start: number;
+  body: number;
+  opening: string;
 }
-export type TaggedSegment = { kind: "markdown"; text: string } | TaggedBlock;
-export interface TaggedBlockOptions {
-  streaming: boolean;
-  /** Recognised tags; unregistered markup stays in Markdown. */
-  tags?: readonly string[];
-}
-
-/** Extract line-delimited blocks, preserving all other source bytes including CRLF. */
-export function parseTaggedBlocks(
+function segment(
   text: string,
-  { streaming, tags = ["chart"] }: TaggedBlockOptions,
-): TaggedSegment[] {
-  const segments: TaggedSegment[] = [];
-  let fence: TaggedFence | undefined;
-  let block:
-    { tag: string; start: number; body: number; opening: string } | undefined;
-  let offset = 0;
-  let markdownStart = 0;
-  for (const source of text.match(/[^\n]*\n|[^\n]+$/g) ?? []) {
+  block: Opening,
+  state: TaggedBlock["state"],
+  end: number,
+  bodyEnd: number,
+): TaggedBlock {
+  return {
+    kind: "block",
+    tag: block.tag,
+    attributes: parseTagAttributes(block.opening),
+    body: text.slice(block.body, bodyEnd),
+    state,
+    raw: text.slice(block.start, end),
+  };
+}
+class TaggedScanner {
+  readonly segments: TaggedSegment[] = [];
+  private fence?: TaggedFence;
+  private block?: Opening;
+  private offset = 0;
+  private markdownStart = 0;
+  constructor(
+    private text: string,
+    private options: TaggedBlockOptions,
+  ) {}
+  read(source: string) {
     const line = source.replace(/\r?\n$/, "");
+    const block = this.block;
     if (block) {
       if (line.trim() === `</${block.tag}>`) {
-        segments.push({
-          kind: "block",
-          tag: block.tag,
-          attributes: parseTagAttributes(block.opening),
-          body: text.slice(block.body, offset),
-          state: "complete",
-          raw: text.slice(block.start, offset + source.length),
-        });
-        block = undefined;
-        markdownStart = offset + source.length;
+        this.segments.push(
+          segment(
+            this.text,
+            block,
+            "complete",
+            this.offset + source.length,
+            this.offset,
+          ),
+        );
+        this.block = undefined;
+        this.markdownStart = this.offset + source.length;
       }
-    } else {
-      const scanned = scanFence(line, fence);
-      fence = scanned.fence;
-      if (!scanned.skip) {
-        const opening = /^\s*<([a-z][a-z0-9-]*)(?:\s+[^<>]*)?>\s*$/.exec(line);
-        if (opening && tags.includes(opening[1])) {
-          if (offset > markdownStart)
-            segments.push({
-              kind: "markdown",
-              text: text.slice(markdownStart, offset),
-            });
-          block = {
-            tag: opening[1],
-            start: offset,
-            body: offset + source.length,
-            opening: line,
-          };
-        }
-      }
-    }
-    offset += source.length;
+    } else this.readOpening(line, source.length);
+    this.offset += source.length;
   }
-  if (block)
-    segments.push({
-      kind: "block",
-      tag: block.tag,
-      attributes: parseTagAttributes(block.opening),
-      body: text.slice(block.body),
-      state: streaming ? "streaming" : "unterminated",
-      raw: text.slice(block.start),
-    });
-  else if (markdownStart < text.length)
-    segments.push({ kind: "markdown", text: text.slice(markdownStart) });
-  return segments;
+  private readOpening(line: string, length: number) {
+    const scanned = scanFence(line, this.fence);
+    this.fence = scanned.fence;
+    if (scanned.skip) return;
+    const opening = /^\s*<([a-z][a-z0-9-]*)(?:\s+[^<>]*)?>\s*$/.exec(line);
+    if (!opening || !(this.options.tags ?? ["chart"]).includes(opening[1]))
+      return;
+    if (this.offset > this.markdownStart)
+      this.segments.push({
+        kind: "markdown",
+        text: this.text.slice(this.markdownStart, this.offset),
+      });
+    this.block = {
+      tag: opening[1],
+      start: this.offset,
+      body: this.offset + length,
+      opening: line,
+    };
+  }
+  finish() {
+    if (this.block)
+      this.segments.push(
+        segment(
+          this.text,
+          this.block,
+          this.options.streaming ? "streaming" : "unterminated",
+          this.text.length,
+          this.text.length,
+        ),
+      );
+    else if (this.markdownStart < this.text.length)
+      this.segments.push({
+        kind: "markdown",
+        text: this.text.slice(this.markdownStart),
+      });
+    return this.segments;
+  }
+}
+/** Extract line-delimited blocks, preserving all other bytes, including CRLF. */
+export function parseTaggedBlocks(
+  text: string,
+  options: TaggedBlockOptions,
+): TaggedSegment[] {
+  const scanner = new TaggedScanner(text, options);
+  for (const source of text.match(/[^\n]*\n|[^\n]+$/g) ?? [])
+    scanner.read(source);
+  return scanner.finish();
 }

@@ -1,3 +1,4 @@
+"use client";
 import {
   ARTIFACT_INLINE_BYTES,
   artifactBytes,

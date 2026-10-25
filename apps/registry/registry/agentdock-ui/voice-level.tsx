@@ -1,3 +1,4 @@
+"use client";
 export function VoiceLevel({ level }: { level: number }) {
   return (
     <span

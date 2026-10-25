@@ -1,3 +1,4 @@
+"use client";
 import { useState, type ReactNode } from "react";
 import type { Artifact } from "@agentdock-ai/ui-core";
 import { useArtifacts } from "./artifact-context.js";
@@ -14,7 +15,6 @@ export function ArtifactPanel({
 }) {
   const context = useArtifacts();
   const [fullscreen, setFullscreen] = useState(false);
-  const ref = useArtifactDialog(fullscreen);
   const artifact = context?.artifacts.find((a) => a.id === context.activeId);
   const version = artifact?.versions.find(
     (v) => v.version === context?.chosen[artifact.id],
@@ -24,30 +24,10 @@ export function ArtifactPanel({
       ? { ...artifact, content: version.content, url: version.url }
       : artifact;
   return (
-    <dialog
-      ref={ref}
-      aria-label="Artifact viewer"
-      onCancel={(e) => {
-        e.preventDefault();
-        context?.dismiss();
-      }}
-      className={cn(
-        "m-0 flex h-full max-h-none min-w-0 max-w-none flex-col border-0 bg-card p-0 text-foreground backdrop:bg-black/40",
-        fullscreen
-          ? "fixed inset-0 z-50 h-dvh w-screen"
-          : "fixed inset-0 z-40 h-dvh w-screen md:static md:h-full md:w-full",
-      )}
+    <ArtifactDialog
+      fullscreen={fullscreen}
+      onDismiss={() => context?.dismiss()}
     >
-      <header className="flex items-center justify-between border-b border-border px-3 py-2">
-        <h2 className="text-xs font-medium text-muted-foreground">Artifacts</h2>
-        <Button
-          onClick={() => context?.dismiss()}
-          aria-label="Close artifact panel"
-        >
-          Close
-        </Button>
-      </header>
-      <ArtifactTabs />
       {current ? (
         <ArtifactPanelBody
           key={current.id}
@@ -61,6 +41,42 @@ export function ArtifactPanel({
           Open a file or link to preview it here.
         </p>
       )}
+    </ArtifactDialog>
+  );
+}
+function ArtifactDialog({
+  fullscreen,
+  onDismiss,
+  children,
+}: {
+  fullscreen: boolean;
+  onDismiss: () => void;
+  children: ReactNode;
+}) {
+  const ref = useArtifactDialog(fullscreen);
+  return (
+    <dialog
+      ref={ref}
+      aria-label="Artifact viewer"
+      onCancel={(e) => {
+        e.preventDefault();
+        onDismiss();
+      }}
+      className={cn(
+        "m-0 flex h-full max-h-none min-w-0 max-w-none flex-col border-0 bg-card p-0 text-foreground backdrop:bg-black/40",
+        fullscreen
+          ? "fixed inset-0 z-50 h-dvh w-screen"
+          : "fixed inset-0 z-40 h-dvh w-screen md:static md:h-full md:w-full",
+      )}
+    >
+      <header className="flex items-center justify-between border-b border-border px-3 py-2">
+        <h2 className="text-xs font-medium text-muted-foreground">Artifacts</h2>
+        <Button onClick={() => onDismiss()} aria-label="Close artifact panel">
+          Close
+        </Button>
+      </header>
+      <ArtifactTabs />
+      {children}
     </dialog>
   );
 }

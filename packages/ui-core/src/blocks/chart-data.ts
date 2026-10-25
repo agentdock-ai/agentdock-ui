@@ -57,3 +57,15 @@ export function pieData(value: unknown): PieChartSpec["slices"] | undefined {
   const total = slices.reduce((sum, s) => sum + s.value, 0);
   if (total > 0 && Number.isFinite(total)) return slices;
 }
+
+export function hasFiniteStacks(
+  data: Pick<CartesianChartSpec, "x" | "series">,
+): boolean {
+  return data.x.every((_, i) => {
+    const values = data.series.map((s) => s.data[i] ?? 0);
+    return (
+      Number.isFinite(values.reduce((sum, v) => sum + Math.max(0, v), 0)) &&
+      Number.isFinite(values.reduce((sum, v) => sum + Math.min(0, v), 0))
+    );
+  });
+}

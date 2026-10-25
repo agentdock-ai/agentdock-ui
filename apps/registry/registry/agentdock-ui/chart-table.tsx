@@ -1,23 +1,11 @@
+"use client";
 import { formatValue, type ChartSpec } from "@agentdock-ai/ui-core";
 export function ChartTable({ spec }: { spec: ChartSpec }) {
   return (
     <div className="max-h-[220px] overflow-auto px-4 pb-4">
       <table className="w-full text-left text-xs [&_td]:border-b [&_td]:border-border [&_td]:p-2 [&_th]:p-2">
         <caption className="sr-only">{spec.title || "Chart data"}</caption>
-        <thead>
-          <tr>
-            <th scope="col">{spec.type === "pie" ? "Label" : "X"}</th>
-            {spec.type === "pie" ? (
-              <th scope="col">Value</th>
-            ) : (
-              spec.series.map((s, i) => (
-                <th scope="col" key={i}>
-                  {s.name}
-                </th>
-              ))
-            )}
-          </tr>
-        </thead>
+        <ChartTableHead spec={spec} />
         <tbody>
           {spec.type === "pie"
             ? spec.slices.map((s, i) => (
@@ -41,5 +29,24 @@ export function ChartTable({ spec }: { spec: ChartSpec }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+function ChartTableHead({ spec }: { spec: ChartSpec }) {
+  return (
+    <thead>
+      <tr>
+        <th scope="col">{spec.type === "pie" ? "Label" : "X"}</th>
+        {spec.type === "pie" ? (
+          <th scope="col">Value</th>
+        ) : (
+          spec.series.map((s, i) => (
+            <th scope="col" key={i}>
+              {s.name}
+            </th>
+          ))
+        )}
+      </tr>
+    </thead>
   );
 }

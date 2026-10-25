@@ -2,54 +2,63 @@ import type { ChatAdapter } from "./chat-adapter.js";
 import type { ChatActionState } from "./chat-actions.js";
 import { actionErrorCode } from "./action-error-code.js";
 /** Independent lifetime: stopping a run never aborts speech transcription. */
+class TranscriptionActions {
+  private controller?: AbortController;
+  private disposed = false;
+  constructor(
+    private adapter: ChatAdapter,
+    private changed: (patch: Partial<ChatActionState>) => void,
+  ) {}
+  private update(patch: Partial<ChatActionState>) {
+    if (!this.disposed) this.changed(patch);
+  }
+  transcribe = async (
+    audio: Blob,
+    mimeType: string,
+  ): Promise<string | undefined> => {
+    if (!this.adapter.transcribe || this.controller || this.disposed) return;
+    const current = new AbortController();
+    this.controller = current;
+    this.update({ transcribing: true, actionError: null });
+    try {
+      const result = await abortableTranscription(
+        () =>
+          this.adapter.transcribe?.({
+            audio,
+            mimeType,
+            signal: current.signal,
+          }),
+        current.signal,
+      );
+      if (!current.signal.aborted && !this.disposed) return result?.text;
+    } catch (error) {
+      if (!current.signal.aborted && !this.disposed)
+        this.update({
+          actionError: {
+            scope: "transcribe",
+            message:
+              "Speech could not be transcribed. Try again when you’re ready.",
+            ...actionErrorCode(error),
+          },
+        });
+    } finally {
+      this.controller = undefined;
+      this.update({ transcribing: false });
+    }
+  };
+  cancelTranscription = () => {
+    this.controller?.abort();
+  };
+  dispose = () => {
+    this.disposed = true;
+    this.controller?.abort();
+  };
+}
 export function createTranscriptionActions(
   adapter: ChatAdapter,
   changed: (patch: Partial<ChatActionState>) => void,
 ) {
-  let controller: AbortController | undefined;
-  let disposed = false;
-  const update = (patch: Partial<ChatActionState>) => {
-    if (!disposed) changed(patch);
-  };
-  return {
-    async transcribe(
-      audio: Blob,
-      mimeType: string,
-    ): Promise<string | undefined> {
-      if (!adapter.transcribe || controller || disposed) return;
-      const current = new AbortController();
-      controller = current;
-      update({ transcribing: true, actionError: null });
-      try {
-        const result = await abortableTranscription(
-          () =>
-            adapter.transcribe?.({ audio, mimeType, signal: current.signal }),
-          current.signal,
-        );
-        if (!current.signal.aborted && !disposed) return result?.text;
-      } catch (error) {
-        if (!current.signal.aborted && !disposed)
-          update({
-            actionError: {
-              scope: "transcribe",
-              message:
-                "Speech could not be transcribed. Try again when you’re ready.",
-              ...actionErrorCode(error),
-            },
-          });
-      } finally {
-        controller = undefined;
-        update({ transcribing: false });
-      }
-    },
-    cancelTranscription() {
-      controller?.abort();
-    },
-    dispose() {
-      disposed = true;
-      controller?.abort();
-    },
-  };
+  return new TranscriptionActions(adapter, changed);
 }
 function abortableTranscription(
   source: () => ReturnType<NonNullable<ChatAdapter["transcribe"]>> | undefined,

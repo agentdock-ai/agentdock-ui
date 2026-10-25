@@ -1,3 +1,4 @@
+"use client";
 import { parseChartSpec, type TaggedBlock } from "@agentdock-ai/ui-core";
 import { ChartFrame } from "./chart-frame";
 import { ChartBar } from "./chart-bar";

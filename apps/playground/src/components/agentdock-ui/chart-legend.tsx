@@ -1,3 +1,4 @@
+"use client";
 import { chartColor } from "./chart-colors";
 export function ChartLegend({ names }: { names: readonly string[] }) {
   return (

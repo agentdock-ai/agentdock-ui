@@ -1,3 +1,4 @@
+"use client";
 import { useMemo, type ReactNode } from "react";
 import { useAgentState } from "@agentdock-ai/react";
 import { projectArtifacts } from "@agentdock-ai/ui-core";

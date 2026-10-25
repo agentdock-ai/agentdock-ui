@@ -1,15 +1,55 @@
+"use client";
 import { useMemo, useState } from "react";
-import { jsonTree, visibleJsonNodes } from "@agentdock-ai/ui-core";
+import {
+  jsonTree,
+  visibleJsonNodes,
+  type JsonTreeNode,
+} from "@agentdock-ai/ui-core";
 import { Button } from "../ui/button.js";
-export function JsonTree({
-  value,
-  onRaw,
-}: {
+interface TreeRowProps {
+  node: JsonTreeNode;
+  expanded: boolean;
+  toggle: () => void;
+}
+function TreeRow({ node, expanded, toggle }: TreeRowProps) {
+  return (
+    <li
+      style={{ paddingLeft: `${Math.min(node.depth, 12) * 16}px` }}
+      className="[overflow-wrap:anywhere]"
+    >
+      {node.branch ? (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={toggle}
+          className="rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {expanded ? "▾" : "▸"} {node.label}:{" "}
+          <span className="text-muted-foreground">{node.display}</span>
+        </button>
+      ) : (
+        <span className="pl-4">
+          {node.label}: {node.display}
+        </span>
+      )}
+    </li>
+  );
+}
+interface JsonTreeProps {
   value: unknown;
   onRaw?: () => void;
-}) {
+}
+function toggleExpanded(current: Set<string>, id: string) {
+  const next = new Set(current);
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+  return next;
+}
+export function JsonTree({ value, onRaw }: JsonTreeProps) {
   const tree = useMemo(() => jsonTree(value), [value]);
   const [expanded, setExpanded] = useState(() => new Set(["0"]));
+  const toggle = (id: string) =>
+    setExpanded((current) => toggleExpanded(current, id));
   return (
     <div className="p-3">
       <div className="mb-2 flex gap-1">
@@ -22,34 +62,12 @@ export function JsonTree({
       </div>
       <ul aria-label="JSON tree" className="font-mono text-xs leading-6">
         {visibleJsonNodes(tree.nodes, expanded).map((node) => (
-          <li
+          <TreeRow
             key={node.id}
-            style={{ paddingLeft: `${Math.min(node.depth, 12) * 16}px` }}
-            className="[overflow-wrap:anywhere]"
-          >
-            {node.branch ? (
-              <button
-                type="button"
-                aria-expanded={expanded.has(node.id)}
-                onClick={() =>
-                  setExpanded((current) => {
-                    const next = new Set(current);
-                    if (next.has(node.id)) next.delete(node.id);
-                    else next.add(node.id);
-                    return next;
-                  })
-                }
-                className="rounded text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {expanded.has(node.id) ? "▾" : "▸"} {node.label}:{" "}
-                <span className="text-muted-foreground">{node.display}</span>
-              </button>
-            ) : (
-              <span className="pl-4">
-                {node.label}: {node.display}
-              </span>
-            )}
-          </li>
+            node={node}
+            expanded={expanded.has(node.id)}
+            toggle={() => toggle(node.id)}
+          />
         ))}
       </ul>
       {tree.truncated && (

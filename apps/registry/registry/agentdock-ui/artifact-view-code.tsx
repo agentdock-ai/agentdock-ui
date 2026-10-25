@@ -1,3 +1,4 @@
+"use client";
 import { useState } from "react";
 import { codeLanguage } from "@agentdock-ai/ui-core";
 import type { ArtifactViewerProps } from "./artifact-types.js";

@@ -1,3 +1,4 @@
+"use client";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import type { Artifact } from "@agentdock-ai/ui-core";
 import type { ArtifactOptions } from "./artifact-types.js";
@@ -9,15 +10,16 @@ interface ArtifactContextValue extends ReturnType<typeof useArtifactTabs> {
   openLink(url: string): boolean;
 }
 const Context = createContext<ArtifactContextValue | null>(null);
+interface ArtifactProviderProps {
+  artifacts: readonly Artifact[];
+  options?: ArtifactOptions;
+  children: ReactNode;
+}
 export function ArtifactProvider({
   artifacts,
   options = {},
   children,
-}: {
-  artifacts: readonly Artifact[];
-  options?: ArtifactOptions;
-  children: ReactNode;
-}) {
+}: ArtifactProviderProps) {
   const [links, setLinks] = useState<Artifact[]>([]);
   const all = [
     ...artifacts,
