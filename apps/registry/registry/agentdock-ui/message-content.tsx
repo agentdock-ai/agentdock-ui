@@ -1,6 +1,7 @@
 import { ChevronRight, ExternalLink, FileText, Link2 } from "lucide-react";
 import { ChatIcon } from "./icon.js";
 import type { RenderContentBlock } from "@agentdock-ai/ui-core";
+import { TaggedContent } from "./tagged-content.js";
 import { StreamingText } from "./streaming-text.js";
 import { Reasoning } from "./reasoning.js";
 import { ImageAttachment } from "./image-attachment.js";
@@ -8,15 +9,23 @@ import { safeUrl, formatJson } from "./utils.js";
 export function MessageContent({
   blocks,
   showReasoning,
+  charts = false,
 }: {
   blocks: readonly RenderContentBlock[];
   showReasoning: boolean;
+  charts?: boolean;
 }) {
   return (
     <div className="min-w-0 space-y-3">
       {blocks.map((block) => {
         if (block.type === "text")
-          return (
+          return charts ? (
+            <TaggedContent
+              key={block.id}
+              text={block.text}
+              streaming={block.state === "streaming"}
+            />
+          ) : (
             <StreamingText
               key={block.id}
               text={block.text}

@@ -220,3 +220,54 @@ export const interrupts = {
     { type: "file_upload", accept: ["application/pdf"], maxBytes: 10485760 },
   ),
 };
+
+export const chartFixtures: import("@agentdock-ai/ui-core").TaggedBlock[] = [
+  ...(["bar", "bar", "line", "area", "pie"] as const).map((type, i) => ({
+    kind: "block" as const,
+    tag: "chart",
+    state: "complete" as const,
+    raw: "Chart source",
+    attributes: {
+      type,
+      title: i === 1 ? "Stacked bars" : type,
+      stacked: String(i === 1),
+      unit: "$k",
+    },
+    body: JSON.stringify(
+      type === "pie"
+        ? {
+            slices: [
+              { label: "Direct", value: 24 },
+              { label: "Partner", value: 18 },
+              { label: "Other", value: 8 },
+            ],
+          }
+        : {
+            x: ["Q1", "Q2", "Q3", "Q4"],
+            series: [
+              { name: "2025", data: [10, 14, 12, 16] },
+              {
+                name: "2026",
+                data: type === "line" ? [12, 18, null, 21] : [12, 18, 15, 21],
+              },
+            ],
+          },
+    ),
+  })),
+  {
+    kind: "block",
+    tag: "chart",
+    state: "streaming",
+    attributes: { title: "Streaming" },
+    body: "{",
+    raw: "<chart>\n{",
+  },
+  {
+    kind: "block",
+    tag: "chart",
+    state: "complete",
+    attributes: { title: "Invalid" },
+    body: "bad JSON",
+    raw: "<chart>\nbad JSON\n</chart>",
+  },
+];

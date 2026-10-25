@@ -1,3 +1,4 @@
+import { ChartPreviews } from "../gallery/chart-previews";
 import {
   ArrowUp,
   ChevronRight,
@@ -66,6 +67,7 @@ import {
 const categories = [
   "Conversation",
   "Composer",
+  "Charts",
   "Activity",
   "Status",
   "Layout",
@@ -152,6 +154,8 @@ export function ComponentsPage() {
             </ComponentPreview>
           </div>
         </section>
+
+        <ChartPreviews />
 
         <section
           id="composer"

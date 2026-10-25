@@ -32,7 +32,7 @@ export function ChartCartesian({
             x={CHART_PLOT.left - 8}
             y={y(tick) + 4}
             textAnchor="end"
-            className="fill-muted-foreground text-[10px]"
+            className="fill-muted-foreground text-[16px]"
           >
             {formatValue(tick, spec.unit)}
           </text>
@@ -46,7 +46,7 @@ export function ChartCartesian({
               x={x(i)}
               y={204}
               textAnchor="middle"
-              className="fill-muted-foreground text-[10px]"
+              className="fill-muted-foreground text-[16px]"
             >
               {String(label).slice(0, 16)}
             </text>

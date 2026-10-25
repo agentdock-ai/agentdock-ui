@@ -68,7 +68,11 @@ export function Message({
           )}
         </>
       ) : (
-        <MessageContent blocks={blocks} showReasoning={showReasoning} />
+        <MessageContent
+          blocks={blocks}
+          showReasoning={showReasoning}
+          charts={message.role === "assistant"}
+        />
       )}
       {!user && showActions && message.state !== "streaming" && answer && (
         <ChatActionBar text={answer} />

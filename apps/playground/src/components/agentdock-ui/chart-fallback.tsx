@@ -25,10 +25,13 @@ export function ChartSkeleton({ title }: { title?: string }) {
       aria-label="Loading chart"
       className="rounded-xl border border-border bg-card"
     >
-      <div className="px-4 py-3 text-sm font-medium">{title || "Chart"}</div>
+      <div className="flex h-[58px] items-center px-4 text-sm font-medium">
+        {title || "Chart"}
+      </div>
       <div className="h-[220px] p-4">
         <div className="h-full rounded-lg bg-muted motion-safe:animate-pulse" />
       </div>
+      <div aria-hidden="true" className="h-7" />
     </section>
   );
 }
