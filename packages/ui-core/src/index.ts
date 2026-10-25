@@ -69,3 +69,10 @@ export type {
 } from "./blocks/chart-types.js";
 export { CHART_LIMITS } from "./blocks/chart-limits.js";
 export { niceTicks, linearScale, formatValue } from "./blocks/chart-scale.js";
+export {
+  chartLayout,
+  chartBars,
+  chartPaths,
+  CHART_PLOT,
+} from "./blocks/chart-layout.js";
+export { chartSlices } from "./blocks/chart-pie-layout.js";
