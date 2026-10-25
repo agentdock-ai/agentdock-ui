@@ -1,3 +1,4 @@
+import { VoicePreview } from "../gallery/voice-preview";
 import { ArtifactPreviews } from "../gallery/artifact-previews";
 import { ChartPreviews } from "../gallery/chart-previews";
 import {
@@ -167,6 +168,9 @@ export function ComponentsPage() {
         >
           <h2 id="composer-heading">Composer</h2>
           <div className="gallery-grid">
+            <ComponentPreview name="Voice input" wide>
+              <VoicePreview />
+            </ComponentPreview>
             <ComponentPreview name="Composer" wide>
               <ComposerPreview />
             </ComponentPreview>

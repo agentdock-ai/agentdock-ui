@@ -133,6 +133,19 @@ function ChatSurface({
                   }
                 : undefined
             }
+            voice={
+              actions.canTranscribe
+                ? {
+                    transcribe: actions.transcribe,
+                    transcribing: actions.transcribing,
+                    onCancelTranscription: actions.cancelTranscription,
+                    error:
+                      actions.actionError?.scope === "transcribe"
+                        ? actions.actionError
+                        : undefined,
+                  }
+                : undefined
+            }
             busy={active}
             waiting={blocksInput}
             cancelling={actions.cancelling}

@@ -1,4 +1,6 @@
 "use client";
+import { insertDraftText } from "@agentdock-ai/ui-core";
+import { VoiceInput, type VoiceInputProps } from "./voice-input";
 import { useId, useLayoutEffect, useRef } from "react";
 import { ArrowUp, Square } from "lucide-react";
 import { ChatIcon } from "./icon";
@@ -23,6 +25,7 @@ export function Composer({
   onFiles,
   onRemoveAttachment,
   onRetryAttachment,
+  voice,
   placeholder = "Send a message…",
 }: {
   value: string;
@@ -40,13 +43,20 @@ export function Composer({
   onFiles?: (files: readonly File[]) => void;
   onRemoveAttachment?: (id: string) => void;
   onRetryAttachment?: (id: string) => void;
+  voice?: Omit<VoiceInputProps, "onTranscript" | "disabled">;
   placeholder?: string;
 }) {
   const input = useRef<HTMLTextAreaElement>(null);
+  const cursor = useRef<number | null>(null);
   const composing = useRef(false);
   const hint = useId();
   useLayoutEffect(() => {
     if (input.current) {
+      if (cursor.current !== null) {
+        input.current.focus();
+        input.current.setSelectionRange(cursor.current, cursor.current);
+        cursor.current = null;
+      }
       input.current.style.height = "auto";
       input.current.style.height = `${Math.min(input.current.scrollHeight, 192)}px`;
     }
@@ -130,6 +140,22 @@ export function Composer({
             accept={attachmentAccept}
             disabled={disabled}
             onFiles={onFiles}
+          />
+        )}
+        {voice?.transcribe && (
+          <VoiceInput
+            {...voice}
+            disabled={disabled}
+            onTranscript={(text) => {
+              const inserted = insertDraftText(
+                value,
+                text,
+                input.current?.selectionStart,
+                input.current?.selectionEnd,
+              );
+              cursor.current = inserted.cursor;
+              onChange(inserted.text);
+            }}
           />
         )}
         <p id={hint} className="sr-only">
