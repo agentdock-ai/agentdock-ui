@@ -60,3 +60,12 @@ export type {
   TaggedSegment,
   TaggedBlockOptions,
 } from "./blocks/tagged-blocks.js";
+export { parseChartSpec } from "./blocks/chart-spec.js";
+export type {
+  ChartSpec,
+  ChartSpecResult,
+  CartesianChartSpec,
+  PieChartSpec,
+} from "./blocks/chart-types.js";
+export { CHART_LIMITS } from "./blocks/chart-limits.js";
+export { niceTicks, linearScale, formatValue } from "./blocks/chart-scale.js";
