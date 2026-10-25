@@ -76,3 +76,20 @@ export {
   CHART_PLOT,
 } from "./blocks/chart-layout.js";
 export { chartSlices } from "./blocks/chart-pie-layout.js";
+export type {
+  Artifact,
+  ArtifactDraft,
+  ArtifactVersion,
+  ArtifactKind,
+  ArtifactMapper,
+} from "./artifacts/artifact-types.js";
+export { artifactKind, codeLanguage } from "./artifacts/artifact-kind.js";
+export { defaultArtifactMapper } from "./artifacts/default-artifact-mapper.js";
+export { projectArtifacts } from "./artifacts/project-artifacts.js";
+export { parseCsv, type CsvResult } from "./artifacts/csv.js";
+export {
+  ARTIFACT_INLINE_BYTES,
+  CSV_PAGE_ROWS,
+  CSV_MAX_ROWS,
+  JSON_MAX_NODES,
+} from "./artifacts/artifact-limits.js";
