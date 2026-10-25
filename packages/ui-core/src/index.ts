@@ -107,3 +107,5 @@ export {
   type TextMatch,
 } from "./artifacts/artifact-text.js";
 export { insertDraftText, type DraftInsertion } from "./composer-text.js";
+
+export { formatArtifactJson } from "./artifacts/format-artifact-json.js";

@@ -4,7 +4,7 @@ import { sequence, complete } from "../../../../scripts/fixtures/events";
 export const artifactFixtures: Artifact[] = [
   [
     "index.html",
-    "<!doctype html><html><head><style>body{font:16px system-ui;padding:32px;background:#f8fafc;color:#0f172a}h1{font-size:32px}</style></head><body><h1>Welcome</h1><p>A small landing page, made by your agent.</p></body></html>",
+    "<!doctype html><html><head><style>body{font:16px system-ui;padding:32px;background:#f8fafc;color:#0f172a}h1{font-size:32px}</style></head><body><h1>Welcome</h1><p>A small landing page, made by your agent.</p><a href='https://example.com'>Example reference</a></body></html>",
   ],
   [
     "notes.md",

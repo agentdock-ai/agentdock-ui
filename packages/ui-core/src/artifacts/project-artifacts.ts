@@ -37,7 +37,7 @@ export function projectArtifacts(
         ];
         artifacts.set(draft.id, {
           ...draft,
-          kind: artifactKind(draft.id, draft.mimeType, draft.url),
+          kind: draft.kind ?? artifactKind(draft.id, draft.mimeType, draft.url),
           versions,
           sourceToolCallId: tool.toolCallId,
         });

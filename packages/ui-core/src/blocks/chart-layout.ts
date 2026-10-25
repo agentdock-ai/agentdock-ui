@@ -40,7 +40,10 @@ export function chartBars(spec: CartesianChartSpec) {
             .slice(0, si)
             .reduce(
               (sum, s) =>
-                sum + ((s.data[i] ?? 0) * n > 0 ? (s.data[i] ?? 0) : 0),
+                sum +
+                (Math.sign(s.data[i] ?? 0) === Math.sign(n)
+                  ? (s.data[i] ?? 0)
+                  : 0),
               0,
             )
         : 0;

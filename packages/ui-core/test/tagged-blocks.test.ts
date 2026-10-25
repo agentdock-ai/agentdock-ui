@@ -62,3 +62,40 @@ it("retains incomplete input with the right lifecycle", () => {
     }),
   ).toMatchObject([{ tag: "diagram", state: "complete" }]);
 });
+
+it("preserves multiline code spans, including matching runs and literal backslashes", () => {
+  const chart = '<chart type="bar">\r\n{}\r\n</chart>';
+  for (const marker of ["`", "``", "````"]) {
+    const text = `${marker}example\r\n${chart}\r\nexample${marker}`;
+    expect(parse(text)).toEqual([{ kind: "markdown", text }]);
+  }
+  const escapedClosing = "`example\n" + chart + "\n\\`";
+  expect(parse(escapedClosing)).toEqual([
+    { kind: "markdown", text: escapedClosing },
+  ]);
+  expect(parse("\\`literal\n" + chart).some((s) => s.kind === "block")).toBe(
+    true,
+  );
+  expect(
+    parse("`unmatched\n\n" + chart + "\n`").some((s) => s.kind === "block"),
+  ).toBe(true);
+  expect(parse("``unmatched\n" + chart).some((s) => s.kind === "block")).toBe(
+    true,
+  );
+  expect(parse("`inline`\n" + chart).some((s) => s.kind === "block")).toBe(
+    true,
+  );
+  expect(
+    parse("```\n`fenced\n```\n" + chart + "\n`after").some(
+      (s) => s.kind === "block",
+    ),
+  ).toBe(true);
+  expect(parse("`one` `two`\n" + chart).some((s) => s.kind === "block")).toBe(
+    true,
+  );
+});
+
+it("handles many inline spans without spreading them into call arguments", () => {
+  const text = "`x` ".repeat(140000) + "\n\n<chart>\n{}\n</chart>";
+  expect(parse(text).at(-1)).toMatchObject({ kind: "block" });
+});

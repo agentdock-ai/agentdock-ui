@@ -31,3 +31,19 @@ it("sorts numeric and textual CSV columns without mutating input", () => {
   expect(sortCsvRows([[], [""]], 0)).toEqual([[], [""]]);
   expect(sortCsvRows([[""], ["a"], ["1e999"], ["2"]], 0)).toHaveLength(4);
 });
+
+it("sorts mixed columns consistently across input permutations", () => {
+  const mixed = [["2"], ["10"], ["1a"]];
+  const sorted = sortCsvRows(mixed, 0);
+  for (const rows of [
+    mixed,
+    [mixed[1], mixed[2], mixed[0]],
+    [...mixed].reverse(),
+  ]) {
+    expect(sortCsvRows(rows, 0)).toEqual(sorted);
+    expect(sortCsvRows(rows, 0, true)).toEqual([...sorted].reverse());
+  }
+  expect(sortCsvRows([["3"], [""], ["2"]], 0)).toEqual([[""], ["2"], ["3"]]);
+  expect(sortCsvRows([["10"], ["2"]], 0)).toEqual([["2"], ["10"]]);
+  expect(sortCsvRows([[], ["2"]], 0)).toEqual([[], ["2"]]);
+});

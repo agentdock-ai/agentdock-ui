@@ -104,3 +104,21 @@ it("keeps new versions when a later turn reuses a tool call id", () => {
     })[0].versions,
   ).toHaveLength(3);
 });
+
+it("preserves explicit link intent even when the URL has a file extension", () => {
+  for (const suffix of [
+    "page.html",
+    "data.json?download=1",
+    "report.csv#section",
+  ]) {
+    const url = `https://example.com/${suffix}`;
+    const result = projectArtifacts(model, () => ({
+      id: `link:${url}`,
+      title: "Reference",
+      url,
+      kind: "link",
+    }));
+    expect(result[0].kind).toBe("link");
+    expect(result[0].url).toBe(url);
+  }
+});

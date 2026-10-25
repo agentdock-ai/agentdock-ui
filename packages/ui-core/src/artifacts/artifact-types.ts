@@ -16,6 +16,8 @@ export interface ArtifactDraft {
   content?: string;
   url?: string;
   mimeType?: string;
+  /** Explicit intent overrides extension/MIME inference, for example fetched links. */
+  kind?: ArtifactKind;
 }
 export interface ArtifactVersion {
   /** One-based, oldest first. */

@@ -1,6 +1,6 @@
 "use client";
-import { useMemo, useState } from "react";
-import { parseArtifactJson } from "@agentdock-ai/ui-core";
+import { useEffect, useMemo, useState } from "react";
+import { formatArtifactJson, parseArtifactJson } from "@agentdock-ai/ui-core";
 import type { ArtifactViewerProps } from "./artifact-types";
 import { JsonTree } from "./json-tree";
 import { ArtifactViewCode } from "./artifact-view-code";
@@ -8,6 +8,7 @@ import { InlineAlert } from "./alert";
 export function ArtifactViewJson(props: ArtifactViewerProps) {
   const { artifact, mode } = props;
   const [raw, setRaw] = useState(false);
+  useEffect(() => setRaw(false), [mode, artifact.content]);
   const parsed = useMemo(
     () => parseArtifactJson(artifact.content ?? ""),
     [artifact.content],
@@ -22,13 +23,18 @@ export function ArtifactViewJson(props: ArtifactViewerProps) {
   return mode === "raw" || raw ? (
     <ArtifactViewCode
       {...props}
-      artifact={{ ...artifact, content: JSON.stringify(parsed.value, null, 2) }}
+      artifact={{
+        ...artifact,
+        content: formatArtifactJson(artifact.content ?? "", parsed.value),
+      }}
     />
   ) : (
     <JsonTree
       key={artifact.content}
       value={parsed.value}
-      onRaw={() => setRaw(true)}
+      onRaw={() =>
+        props.onModeChange ? props.onModeChange("raw") : setRaw(true)
+      }
     />
   );
 }

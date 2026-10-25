@@ -26,14 +26,13 @@ export function sortCsvRows(
   descending = false,
 ): string[][] {
   if (column < 0) return [...rows];
+  const numeric = rows.every((row) => {
+    const value = row[column] ?? "";
+    return value.trim() !== "" && Number.isFinite(Number(value));
+  });
   return [...rows].sort((a, b) => {
     const left = a[column] ?? "",
       right = b[column] ?? "";
-    const numeric =
-      left.trim() !== "" &&
-      right.trim() !== "" &&
-      Number.isFinite(Number(left)) &&
-      Number.isFinite(Number(right));
     const order = numeric
       ? Number(left) - Number(right)
       : left.localeCompare(right);

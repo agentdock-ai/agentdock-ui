@@ -47,3 +47,12 @@ it("extracts charts around Markdown and preserves code examples and non-assistan
   expect(host.textContent).toContain("<chart");
   await act(async () => root.unmount());
 });
+
+it("keeps a chart tag literal inside a multiline inline code span", async () => {
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const text =
+    '`example\n<chart type="bar">\n{"x":["A"],"series":[{"name":"S","data":[1]}]}\n</chart>\nexample`';
+  const html = renderToStaticMarkup(<TaggedContent text={text} />);
+  expect(html).not.toContain('role="img"');
+  expect(html).toContain("&lt;chart");
+});

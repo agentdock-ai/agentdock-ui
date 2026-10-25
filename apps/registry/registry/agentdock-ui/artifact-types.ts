@@ -8,6 +8,7 @@ export type ArtifactMode = "preview" | "code" | "source" | "tree" | "raw";
 export interface ArtifactViewerProps {
   artifact: Artifact;
   mode?: ArtifactMode;
+  onModeChange?: (mode: ArtifactMode) => void;
   allowHtmlScripts?: boolean;
   canEmbed?: (url: string) => Promise<boolean>;
 }

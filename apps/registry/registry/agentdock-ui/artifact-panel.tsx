@@ -11,7 +11,11 @@ import { cn } from "./utils.js";
 export function ArtifactPanel({
   render,
 }: {
-  render?: (artifact: Artifact, mode: ArtifactMode) => ReactNode;
+  render?: (
+    artifact: Artifact,
+    mode: ArtifactMode,
+    onModeChange: (mode: ArtifactMode) => void,
+  ) => ReactNode;
 }) {
   const context = useArtifacts();
   const [fullscreen, setFullscreen] = useState(false);
@@ -89,7 +93,11 @@ function ArtifactPanelBody({
   artifact: Artifact;
   fullscreen: boolean;
   onFullscreen: () => void;
-  render?: (artifact: Artifact, mode: ArtifactMode) => ReactNode;
+  render?: (
+    artifact: Artifact,
+    mode: ArtifactMode,
+    onModeChange: (mode: ArtifactMode) => void,
+  ) => ReactNode;
 }) {
   const [mode, setMode] = useState<ArtifactMode>(
     artifact.kind === "json" ? "tree" : "preview",
@@ -108,7 +116,7 @@ function ArtifactPanelBody({
         aria-label={artifact.title}
         className="min-h-0 min-w-0 flex-1 overflow-auto"
       >
-        {render?.(artifact, mode)}
+        {render?.(artifact, mode, setMode)}
       </div>
     </>
   );

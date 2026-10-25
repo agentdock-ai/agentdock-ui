@@ -25,10 +25,11 @@ export function ChatArtifacts({
       <ChatSplit
         panel={
           <ArtifactPanel
-            render={(artifact, mode) => (
+            render={(artifact, mode, onModeChange) => (
               <ArtifactView
                 artifact={artifact}
                 mode={mode}
+                onModeChange={onModeChange}
                 viewers={options.viewers}
                 allowHtmlScripts={options.allowHtmlScripts}
                 canEmbed={options.canEmbed}

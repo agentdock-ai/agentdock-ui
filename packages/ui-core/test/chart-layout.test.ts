@@ -69,3 +69,22 @@ it("lays out percentages and a full circle", () => {
     })[0].path.match(/A86/g),
   ).toHaveLength(2);
 });
+
+it("stacks tiny values end to end without multiplying signs", () => {
+  for (const sign of [1, -1]) {
+    const bars = chartBars({
+      type: "bar",
+      stacked: true,
+      x: ["A"],
+      series: [
+        { name: "One", data: [sign * 1e-200] },
+        { name: "Two", data: [sign * 2e-200] },
+      ],
+    });
+    const [first, second] = bars;
+    expect(sign > 0 ? second.y + second.height : second.y).toBeCloseTo(
+      sign > 0 ? first.y : first.y + first.height,
+    );
+    expect(first.height + second.height).toBeCloseTo(164);
+  }
+});

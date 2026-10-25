@@ -20,8 +20,12 @@ function PanelControls() {
     <ChatSplit
       panel={
         <ArtifactPanel
-          render={(artifact, mode) => (
-            <ArtifactView artifact={artifact} mode={mode} />
+          render={(artifact, mode, onModeChange) => (
+            <ArtifactView
+              artifact={artifact}
+              mode={mode}
+              onModeChange={onModeChange}
+            />
           )}
         />
       }

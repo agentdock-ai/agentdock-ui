@@ -1,47 +1,25 @@
-import { parseTagAttributes } from "./tag-attributes.js";
+import { codeSpanGuard } from "./code-spans.js";
+import { segment, type Opening } from "./tagged-segment.js";
 import { scanFence, type TaggedFence } from "./tagged-fence.js";
-import type {
-  TaggedBlock,
-  TaggedSegment,
-  TaggedBlockOptions,
-} from "./tagged-types.js";
+import type { TaggedSegment, TaggedBlockOptions } from "./tagged-types.js";
 export type {
   TaggedBlock,
   TaggedSegment,
   TaggedBlockOptions,
 } from "./tagged-types.js";
-interface Opening {
-  tag: string;
-  start: number;
-  body: number;
-  opening: string;
-}
-function segment(
-  text: string,
-  block: Opening,
-  state: TaggedBlock["state"],
-  end: number,
-  bodyEnd: number,
-): TaggedBlock {
-  return {
-    kind: "block",
-    tag: block.tag,
-    attributes: parseTagAttributes(block.opening),
-    body: text.slice(block.body, bodyEnd),
-    state,
-    raw: text.slice(block.start, end),
-  };
-}
 class TaggedScanner {
   readonly segments: TaggedSegment[] = [];
   private fence?: TaggedFence;
   private block?: Opening;
   private offset = 0;
   private markdownStart = 0;
+  private inCodeSpan: (offset: number) => boolean;
   constructor(
     private text: string,
     private options: TaggedBlockOptions,
-  ) {}
+  ) {
+    this.inCodeSpan = codeSpanGuard(text);
+  }
   read(source: string) {
     const line = source.replace(/\r?\n$/, "");
     const block = this.block;
@@ -65,7 +43,7 @@ class TaggedScanner {
   private readOpening(line: string, length: number) {
     const scanned = scanFence(line, this.fence);
     this.fence = scanned.fence;
-    if (scanned.skip) return;
+    if (scanned.skip || this.inCodeSpan(this.offset)) return;
     const opening = /^\s*<([a-z][a-z0-9-]*)(?:\s+[^<>]*)?>\s*$/.exec(line);
     if (!opening || !(this.options.tags ?? ["chart"]).includes(opening[1]))
       return;
