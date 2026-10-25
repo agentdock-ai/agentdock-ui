@@ -1,3 +1,4 @@
+import { ArtifactPreviews } from "../gallery/artifact-previews";
 import { ChartPreviews } from "../gallery/chart-previews";
 import {
   ArrowUp,
@@ -68,6 +69,7 @@ const categories = [
   "Conversation",
   "Composer",
   "Charts",
+  "Artifacts",
   "Activity",
   "Status",
   "Layout",
@@ -156,6 +158,7 @@ export function ComponentsPage() {
         </section>
 
         <ChartPreviews />
+        <ArtifactPreviews />
 
         <section
           id="composer"

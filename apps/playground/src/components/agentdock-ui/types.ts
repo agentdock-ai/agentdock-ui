@@ -1,7 +1,10 @@
+import type { ArtifactOptions } from "./artifact-types";
 import type { ChatAdapter, AgentStore } from "@agentdock-ai/react";
 import type { ToolRisk } from "./approval-card";
 export interface ChatProps {
   adapter: ChatAdapter;
+  /** Opt in to file previews; link interception remains separately opt in. */
+  artifacts?: ArtifactOptions;
   store?: AgentStore;
   className?: string;
   disabled?: boolean;

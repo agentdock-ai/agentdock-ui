@@ -1,4 +1,5 @@
 "use client";
+import { ArtifactOpenButton } from "./artifact-open-button.js";
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { ChatIcon } from "./icon.js";
@@ -48,6 +49,17 @@ export function ToolTimeline({
           className={`transition-[transform,opacity] duration-200 motion-reduce:transition-none ${open ? "rotate-90 opacity-100" : "opacity-50 group-hover/tools:opacity-100"}`}
         />
       </CollapsibleTrigger>
+      {!open && (
+        <div className="flex flex-wrap">
+          {tools.map((item) => (
+            <ArtifactOpenButton
+              key={item.tool.toolCallId}
+              toolCallId={item.tool.toolCallId}
+              showTitle
+            />
+          ))}
+        </div>
+      )}
       <CollapsibleContent>
         <div className="mb-1 ml-0.5 mt-0.5 border-l border-border pl-3.5">
           {tools.map((item) => (

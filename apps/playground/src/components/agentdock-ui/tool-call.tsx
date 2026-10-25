@@ -1,4 +1,5 @@
 "use client";
+import { ArtifactOpenButton } from "./artifact-open-button";
 import { useState } from "react";
 import { Check, ChevronRight, LoaderCircle, Square, X } from "lucide-react";
 import { ChatIcon } from "./icon";
@@ -49,59 +50,63 @@ export function ToolCall({ item }: { item: RenderToolCallItem }) {
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="min-w-0">
-      <CollapsibleTrigger
-        aria-label={`${tool.name} ${status}`}
-        className="group/tool flex min-h-7 w-full max-w-full min-w-0 items-center gap-2 rounded-md text-left text-[13px] leading-5 text-muted-foreground outline-none transition-colors duration-150 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none [@media(pointer:coarse)]:min-h-10"
-      >
-        <span className="flex w-3.5 shrink-0 justify-center">
-          {running ? (
-            <ChatIcon
-              icon={LoaderCircle}
-              size={13}
-              className="text-foreground motion-safe:animate-spin"
-            />
-          ) : tool.status === "approval" ? (
-            <PulseDot />
-          ) : (
-            <ChatIcon
-              icon={failed ? X : tool.status === "complete" ? Check : Square}
-              size={13}
-              className={
-                failed
-                  ? toneText.error
-                  : tool.status === "complete"
-                    ? toneText.success
-                    : undefined
-              }
-            />
-          )}
-        </span>
-        <span className="min-w-0 truncate font-mono text-[12.5px] text-foreground/90">
-          {tool.name}
-        </span>
-        {status !== "Complete" && (
-          <span
-            className={cn(
-              "shrink-0 text-[12px]",
-              failed && cn("font-medium", toneText.error),
-              tool.status === "approval" && cn("font-medium", toneText.warning),
+      <div className="flex min-w-0 items-center gap-2">
+        <CollapsibleTrigger
+          aria-label={`${tool.name} ${status}`}
+          className="group/tool flex min-h-7 w-full max-w-full min-w-0 items-center gap-2 rounded-md text-left text-[13px] leading-5 text-muted-foreground outline-none transition-colors duration-150 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none [@media(pointer:coarse)]:min-h-10"
+        >
+          <span className="flex w-3.5 shrink-0 justify-center">
+            {running ? (
+              <ChatIcon
+                icon={LoaderCircle}
+                size={13}
+                className="text-foreground motion-safe:animate-spin"
+              />
+            ) : tool.status === "approval" ? (
+              <PulseDot />
+            ) : (
+              <ChatIcon
+                icon={failed ? X : tool.status === "complete" ? Check : Square}
+                size={13}
+                className={
+                  failed
+                    ? toneText.error
+                    : tool.status === "complete"
+                      ? toneText.success
+                      : undefined
+                }
+              />
             )}
-          >
-            {status}
           </span>
-        )}
-        {duration && (
-          <span className="shrink-0 font-mono text-[12px] tabular-nums">
-            {duration}
+          <span className="min-w-0 truncate font-mono text-[12.5px] text-foreground/90">
+            {tool.name}
           </span>
-        )}
-        <ChatIcon
-          icon={ChevronRight}
-          size={13}
-          aria-hidden="true"
-          className={`ml-auto shrink-0 transition-[transform,opacity] duration-200 motion-reduce:transition-none ${open ? "rotate-90 opacity-100" : "opacity-0 group-hover/tool:opacity-100 group-focus-visible/tool:opacity-100 [@media(hover:none)]:opacity-50"}`}
-        />
-      </CollapsibleTrigger>
+          {status !== "Complete" && (
+            <span
+              className={cn(
+                "shrink-0 text-[12px]",
+                failed && cn("font-medium", toneText.error),
+                tool.status === "approval" &&
+                  cn("font-medium", toneText.warning),
+              )}
+            >
+              {status}
+            </span>
+          )}
+          {duration && (
+            <span className="shrink-0 font-mono text-[12px] tabular-nums">
+              {duration}
+            </span>
+          )}
+          <ChatIcon
+            icon={ChevronRight}
+            size={13}
+            aria-hidden="true"
+            className={`ml-auto shrink-0 transition-[transform,opacity] duration-200 motion-reduce:transition-none ${open ? "rotate-90 opacity-100" : "opacity-0 group-hover/tool:opacity-100 group-focus-visible/tool:opacity-100 [@media(hover:none)]:opacity-50"}`}
+          />
+        </CollapsibleTrigger>
+        <ArtifactOpenButton toolCallId={tool.toolCallId} />
+      </div>
       {progress && (
         <p
           role="status"

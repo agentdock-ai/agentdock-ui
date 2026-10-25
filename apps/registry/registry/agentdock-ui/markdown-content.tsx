@@ -1,7 +1,9 @@
+import { useArtifacts } from "./artifact-context.js";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { safeUrl } from "./utils.js";
 export function MarkdownContent({ text }: { text: string }) {
+  const artifacts = useArtifacts();
   return (
     <div className="min-w-0 space-y-3 text-[14px] leading-[1.7] text-foreground [overflow-wrap:anywhere] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
       <Markdown
@@ -48,6 +50,18 @@ export function MarkdownContent({ text }: { text: string }) {
             href ? (
               <a
                 href={href}
+                onClick={(event) => {
+                  if (
+                    artifacts?.options.links === "panel" &&
+                    event.button === 0 &&
+                    !event.metaKey &&
+                    !event.ctrlKey &&
+                    !event.shiftKey &&
+                    !event.altKey &&
+                    artifacts.openLink(href)
+                  )
+                    event.preventDefault();
+                }}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded-sm font-medium underline decoration-muted-foreground/40 decoration-1 underline-offset-[3px] transition-colors duration-150 hover:decoration-foreground focus-visible:outline-2 focus-visible:outline-ring motion-reduce:transition-none"

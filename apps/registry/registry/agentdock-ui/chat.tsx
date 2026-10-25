@@ -5,6 +5,7 @@ import {
   useAgentActions,
   useAgentState,
 } from "@agentdock-ai/react";
+import { ChatArtifacts } from "./chat-artifacts.js";
 import type { ChatProps } from "./types.js";
 import { ChatShell } from "./chat-shell.js";
 import { ChatViewport } from "./chat-viewport.js";
@@ -19,7 +20,9 @@ import { useChatAttachments } from "./use-chat-attachments.js";
 export function Chat(props: ChatProps) {
   return (
     <AgentProvider store={props.store}>
-      <ChatSurface {...props} />
+      <ChatArtifacts options={props.artifacts}>
+        <ChatSurface {...props} />
+      </ChatArtifacts>
     </AgentProvider>
   );
 }
