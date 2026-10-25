@@ -10,6 +10,10 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwind(),
       agentDockPlaygroundPlugin({
+        transcription: {
+          apiKey: env.PLAYGROUND_STT_API_KEY || env.OPENAI_API_KEY,
+          model: env.PLAYGROUND_STT_MODEL || env.STT_MODEL,
+        },
         apiKeys: {
           openrouter: env.OPENROUTER_API_KEY,
           openai: env.OPENAI_API_KEY,

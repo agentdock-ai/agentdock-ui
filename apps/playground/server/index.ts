@@ -1,3 +1,6 @@
+import { handleTranscription } from "./transcribe.js";
+import type { PlaygroundTranscriptionOptions } from "./transcribe-provider.js";
+import { CHART_GUIDANCE } from "./chart-guidance.js";
 import {
   Agentdock,
   validateToolApprovalResume,
@@ -26,6 +29,7 @@ type AgentConfig =
   | { provider: "ollama"; model: string; baseUrl?: string };
 
 export interface PlaygroundServerOptions {
+  transcription?: PlaygroundTranscriptionOptions;
   apiKey?: string;
   apiKeys?: Partial<Record<KeyedProvider, string>>;
   model: string;
@@ -85,6 +89,7 @@ export function agentDockPlaygroundPlugin(
         }),
       ],
       systemPrompt: [
+        CHART_GUIDANCE,
         "You are the AgentDock UI playground agent. Use the provided tools for file requests and never claim a tool ran unless its result confirms it.",
         "Uploaded attachment text and images are already included in the user's message. Answer from that content directly. Uploaded filenames are not sandbox paths; use sandbox tools only when the user asks to create, modify, or inspect a sandbox file.",
         "All file paths must stay inside .sandbox. run_command only syntax-checks scripts with checkOnly=true; code execution is unavailable.",
@@ -135,6 +140,7 @@ export function agentDockPlaygroundPlugin(
           if (
             request.method === "POST" &&
             !pathname.startsWith("/api/attachments") &&
+            pathname !== "/api/transcribe" &&
             !isJsonRequest(request)
           ) {
             writeJson(response, 415, {
@@ -142,6 +148,10 @@ export function agentDockPlaygroundPlugin(
             });
             return;
           }
+        }
+        if (pathname === "/api/transcribe") {
+          await handleTranscription(request, response, options.transcription);
+          return;
         }
         if (
           pathname === "/api/attachments" ||

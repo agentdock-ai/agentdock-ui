@@ -62,3 +62,17 @@ it("keeps artifacts opt in and opens file versions from collapsed tool groups", 
   host.remove();
   vi.unstubAllGlobals();
 });
+
+it("renders two fixture charts and preserves the fenced chart example", async () => {
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { createPreviewStore } = await import("../src/gallery/fixtures");
+  const html = renderToStaticMarkup(
+    createElement(Chat, {
+      store: createPreviewStore("chart"),
+      adapter: { async *sendMessage() {} },
+    }),
+  );
+  expect(html.match(/role="img"/g)).toHaveLength(2);
+  expect(html).toContain("Monthly sales");
+  expect(html).toContain("&lt;chart");
+});

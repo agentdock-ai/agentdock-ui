@@ -95,3 +95,12 @@ it("projects multiple artifacts from one tool without losing either viewer", () 
   expect(result.map((a) => a.kind)).toEqual(["link", "text"]);
   expect(result[1].versions).toHaveLength(3);
 });
+
+it("keeps new versions when a later turn reuses a tool call id", () => {
+  expect(
+    projectArtifacts({
+      ...model,
+      turns: [...model.turns, { ...model.turns[0], id: "second", items: [a] }],
+    })[0].versions,
+  ).toHaveLength(3);
+});

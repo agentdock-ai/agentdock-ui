@@ -1,3 +1,4 @@
+import { featureScenarios } from "./feature-events.js";
 import type { AgentEvent, AgentEventInput } from "@agentdock-ai/contracts";
 import { AGENT_EVENT_PROTOCOL_VERSION } from "@agentdock-ai/contracts";
 
@@ -45,6 +46,7 @@ export const complete = (value: string): AgentEventInput => ({
   content: [{ type: "text", text: value }],
 });
 export const scenarios = {
+  ...featureScenarios({ sequence, intro, text, complete }),
   empty: [],
   long: sequence([
     ...intro,
@@ -266,3 +268,7 @@ export const scenarios = {
   ]),
 } satisfies Record<string, AgentEvent[]>;
 export type Scenario = keyof typeof scenarios;
+
+export function isScenario(value: string): value is Scenario {
+  return Object.hasOwn(scenarios, value);
+}

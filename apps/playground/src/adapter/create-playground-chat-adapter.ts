@@ -1,3 +1,4 @@
+import { createTranscriptionAdapter } from "./create-transcription-adapter.js";
 import { decodeAgentEventStream, type ChatAdapter } from "@agentdock-ai/react";
 import { uploadResponse, responseError } from "./upload-response.js";
 import { playgroundAttachmentPolicy } from "./attachment-policy.js";
@@ -23,6 +24,7 @@ export function createPlaygroundChatAdapter({
     yield* decodeAgentEventStream(response.body, { signal });
   }
   return {
+    transcribe: createTranscriptionAdapter(request),
     sendMessage: ({ text, attachments, signal }) =>
       stream(
         {

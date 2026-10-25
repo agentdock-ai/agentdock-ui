@@ -1,0 +1,2 @@
+export const CHART_GUIDANCE =
+  'To show a chart, write <chart type="bar|line|area|pie" title="…"> on its own line, then a JSON body, then </chart> on its own line. Use {"x":[...],"series":[{"name":"Sales","data":[...]}]} (pie: {"slices":[{"label":"A","value":1}]}). Use finite numbers, at most 8 series, 200 points and 12 slices. Put chart-tag code examples inside fenced code blocks. Use file tools for complete HTML, JSON and CSV files so the user can open them in the artifact panel.';

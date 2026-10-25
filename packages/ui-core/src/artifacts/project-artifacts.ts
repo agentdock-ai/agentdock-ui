@@ -16,30 +16,32 @@ export function projectArtifacts(
 ): Artifact[] {
   const artifacts = new Map<string, Artifact>();
   const seen = new Set<string>();
-  for (const tool of model.turns.flatMap((turn) => turn.items.flatMap(tools))) {
-    if (tool.status !== "complete" || seen.has(tool.toolCallId)) continue;
-    seen.add(tool.toolCallId);
-    const mapped = mapper(tool);
-    if (!mapped) continue;
-    for (const draft of "id" in mapped ? [mapped] : mapped) {
-      const previous = artifacts.get(draft.id);
-      const versions = [
-        ...(previous?.versions ?? []),
-        {
-          version: (previous?.versions.length ?? 0) + 1,
-          content: draft.content,
-          url: draft.url,
-          toolCallId: tool.toolCallId,
-          updatedAt: tool.completedAt,
-        },
-      ];
-      artifacts.set(draft.id, {
-        ...draft,
-        kind: artifactKind(draft.id, draft.mimeType, draft.url),
-        versions,
-        sourceToolCallId: tool.toolCallId,
-      });
+  for (const turn of model.turns)
+    for (const tool of turn.items.flatMap(tools)) {
+      const key = JSON.stringify([turn.id, tool.toolCallId]);
+      if (tool.status !== "complete" || seen.has(key)) continue;
+      seen.add(key);
+      const mapped = mapper(tool);
+      if (!mapped) continue;
+      for (const draft of "id" in mapped ? [mapped] : mapped) {
+        const previous = artifacts.get(draft.id);
+        const versions = [
+          ...(previous?.versions ?? []),
+          {
+            version: (previous?.versions.length ?? 0) + 1,
+            content: draft.content,
+            url: draft.url,
+            toolCallId: tool.toolCallId,
+            updatedAt: tool.completedAt,
+          },
+        ];
+        artifacts.set(draft.id, {
+          ...draft,
+          kind: artifactKind(draft.id, draft.mimeType, draft.url),
+          versions,
+          sourceToolCallId: tool.toolCallId,
+        });
+      }
     }
-  }
   return [...artifacts.values()];
 }
