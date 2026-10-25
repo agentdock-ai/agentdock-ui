@@ -1,4 +1,4 @@
-import { FileText, ExternalLink } from "lucide-react";
+import { ChevronRight, ExternalLink, FileText, Link2 } from "lucide-react";
 import { ChatIcon } from "./icon.js";
 import type { RenderContentBlock } from "@agentdock-ai/ui-core";
 import { StreamingText } from "./streaming-text.js";
@@ -35,14 +35,21 @@ export function MessageContent({
           return (
             <details
               key={block.id}
-              className="rounded-lg border border-border text-sm"
+              className="group/custom overflow-hidden rounded-xl border border-border text-[13px]"
             >
-              <summary className="min-h-10 cursor-pointer px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                {block.name || "Additional content"}
+              <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 px-3 py-2 text-muted-foreground outline-none transition-colors duration-150 hover:bg-muted/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 motion-reduce:transition-none [&::-webkit-details-marker]:hidden">
+                <ChatIcon
+                  icon={ChevronRight}
+                  size={13}
+                  className="transition-transform duration-200 group-open/custom:rotate-90 motion-reduce:transition-none"
+                />
+                <span className="min-w-0 flex-1 truncate font-medium">
+                  {block.name || "Additional content"}
+                </span>
               </summary>
               <pre
                 tabIndex={0}
-                className="max-h-64 overflow-auto whitespace-pre-wrap border-t border-border p-3 font-mono text-xs leading-6 [overflow-wrap:anywhere]"
+                className="max-h-64 overflow-auto whitespace-pre-wrap border-t border-border/70 bg-muted/40 px-3.5 py-3 font-mono text-[12px] leading-5 text-muted-foreground outline-none [overflow-wrap:anywhere]"
               >
                 {formatJson(block.data)}
               </pre>
@@ -61,35 +68,54 @@ export function MessageContent({
             : block.type === "file"
               ? block.name || "File"
               : `${block.type[0]?.toUpperCase()}${block.type.slice(1)}`;
-        return (
-          <div
-            key={block.id}
-            className="flex max-w-full items-center gap-2 rounded-lg border border-border px-3 py-2.5 text-sm text-muted-foreground"
-          >
-            <ChatIcon
-              icon={FileText}
-              size={16}
-              aria-hidden="true"
-              className="shrink-0"
-            />
-            {url ? (
-              <a
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex min-w-0 items-center gap-2 rounded-sm underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <span className="[overflow-wrap:anywhere]">{label}</span>
-                <ChatIcon
-                  icon={ExternalLink}
-                  size={13}
-                  className="shrink-0"
-                  aria-hidden="true"
-                />
-              </a>
-            ) : (
-              <span>{label} · Preview unavailable</span>
+        const kind =
+          block.type === "citation"
+            ? "Source"
+            : block.type === "file"
+              ? "File"
+              : "Attachment";
+        const card = (
+          <>
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <ChatIcon
+                icon={block.type === "citation" ? Link2 : FileText}
+                size={16}
+                aria-hidden="true"
+              />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-medium leading-5 text-foreground">
+                {label}
+              </span>
+              <span className="block text-[12px] leading-4 text-muted-foreground">
+                {url ? kind : `${kind} · Preview unavailable`}
+              </span>
+            </span>
+            {url && (
+              <ChatIcon
+                icon={ExternalLink}
+                size={14}
+                aria-hidden="true"
+                className="mr-1 text-muted-foreground"
+              />
             )}
+          </>
+        );
+        const cardStyle =
+          "flex w-full max-w-sm items-center gap-3 rounded-xl border border-border bg-background p-1.5 pr-2.5 text-left shadow-[0_1px_2px_0_rgb(0_0_0/0.04)]";
+        return url ? (
+          <a
+            key={block.id}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`${cardStyle} outline-none transition-colors duration-150 hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none`}
+          >
+            {card}
+          </a>
+        ) : (
+          <div key={block.id} className={cardStyle}>
+            {card}
           </div>
         );
       })}

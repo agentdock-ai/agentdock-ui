@@ -11,34 +11,46 @@ export function ComposerAttachments({
   onRemove: (id: string) => void;
   onRetry: (id: string) => void;
 }) {
+  const iconButton =
+    "flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none [@media(pointer:coarse)]:size-8";
   return (
     <ul
       aria-label="Message attachments"
-      className="flex flex-wrap gap-2 px-1 pb-2 pt-1"
+      className="flex flex-wrap gap-2 px-0.5 pb-2 pt-0.5"
     >
       {items.map((item) => (
         <li
           key={item.id}
-          className="flex min-w-0 max-w-full items-center gap-2 rounded-lg border border-border bg-background/50 p-1.5"
+          className={`flex min-w-0 max-w-full items-center gap-2.5 rounded-xl border bg-background p-1.5 pr-1 shadow-[0_1px_2px_0_rgb(0_0_0/0.04)] ${item.status === "error" ? "border-destructive/30" : "border-border"}`}
         >
-          {item.previewUrl ? (
-            <img
-              src={item.previewUrl}
-              alt=""
-              className="size-8 rounded-md object-cover"
-            />
-          ) : (
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted">
+          <span className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted text-muted-foreground">
+            {item.previewUrl ? (
+              <img
+                src={item.previewUrl}
+                alt=""
+                className={`size-full object-cover ${item.status === "uploading" ? "opacity-50" : ""}`}
+              />
+            ) : (
               <ChatIcon icon={FileText} size={16} />
-            </span>
-          )}
+            )}
+            {item.status === "uploading" && (
+              <ChatIcon
+                icon={LoaderCircle}
+                size={14}
+                className={`absolute motion-safe:animate-spin ${item.previewUrl ? "text-foreground" : "text-muted-foreground"}`}
+              />
+            )}
+          </span>
           <div className="min-w-0 max-w-44">
-            <p className="truncate text-xs leading-4" title={item.file.name}>
+            <p
+              className="truncate text-[12.5px] font-medium leading-4"
+              title={item.file.name}
+            >
               {item.file.name}
             </p>
             <p
               role="status"
-              className={`text-[10px] leading-4 ${item.status === "error" ? "text-destructive" : "text-muted-foreground"}`}
+              className={`mt-0.5 truncate text-[11px] leading-4 ${item.status === "error" ? "text-destructive" : "text-muted-foreground"}`}
             >
               {item.status === "uploading"
                 ? "Uploading…"
@@ -47,31 +59,26 @@ export function ComposerAttachments({
                   : `${Math.max(1, Math.round(item.file.size / 1_000))} KB`}
             </p>
           </div>
-          {item.status === "uploading" && (
-            <ChatIcon
-              icon={LoaderCircle}
-              size={12}
-              className="motion-safe:animate-spin text-muted-foreground"
-            />
-          )}
-          {item.status === "error" && (
+          <div className="flex items-center">
+            {item.status === "error" && (
+              <button
+                type="button"
+                aria-label={`Retry upload ${item.file.name}`}
+                onClick={() => onRetry(item.id)}
+                className={iconButton}
+              >
+                <ChatIcon icon={RotateCw} size={12} />
+              </button>
+            )}
             <button
               type="button"
-              aria-label={`Retry upload ${item.file.name}`}
-              onClick={() => onRetry(item.id)}
-              className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={`Remove attachment ${item.file.name}`}
+              onClick={() => onRemove(item.id)}
+              className={iconButton}
             >
-              <ChatIcon icon={RotateCw} size={12} />
+              <ChatIcon icon={X} size={13} />
             </button>
-          )}
-          <button
-            type="button"
-            aria-label={`Remove attachment ${item.file.name}`}
-            onClick={() => onRemove(item.id)}
-            className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <ChatIcon icon={X} size={12} />
-          </button>
+          </div>
         </li>
       ))}
     </ul>

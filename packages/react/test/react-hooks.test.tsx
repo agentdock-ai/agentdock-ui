@@ -70,6 +70,8 @@ describe("headless React integration", () => {
     expect(await actions.cancelRun()).toBe(false);
     expect(await actions.continueRun()).toBe(false);
     expect(await actions.respondToInterrupt("missing", [])).toBe(false);
+    expect(await actions.answerInterrupt("missing", "value")).toBe(false);
+    expect(actions.canAnswer).toBe(false);
   });
   it("owns one stable store across rerenders when no store is provided", async () => {
     await act(async () =>
@@ -180,6 +182,7 @@ describe("headless React integration", () => {
     expect(await detached.cancelRun()).toBe(false);
     expect(await detached.continueRun()).toBe(false);
     expect(await detached.respondToInterrupt("No", [])).toBe(false);
+    expect(await detached.answerInterrupt("No", "value")).toBe(false);
   });
   it("does not dispatch until effects mount and exposes only provided capabilities", async () => {
     let result: Promise<boolean> | undefined;
@@ -188,6 +191,7 @@ describe("headless React integration", () => {
       async cancelRun() {},
       async *continueRun() {},
       async *respondToInterrupt() {},
+      async *answerInterrupt() {},
     };
     await act(async () =>
       root.render(
@@ -203,6 +207,7 @@ describe("headless React integration", () => {
     );
     expect(await result).toBe(true);
     expect(host.textContent).toContain(":true:true:true");
+    expect(actions.canAnswer).toBe(true);
   });
   it("supports a server snapshot and reports missing provider context", () => {
     function StateOnly() {

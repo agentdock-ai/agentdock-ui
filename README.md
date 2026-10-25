@@ -146,7 +146,7 @@ The playground keeps provider setup and transport in the consuming app. It suppo
 
 The local playground API requires its own loopback Host and Origin for mutations. Its file tools operate inside `.sandbox`; `run_command` requires `checkOnly: true` and only checks JavaScript syntax. Running generated code requires a separately isolated execution service supplied by the consuming app.
 
-[Registry](apps/registry/README.md) · [Installer](packages/cli/README.md)
+[Registry](apps/registry/README.md) · [Installer](packages/cli/README.md) · [Design system](DESIGN_SYSTEM.md)
 
 ## License
 

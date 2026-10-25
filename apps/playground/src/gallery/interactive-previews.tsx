@@ -9,6 +9,8 @@ import {
   type AttachmentDraft,
 } from "../components/agentdock-ui/use-chat-attachments";
 import { ApprovalCard } from "../components/agentdock-ui/approval-card";
+import { InterruptCard } from "../components/agentdock-ui/interrupt-card";
+import type { RenderApproval } from "@agentdock-ai/ui-core";
 import { Suggestions } from "../components/agentdock-ui/empty-state";
 import { ThreadSidebar } from "../components/agentdock-ui/thread-sidebar";
 import { ChatWorkspace } from "../components/agentdock-ui/chat-workspace";
@@ -16,7 +18,10 @@ import { ScrollToLatest } from "../components/agentdock-ui/scroll-to-latest";
 import { createFixtureChatAdapter } from "../adapter/create-fixture-chat-adapter";
 import {
   approval,
+  batchApproval,
   createPreviewStore,
+  singleApproval,
+  toolRisk,
   localAttachments,
   suggestions,
   threads,
@@ -134,17 +139,57 @@ export function AttachmentPickerPreview() {
   );
 }
 
-export function ApprovalPreview() {
+export function ApprovalPreview({
+  sample = approval,
+  ttlMinutes,
+}: {
+  sample?: RenderApproval;
+  ttlMinutes?: number;
+}) {
   const [decisions, setDecisions] = useState<readonly JsonValue[] | null>(null);
+  const [expiresAt] = useState(() =>
+    ttlMinutes === undefined ? undefined : Date.now() + ttlMinutes * 60_000,
+  );
   return (
     <ApprovalCard
       approval={
-        decisions ? { ...approval, state: "resolved", decisions } : approval
+        decisions ? { ...sample, state: "resolved", decisions } : sample
       }
       enabled
       pending={false}
+      riskOf={toolRisk}
+      expiresAt={expiresAt}
       onRespond={setDecisions}
     />
+  );
+}
+export const SingleApprovalPreview = () => (
+  <ApprovalPreview sample={singleApproval} ttlMinutes={12} />
+);
+export const BatchApprovalPreview = () => (
+  <ApprovalPreview sample={batchApproval} ttlMinutes={2} />
+);
+
+export function InterruptPreview({ sample }: { sample: RenderApproval }) {
+  const [answer, setAnswer] = useState<JsonValue | undefined>();
+  return (
+    <div className="flex w-full flex-col gap-2">
+      <InterruptCard
+        approval={
+          answer === undefined
+            ? sample
+            : { ...sample, state: "resolved", decisions: [answer] }
+        }
+        enabled
+        pending={false}
+        onAnswer={sample.responseSchema === undefined ? undefined : setAnswer}
+      />
+      {answer !== undefined && (
+        <p role="status" className="gallery-feedback">
+          Sent {JSON.stringify(answer)}
+        </p>
+      )}
+    </div>
   );
 }
 

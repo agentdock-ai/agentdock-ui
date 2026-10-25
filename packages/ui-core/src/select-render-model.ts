@@ -170,8 +170,20 @@ export function selectRenderModel({
               "The connection ended unexpectedly. Your messages are still here.",
             retryable: false,
             scope: "transport",
+            ...streamErrorCode(streamError),
           },
         }
       : {}),
   };
+}
+
+/** Only a short machine code crosses into the render model; messages stay generic. */
+function streamErrorCode(error: unknown): { code?: string } {
+  const code =
+    error && typeof error === "object" && "code" in error
+      ? (error as { code: unknown }).code
+      : undefined;
+  return typeof code === "string" && /^[a-z][a-z0-9_.]{0,63}$/.test(code)
+    ? { code }
+    : {};
 }

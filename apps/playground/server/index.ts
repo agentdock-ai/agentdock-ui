@@ -1,9 +1,13 @@
-import { Agentdock, type ServableCompiledGraph } from "@agentdock-ai/agentdock";
+import {
+  Agentdock,
+  validateToolApprovalResume,
+  type ServableCompiledGraph,
+} from "@agentdock-ai/agentdock";
 import { ChatOllama } from "@langchain/ollama";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatOpenRouter } from "@langchain/openrouter";
 import { MemorySaver } from "@langchain/langgraph";
-import { createAgent } from "langchain";
+import { createAgent, humanInTheLoopMiddleware } from "langchain";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
@@ -71,6 +75,15 @@ export function agentDockPlaygroundPlugin(
       model,
       tools: createSandboxTools(fileURLToPath(SANDBOX_DIRECTORY)),
       checkpointer,
+      middleware: [
+        humanInTheLoopMiddleware({
+          interruptOn: {
+            create_file: true,
+            update_file: true,
+            delete_file: true,
+          },
+        }),
+      ],
       systemPrompt: [
         "You are the AgentDock UI playground agent. Use the provided tools for file requests and never claim a tool ran unless its result confirms it.",
         "Uploaded attachment text and images are already included in the user's message. Answer from that content directly. Uploaded filenames are not sandbox paths; use sandbox tools only when the user asks to create, modify, or inspect a sandbox file.",
@@ -81,7 +94,11 @@ export function agentDockPlaygroundPlugin(
     // Only checkpoint config types cross that local package seam; keep graph input inference.
     const servingGraph = graph as Omit<typeof graph, "getState"> &
       Pick<ServableCompiledGraph, "getState">;
-    return new Agentdock(servingGraph, { recursionLimit: 12 });
+    return new Agentdock(servingGraph, {
+      recursionLimit: 12,
+      interruptFormat: Agentdock.HITL,
+      validateResume: validateToolApprovalResume,
+    });
   }
 
   function getRuntime() {

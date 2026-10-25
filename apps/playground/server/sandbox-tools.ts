@@ -3,8 +3,10 @@ import {
   lstat,
   mkdir,
   open,
+  readdir,
   readFile,
   realpath,
+  unlink,
   writeFile,
 } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
@@ -18,12 +20,51 @@ const DEFAULT_SANDBOX = resolve(
   ".sandbox",
 );
 const MAX_FILE_BYTES = 256_000;
+const MAX_LIST_ENTRIES = 500;
 const MAX_COMMAND_OUTPUT = 32_000;
 const COMMAND_TIMEOUT_MS = 10_000;
 
 export function createSandboxTools(sandboxDirectory = DEFAULT_SANDBOX) {
   const configuredSandboxRoot = resolve(sandboxDirectory);
   return [
+    tool(
+      async ({ path }) => {
+        const sandboxRoot = await canonicalSandboxRoot(configuredSandboxRoot);
+        const directory =
+          path === "" || path === "."
+            ? sandboxRoot
+            : await safeTarget(sandboxRoot, path, false);
+        const stat = await lstat(directory);
+        if (!stat.isDirectory() || stat.isSymbolicLink())
+          throw new Error(
+            "Listings are limited to regular folders in .sandbox.",
+          );
+        const entries = await readdir(directory, { withFileTypes: true });
+        return {
+          path: relative(sandboxRoot, directory) || ".",
+          entries: entries
+            .slice(0, MAX_LIST_ENTRIES)
+            .map((entry) => ({
+              name: entry.name,
+              type: entry.isSymbolicLink()
+                ? "symlink"
+                : entry.isDirectory()
+                  ? "directory"
+                  : entry.isFile()
+                    ? "file"
+                    : "other",
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name)),
+          truncated: entries.length > MAX_LIST_ENTRIES,
+        };
+      },
+      {
+        name: "list_files",
+        description:
+          'List the files and folders directly inside a .sandbox folder. Use a relative path, or "." for the sandbox root.',
+        schema: z.object({ path: z.string().default(".") }),
+      },
+    ),
     tool(
       async ({ path, content }) => {
         const sandboxRoot = await canonicalSandboxRoot(configuredSandboxRoot);
@@ -44,7 +85,7 @@ export function createSandboxTools(sandboxDirectory = DEFAULT_SANDBOX) {
       {
         name: "create_file",
         description:
-          "Create a new text or code file inside the isolated .sandbox folder. Use a relative path. Existing files are never overwritten.",
+          "Create a new text or code file inside the isolated .sandbox folder. Requires user approval. Use a relative path. Existing files are never overwritten.",
         schema: z.object({ path: z.string(), content: z.string() }),
       },
     ),
@@ -66,7 +107,7 @@ export function createSandboxTools(sandboxDirectory = DEFAULT_SANDBOX) {
       {
         name: "update_file",
         description:
-          "Replace the complete contents of an existing regular file inside .sandbox. Use a relative path; symlinks are rejected.",
+          "Replace the complete contents of an existing regular file inside .sandbox. Requires user approval. Use a relative path; symlinks are rejected.",
         schema: z.object({ path: z.string(), content: z.string() }),
       },
     ),
@@ -90,6 +131,23 @@ export function createSandboxTools(sandboxDirectory = DEFAULT_SANDBOX) {
         name: "read_file",
         description:
           "Read a UTF-8 text file from inside .sandbox. Use a relative path.",
+        schema: z.object({ path: z.string() }),
+      },
+    ),
+    tool(
+      async ({ path }) => {
+        const sandboxRoot = await canonicalSandboxRoot(configuredSandboxRoot);
+        const file = await safeTarget(sandboxRoot, path, false);
+        const stat = await lstat(file);
+        if (!stat.isFile() || stat.isSymbolicLink())
+          throw new Error("Deletes are limited to regular files in .sandbox.");
+        await unlink(file);
+        return { path: relative(sandboxRoot, file), deleted: true };
+      },
+      {
+        name: "delete_file",
+        description:
+          "Delete one regular file inside .sandbox. Requires user approval. Use a relative path; folders and symlinks cannot be deleted.",
         schema: z.object({ path: z.string() }),
       },
     ),

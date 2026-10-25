@@ -9,7 +9,9 @@ These files are the canonical editable component source for `agentdock-ui add ch
 | `empty-state.tsx`, `composer.tsx`, `chat-action-bar.tsx`                         | User input and primary actions.                           |
 | `message-list.tsx`, `message.tsx`, `message-content.tsx`, `markdown-content.tsx` | Ordered transcript and safe content rendering.            |
 | `streaming-text.tsx`, `thinking-indicator.tsx`, `reasoning.tsx`                  | Active agent output.                                      |
-| `tool-call.tsx`, `tool-timeline.tsx`, `approval-card.tsx`, `error-state.tsx`     | Activity, decisions, and errors.                          |
+| `tool-call.tsx`, `tool-timeline.tsx`                                             | Tool activity rows with status, timing and failures.      |
+| `approval-card.tsx`, `interrupt-card.tsx`                                        | Approvals and answers to custom interrupts.               |
+| `alert.tsx`, `error-state.tsx`, `run-status-banner.tsx`                          | Status anatomy, errors, pauses, stops and reconnects.     |
 | `types.ts`, `utils.ts`, `index.ts`                                               | Shared component contracts and exports.                   |
 
 Do not substitute raw Agentdock events directly into individual components. They must receive the normalized render model defined by `@agentdock-ai/ui-core`.
