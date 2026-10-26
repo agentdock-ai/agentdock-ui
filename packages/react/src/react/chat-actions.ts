@@ -1,3 +1,5 @@
+import { actionErrorCode } from "./action-error-code.js";
+import { createTranscriptionActions } from "./transcription-actions.js";
 import {
   consumeAgentStream,
   type AgentStore,
@@ -11,15 +13,19 @@ import type {
 
 export interface ChatActionState {
   busy: boolean;
+  transcribing: boolean;
   cancelling: boolean;
   respondingTo: string | null;
   actionError: {
-    scope: "cancel" | "approval" | "continue";
+    scope: "cancel" | "approval" | "continue" | "transcribe";
     message: string;
+    /** Machine-readable code from the thrown error, such as `approval_expired`. */
+    code?: string;
   } | null;
 }
 export const idleChatActions: ChatActionState = {
   busy: false,
+  transcribing: false,
   cancelling: false,
   respondingTo: null,
   actionError: null,
@@ -39,6 +45,7 @@ export function createChatActions(
     state = { ...state, ...patch };
     if (!disposed) changed(state);
   };
+  const transcription = createTranscriptionActions(adapter, update);
   async function consume(
     source: (signal: AbortSignal) => AgentEventStream,
     interruptId?: string,
@@ -75,6 +82,7 @@ export function createChatActions(
               )
               ? "The response could not be confirmed. Your decision is still pending."
               : "Your response was received, but the connection ended before the agent finished.",
+            ...actionErrorCode(error),
           },
         });
       else if (continuation)
@@ -83,6 +91,7 @@ export function createChatActions(
             scope: "continue",
             message:
               "The continuation could not be confirmed. Try again when the connection is available.",
+            ...actionErrorCode(error),
           },
         });
       return false;
@@ -92,6 +101,8 @@ export function createChatActions(
     }
   }
   return {
+    transcribe: transcription.transcribe,
+    cancelTranscription: transcription.cancelTranscription,
     async sendMessage(
       text: string,
       attachments: readonly ChatAttachment[] = [],
@@ -144,6 +155,25 @@ export function createChatActions(
             decisions,
             signal,
           }),
+        interruptId,
+      );
+    },
+    async answerInterrupt(interruptId: string, value: JsonValue) {
+      const { agent, streamStatus } = store.getSnapshot();
+      const answer = adapter.answerInterrupt;
+      if (
+        !answer ||
+        streamStatus === "stopped" ||
+        !agent.interrupts.some(
+          (interrupt) => interrupt.interruptId === interruptId,
+        ) ||
+        active ||
+        disposed
+      )
+        return false;
+      const runId = agent.runId;
+      return consume(
+        (signal) => answer.call(adapter, { runId, interruptId, value, signal }),
         interruptId,
       );
     },
@@ -214,6 +244,7 @@ export function createChatActions(
     },
     dispose() {
       disposed = true;
+      transcription.dispose();
       active?.abort();
       cancelRequest?.abort();
     },

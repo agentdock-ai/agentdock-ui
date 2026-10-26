@@ -21,28 +21,28 @@
 }
 :root {
   --background: oklch(1 0 0);
-  --foreground: oklch(0.21 0 0);
+  --foreground: oklch(0.2 0 0);
   --card: oklch(1 0 0);
-  --muted: oklch(0.96 0 0);
-  --muted-foreground: oklch(0.46 0 0);
-  --primary: oklch(0.21 0 0);
+  --muted: oklch(0.965 0 0);
+  --muted-foreground: oklch(0.5 0 0);
+  --primary: oklch(0.2 0 0);
   --primary-foreground: oklch(0.99 0 0);
-  --border: oklch(0.9 0 0);
-  --ring: oklch(0.56 0 0);
-  --destructive: oklch(0.55 0.2 25);
+  --border: oklch(0.915 0 0);
+  --ring: oklch(0.55 0 0);
+  --destructive: oklch(0.56 0.2 25);
 }
 .dark {
   color-scheme: dark;
-  --background: oklch(0.16 0 0);
-  --foreground: oklch(0.93 0 0);
-  --card: oklch(0.19 0 0);
-  --muted: oklch(0.23 0 0);
-  --muted-foreground: oklch(0.7 0 0);
-  --primary: oklch(0.93 0 0);
-  --primary-foreground: oklch(0.18 0 0);
-  --border: oklch(0.3 0 0);
-  --ring: oklch(0.65 0 0);
-  --destructive: oklch(0.72 0.17 25);
+  --background: oklch(0.155 0 0);
+  --foreground: oklch(0.94 0 0);
+  --card: oklch(0.185 0 0);
+  --muted: oklch(0.225 0 0);
+  --muted-foreground: oklch(0.68 0 0);
+  --primary: oklch(0.94 0 0);
+  --primary-foreground: oklch(0.17 0 0);
+  --border: oklch(0.27 0 0);
+  --ring: oklch(0.62 0 0);
+  --destructive: oklch(0.7 0.17 25);
 }
 html,
 body,
@@ -92,13 +92,10 @@ body {
   white-space: nowrap;
 }
 .playground-brand-mark {
-  width: 22px;
-  height: 24px;
+  width: 18px;
+  height: 20px;
   flex-shrink: 0;
-  background: currentColor;
-  mask-size: auto 24px;
-  mask-repeat: no-repeat;
-  mask-position: left center;
+  fill: currentColor;
 }
 .playground-brand-label {
   margin-left: 4px;

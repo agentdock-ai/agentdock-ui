@@ -70,6 +70,11 @@ describe("headless React integration", () => {
     expect(await actions.cancelRun()).toBe(false);
     expect(await actions.continueRun()).toBe(false);
     expect(await actions.respondToInterrupt("missing", [])).toBe(false);
+    expect(await actions.answerInterrupt("missing", "value")).toBe(false);
+    expect(actions.canAnswer).toBe(false);
+    expect(actions.canTranscribe).toBe(false);
+    expect(await actions.transcribe(new Blob(), "audio/webm")).toBeUndefined();
+    actions.cancelTranscription();
   });
   it("owns one stable store across rerenders when no store is provided", async () => {
     await act(async () =>
@@ -180,6 +185,9 @@ describe("headless React integration", () => {
     expect(await detached.cancelRun()).toBe(false);
     expect(await detached.continueRun()).toBe(false);
     expect(await detached.respondToInterrupt("No", [])).toBe(false);
+    expect(await detached.answerInterrupt("No", "value")).toBe(false);
+    expect(await detached.transcribe(new Blob(), "audio/webm")).toBeUndefined();
+    detached.cancelTranscription();
   });
   it("does not dispatch until effects mount and exposes only provided capabilities", async () => {
     let result: Promise<boolean> | undefined;
@@ -188,6 +196,7 @@ describe("headless React integration", () => {
       async cancelRun() {},
       async *continueRun() {},
       async *respondToInterrupt() {},
+      async *answerInterrupt() {},
     };
     await act(async () =>
       root.render(
@@ -203,6 +212,7 @@ describe("headless React integration", () => {
     );
     expect(await result).toBe(true);
     expect(host.textContent).toContain(":true:true:true");
+    expect(actions.canAnswer).toBe(true);
   });
   it("supports a server snapshot and reports missing provider context", () => {
     function StateOnly() {
@@ -219,4 +229,28 @@ describe("headless React integration", () => {
       "inside AgentProvider",
     );
   });
+});
+
+it("exposes an optional transcription capability through the hook", async () => {
+  await act(async () =>
+    root.render(
+      <AgentProvider>
+        <Probe
+          adapter={{
+            ...adapter,
+            async transcribe() {
+              return { text: "Voice draft" };
+            },
+          }}
+        />
+      </AgentProvider>,
+    ),
+  );
+  expect(actions.canTranscribe).toBe(true);
+  await act(async () =>
+    expect(await actions.transcribe(new Blob(), "audio/mp4")).toBe(
+      "Voice draft",
+    ),
+  );
+  expect(actions.transcribing).toBe(false);
 });

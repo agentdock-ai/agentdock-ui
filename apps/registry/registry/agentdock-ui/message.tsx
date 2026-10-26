@@ -29,8 +29,8 @@ export function Message({
       aria-label={user ? "You" : "Assistant"}
       className={
         user
-          ? "ml-auto flex min-w-0 max-w-[90%] flex-col items-end gap-2 sm:max-w-[85%]"
-          : "group/message min-w-0 w-full px-2"
+          ? "ml-auto flex min-w-0 max-w-[90%] flex-col items-end gap-2 sm:max-w-[80%]"
+          : "group/message min-w-0 w-full px-1"
       }
     >
       {user ? (
@@ -50,7 +50,7 @@ export function Message({
             </div>
           )}
           {body.length > 0 && (
-            <div className="min-w-0 max-w-full rounded-2xl bg-muted px-4 py-2 text-[14px] leading-6 [overflow-wrap:anywhere]">
+            <div className="min-w-0 max-w-full rounded-[20px] bg-muted px-4 py-2.5 text-[14px] leading-[1.6] [overflow-wrap:anywhere]">
               {body.map((block) =>
                 block.type === "text" ? (
                   <span key={block.id} className="whitespace-pre-wrap">
@@ -68,7 +68,11 @@ export function Message({
           )}
         </>
       ) : (
-        <MessageContent blocks={blocks} showReasoning={showReasoning} />
+        <MessageContent
+          blocks={blocks}
+          showReasoning={showReasoning}
+          charts={message.role === "assistant"}
+        />
       )}
       {!user && showActions && message.state !== "streaming" && answer && (
         <ChatActionBar text={answer} />

@@ -1,4 +1,10 @@
 import {
+  ChatModeControls,
+  type PlaygroundMode,
+} from "../chat-mode-controls.js";
+import { playgroundArtifactMapper } from "../adapter/artifact-mapper.js";
+import type { Scenario } from "../../../../scripts/fixtures/events.js";
+import {
   isProvider,
   persistedConfig,
   healthResponse,
@@ -65,6 +71,13 @@ function persistConfig(config: PersistedPlaygroundConfig): void {
   }
 }
 
+// fetch rejects with a TypeError only when the request never reached the server.
+function connectionError(cause: unknown, fallback: string) {
+  if (cause instanceof TypeError)
+    return "Can’t reach the playground server. Make sure `yarn dev` is running, then try again.";
+  return cause instanceof Error ? cause.message : fallback;
+}
+
 export function ChatPage({
   settingsOpen,
   onCloseSettings,
@@ -72,7 +85,11 @@ export function ChatPage({
   settingsOpen: boolean;
   onCloseSettings: () => void;
 }) {
-  const navigation = usePlaygroundThreads();
+  const [mode, setMode] = useState<PlaygroundMode>("fixtures");
+  const [scenario, setScenario] = useState<Scenario>("chart");
+  const liveNavigation = usePlaygroundThreads();
+  const fixtureNavigation = usePlaygroundThreads(scenario);
+  const navigation = mode === "fixtures" ? fixtureNavigation : liveNavigation;
   const [provider, setProvider] = useState<Provider>("openrouter");
   const [model, setModel] = useState(models.openrouter[0]!.id);
   const [key, setKey] = useState("");
@@ -145,11 +162,7 @@ export function ChatPage({
       } catch (cause) {
         if (live) {
           setConfigured(false);
-          setError(
-            cause instanceof Error
-              ? cause.message
-              : "Could not reach the local agent.",
-          );
+          setError(connectionError(cause, "Could not reach the local agent."));
         }
       } finally {
         if (live) setConnecting(false);
@@ -203,14 +216,11 @@ export function ChatPage({
       );
       setKey("");
       setConfigured(true);
+      setMode("live");
       onCloseSettings();
     } catch (cause) {
       setConfigured(false);
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Could not connect this provider.",
-      );
+      setError(connectionError(cause, "Could not connect this provider."));
     } finally {
       setConnecting(false);
     }
@@ -225,6 +235,17 @@ export function ChatPage({
     <div className="playground">
       <ChatWorkspace
         title={navigation.active.title}
+        actions={
+          <ChatModeControls
+            mode={mode}
+            scenario={navigation.active.scenario ?? scenario}
+            onMode={setMode}
+            onScenario={(next) => {
+              setScenario(next);
+              fixtureNavigation.onScenario(next);
+            }}
+          />
+        }
         sidebar={
           <ThreadSidebar
             threads={navigation.threads}
@@ -304,15 +325,16 @@ export function ChatPage({
           adapter={navigation.adapter}
           store={navigation.active.store}
           className="playground-chat"
-          disabled={!configured}
-          suggestions={[
-            "Help me plan my week",
-            "Explain a concept",
-            "Review an idea",
-          ]}
+          artifacts={{ mapTool: playgroundArtifactMapper, links: "panel" }}
+          disabled={mode === "live" && !configured}
+          suggestions={
+            mode === "fixtures"
+              ? [`Run ${navigation.active.scenario ?? scenario} scenario`]
+              : ["Help me plan my week", "Explain a concept", "Review an idea"]
+          }
           onActivityChange={navigation.onActivityChange}
           placeholder={
-            configured
+            mode === "fixtures" || configured
               ? "Send a message…"
               : "Open settings to connect a provider…"
           }

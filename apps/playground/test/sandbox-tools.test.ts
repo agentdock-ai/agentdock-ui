@@ -110,6 +110,45 @@ describe(".sandbox tools", () => {
     expect(file).toEqual({ path: "notes/readme.md", content: "updated" });
   });
 
+  it("lists files and folders inside the sandbox", async () => {
+    const sandbox = await toolSet();
+    await sandbox.call("create_file", { path: "notes/todo.txt", content: "x" });
+    await sandbox.call("create_file", { path: "readme.md", content: "y" });
+    await expect(sandbox.call("list_files", {})).resolves.toEqual({
+      path: ".",
+      entries: [
+        { name: "notes", type: "directory" },
+        { name: "readme.md", type: "file" },
+      ],
+      truncated: false,
+    });
+    await expect(
+      sandbox.call("list_files", { path: "notes" }),
+    ).resolves.toMatchObject({
+      path: "notes",
+      entries: [{ name: "todo.txt", type: "file" }],
+    });
+    await expect(sandbox.call("list_files", { path: "../" })).rejects.toThrow();
+    await expect(
+      sandbox.call("list_files", { path: "readme.md" }),
+    ).rejects.toThrow("Listings are limited");
+  });
+  it("deletes only regular files inside the sandbox", async () => {
+    const sandbox = await toolSet();
+    await sandbox.call("create_file", { path: "notes/todo.txt", content: "x" });
+    await expect(
+      sandbox.call("delete_file", { path: "notes/todo.txt" }),
+    ).resolves.toEqual({ path: "notes/todo.txt", deleted: true });
+    await expect(
+      readFile(join(sandbox.root, "notes/todo.txt")),
+    ).rejects.toThrow();
+    await expect(
+      sandbox.call("delete_file", { path: "notes" }),
+    ).rejects.toThrow("Deletes are limited");
+    await expect(
+      sandbox.call("delete_file", { path: "../x" }),
+    ).rejects.toThrow();
+  });
   it("rejects paths that try to leave the sandbox", async () => {
     const sandbox = await toolSet();
     await expect(

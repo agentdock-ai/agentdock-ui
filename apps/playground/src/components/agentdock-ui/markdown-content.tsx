@@ -1,38 +1,47 @@
+"use client";
+import { useArtifacts } from "./artifact-context";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { safeUrl } from "./utils";
 export function MarkdownContent({ text }: { text: string }) {
+  const artifacts = useArtifacts();
   return (
-    <div className="min-w-0 space-y-3 text-[14px] leading-6 [overflow-wrap:anywhere] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+    <div className="min-w-0 space-y-3 text-[14px] leading-[1.7] text-foreground [overflow-wrap:anywhere] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
       <Markdown
         remarkPlugins={[remarkGfm]}
         skipHtml
         urlTransform={(url) => safeUrl(url) ?? ""}
         components={{
           h1: ({ children }) => (
-            <h2 className="mt-6 text-[15px] font-semibold tracking-tight">
+            <h2 className="mb-2 mt-7 text-[16px] font-semibold leading-6 tracking-tight">
               {children}
             </h2>
           ),
           h2: ({ children }) => (
-            <h3 className="mt-6 text-[15px] font-semibold tracking-tight">
+            <h3 className="mb-2 mt-6 text-[15px] font-semibold leading-6 tracking-tight">
               {children}
             </h3>
           ),
           h3: ({ children }) => (
-            <h4 className="mt-5 text-[15px] font-semibold">{children}</h4>
+            <h4 className="mb-1.5 mt-5 text-[14px] font-semibold leading-6">
+              {children}
+            </h4>
           ),
-          p: ({ children }) => <p className="my-2">{children}</p>,
+          p: ({ children }) => <p className="my-2.5">{children}</p>,
+          strong: ({ children }) => (
+            <strong className="font-semibold">{children}</strong>
+          ),
           ul: ({ children }) => (
-            <ul className="my-2 list-disc space-y-1 pl-6 marker:text-muted-foreground">
+            <ul className="my-2.5 list-disc space-y-1.5 pl-5 marker:text-muted-foreground/70">
               {children}
             </ul>
           ),
           ol: ({ children }) => (
-            <ol className="my-2 list-decimal space-y-1 pl-6 marker:text-muted-foreground">
+            <ol className="my-2.5 list-decimal space-y-1.5 pl-5 marker:text-muted-foreground">
               {children}
             </ol>
           ),
+          li: ({ children }) => <li className="pl-1">{children}</li>,
           blockquote: ({ children }) => (
             <blockquote className="my-4 border-l-2 border-border pl-4 text-muted-foreground">
               {children}
@@ -42,9 +51,21 @@ export function MarkdownContent({ text }: { text: string }) {
             href ? (
               <a
                 href={href}
+                onClick={(event) => {
+                  if (
+                    artifacts?.options.links === "panel" &&
+                    event.button === 0 &&
+                    !event.metaKey &&
+                    !event.ctrlKey &&
+                    !event.shiftKey &&
+                    !event.altKey &&
+                    artifacts.openLink(href)
+                  )
+                    event.preventDefault();
+                }}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-sm underline decoration-border underline-offset-4 hover:decoration-foreground focus-visible:outline-2 focus-visible:outline-ring"
+                className="rounded-sm font-medium underline decoration-muted-foreground/40 decoration-1 underline-offset-[3px] transition-colors duration-150 hover:decoration-foreground focus-visible:outline-2 focus-visible:outline-ring motion-reduce:transition-none"
               >
                 {children}
               </a>
@@ -58,7 +79,7 @@ export function MarkdownContent({ text }: { text: string }) {
                   href={src}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline underline-offset-4"
+                  className="underline decoration-muted-foreground/40 underline-offset-[3px] hover:decoration-foreground"
                 >
                   {alt || "View image"}
                 </a>
@@ -71,13 +92,13 @@ export function MarkdownContent({ text }: { text: string }) {
             <pre
               tabIndex={0}
               aria-label="Code block"
-              className="my-4 max-w-full overflow-x-auto rounded-lg border border-border bg-muted/50 p-3 font-mono text-xs leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring [&>code]:border-0 [&>code]:bg-transparent [&>code]:p-0"
+              className="my-4 max-w-full overflow-x-auto rounded-xl border border-border/70 bg-muted/40 px-4 py-3 font-mono text-[12.5px] leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring/60 [&>code]:rounded-none [&>code]:bg-transparent [&>code]:p-0 [&>code]:[font-size:inherit]"
             >
               {children}
             </pre>
           ),
           code: ({ children }) => (
-            <code className="rounded-md border border-border/60 bg-muted/60 px-1 py-0.5 font-mono text-[0.85em]">
+            <code className="rounded-md bg-muted px-[0.35em] py-[0.15em] font-mono text-[0.86em]">
               {children}
             </code>
           ),
@@ -86,24 +107,24 @@ export function MarkdownContent({ text }: { text: string }) {
               tabIndex={0}
               role="region"
               aria-label="Table"
-              className="my-4 max-w-full overflow-x-auto rounded-lg border border-border outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="my-4 max-w-full overflow-x-auto rounded-xl border border-border outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
-              <table className="w-full border-collapse text-left text-[13px]">
+              <table className="w-full border-collapse text-left text-[13px] leading-5 [&_tr:last-child>td]:border-b-0">
                 {children}
               </table>
             </div>
           ),
           th: ({ children }) => (
-            <th className="whitespace-nowrap border-b border-border bg-muted/50 px-4 py-2.5 font-medium">
+            <th className="whitespace-nowrap border-b border-border bg-muted/50 px-4 py-2.5 text-[12px] font-medium text-muted-foreground">
               {children}
             </th>
           ),
           td: ({ children }) => (
-            <td className="border-b border-border px-4 py-2.5 align-top">
+            <td className="border-b border-border/70 px-4 py-2.5 align-top">
               {children}
             </td>
           ),
-          hr: () => <hr className="my-6 border-border" />,
+          hr: () => <hr className="my-6 border-border/70" />,
         }}
       >
         {text}

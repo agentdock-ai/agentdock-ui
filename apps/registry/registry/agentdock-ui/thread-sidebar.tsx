@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, LoaderCircle, Plus, Search, X } from "lucide-react";
+import { Check, LoaderCircle, Search, SquarePen, X } from "lucide-react";
 import { ChatIcon } from "./icon.js";
 const doubleClickDelayMs = 250;
 export interface ChatThread {
@@ -56,29 +56,29 @@ export function ThreadSidebar({
       aria-label="Threads"
       className="flex h-full min-h-0 flex-col text-[13px]"
     >
-      <div className="space-y-1.5 p-3">
+      <div className="space-y-2 px-3 pb-2 pt-1">
         <button
           type="button"
           data-thread-navigation
           onClick={onNew}
-          className="flex min-h-8 w-full items-center gap-2 rounded-lg border border-border bg-background px-2.5 text-left outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-h-8 w-full items-center gap-2 rounded-lg px-2.5 text-left font-medium outline-none transition-colors duration-150 hover:bg-background/80 focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none [@media(pointer:coarse)]:min-h-10"
         >
-          <ChatIcon icon={Plus} size={14} aria-hidden="true" />
+          <ChatIcon icon={SquarePen} size={15} aria-hidden="true" />
           New thread
         </button>
-        <label className="flex min-h-8 items-center gap-2 rounded-lg border border-border bg-background px-2.5 text-muted-foreground">
+        <label className="flex min-h-8 items-center gap-2 rounded-lg border border-border/70 bg-background px-2.5 text-muted-foreground transition-colors duration-150 focus-within:border-ring/60 motion-reduce:transition-none">
           <ChatIcon icon={Search} size={14} aria-hidden="true" />
           <input
             aria-label="Search threads"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search threads"
-            className="min-w-0 flex-1 bg-transparent py-1 text-[13px] outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent py-1 text-[13px] text-foreground outline-none placeholder:text-muted-foreground [@media(pointer:coarse)]:text-base"
           />
         </label>
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-3 pb-3">
-        <p className="px-2 pb-2 pt-3 text-xs text-muted-foreground">
+        <p className="px-2.5 pb-1.5 pt-3 text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground">
           Conversations
         </p>
         <ul className="space-y-0.5">
@@ -100,12 +100,12 @@ export function ThreadSidebar({
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
                     maxLength={200}
-                    className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="min-w-0 flex-1 rounded-lg border border-ring/60 bg-background px-2.5 py-1 outline-none ring-4 ring-ring/10"
                   />
                   <button
                     type="submit"
                     aria-label="Save title"
-                    className="rounded p-1 hover:bg-muted"
+                    className="flex size-7 items-center justify-center rounded-lg text-muted-foreground outline-none hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
                   >
                     <ChatIcon icon={Check} size={14} />
                   </button>
@@ -113,7 +113,7 @@ export function ThreadSidebar({
                     type="button"
                     aria-label="Cancel rename"
                     onClick={() => setRenamingId(null)}
-                    className="rounded p-1 hover:bg-muted"
+                    className="flex size-7 items-center justify-center rounded-lg text-muted-foreground outline-none hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
                   >
                     <ChatIcon icon={X} size={14} />
                   </button>
@@ -131,7 +131,7 @@ export function ThreadSidebar({
                     onDoubleClick={() => onRename && renameThread(thread)}
                     title={thread.title}
                     aria-label={`${thread.title}${thread.isRunning ? ", agent is working" : ""}`}
-                    className={`flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring ${selectedId === thread.id ? "bg-background text-foreground shadow-sm ring-1 ring-border hover:bg-background" : "text-muted-foreground hover:bg-muted/60"}`}
+                    className={`flex min-h-8 min-w-0 flex-1 items-center gap-2 rounded-lg px-2.5 py-1 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none [@media(pointer:coarse)]:min-h-10 ${selectedId === thread.id ? "bg-background font-medium text-foreground shadow-[0_1px_2px_0_rgb(0_0_0/0.06)] ring-1 ring-border/70" : "text-muted-foreground hover:bg-background/60 hover:text-foreground"}`}
                   >
                     <span className="min-w-0 flex-1 truncate">
                       {thread.title}
@@ -156,13 +156,13 @@ export function ThreadSidebar({
           ))}
         </ul>
         {!visible.length && (
-          <p className="px-2 py-2 text-xs text-muted-foreground">
+          <p className="px-2.5 py-2 text-xs text-muted-foreground">
             No conversations found
           </p>
         )}
       </div>
       {footer && (
-        <div className="shrink-0 border-t border-border px-4 py-3 text-xs text-muted-foreground">
+        <div className="shrink-0 border-t border-border/70 px-5 py-3 text-xs text-muted-foreground">
           {footer}
         </div>
       )}

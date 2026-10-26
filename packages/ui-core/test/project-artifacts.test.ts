@@ -1,0 +1,124 @@
+import { expect, it } from "vitest";
+import {
+  projectArtifacts,
+  type RenderModel,
+  type RenderToolCallItem,
+} from "../src/index.js";
+const item = (
+  id: string,
+  path: string,
+  content: string,
+): RenderToolCallItem => ({
+  id,
+  type: "tool-call",
+  runId: null,
+  phaseId: null,
+  position: 0,
+  active: false,
+  tool: {
+    toolCallId: id,
+    name: "write_file",
+    input: { path, content },
+    progress: [],
+    status: "complete",
+    completedAt: "now",
+  },
+});
+const a = item("a", "a.txt", "first"),
+  b = item("b", "b.json", "{}"),
+  c = item("c", "a.txt", "second");
+const model: RenderModel = {
+  streamStatus: "closed",
+  turns: [
+    {
+      id: "t",
+      runId: null,
+      sessionId: null,
+      state: "completed",
+      usage: null,
+      limit: null,
+      finishReason: null,
+      cancellationReason: null,
+      items: [
+        a,
+        { ...b, type: "tool-timeline", tools: [b, c] },
+        a,
+        { ...b, tool: { ...b.tool, status: "failed" } },
+        {
+          id: "e",
+          type: "error",
+          position: 0,
+          runId: null,
+          phaseId: null,
+          error: {
+            scope: "run",
+            title: "Error",
+            detail: "x",
+            retryable: false,
+          },
+        },
+      ],
+    },
+  ],
+};
+it("groups versions in stable file order and walks tool groups", () => {
+  const result = projectArtifacts(model);
+  expect(result.map((a) => a.id)).toEqual(["a.txt", "b.json"]);
+  expect(result[0].content).toBe("second");
+  expect(result[0].versions.map((v) => v.content)).toEqual(["first", "second"]);
+  expect(result[0].versions[1]).toMatchObject({
+    version: 2,
+    toolCallId: "c",
+    updatedAt: "now",
+  });
+  expect(projectArtifacts({ turns: [], streamStatus: "idle" })).toEqual([]);
+});
+it("supports custom mappers and skipped tools", () => {
+  expect(projectArtifacts(model, () => undefined)).toEqual([]);
+  expect(
+    projectArtifacts(model, (t) => ({
+      id: "custom",
+      title: t.name,
+      url: "https://example.com",
+    }))[0],
+  ).toMatchObject({
+    kind: "link",
+    versions: [{ version: 1 }, { version: 2 }, { version: 3 }],
+  });
+});
+
+it("projects multiple artifacts from one tool without losing either viewer", () => {
+  const result = projectArtifacts(model, () => [
+    { id: "page", title: "example.com", url: "https://example.com" },
+    { id: "page.txt", title: "Page text", content: "Page text" },
+  ]);
+  expect(result.map((a) => a.kind)).toEqual(["link", "text"]);
+  expect(result[1].versions).toHaveLength(3);
+});
+
+it("keeps new versions when a later turn reuses a tool call id", () => {
+  expect(
+    projectArtifacts({
+      ...model,
+      turns: [...model.turns, { ...model.turns[0], id: "second", items: [a] }],
+    })[0].versions,
+  ).toHaveLength(3);
+});
+
+it("preserves explicit link intent even when the URL has a file extension", () => {
+  for (const suffix of [
+    "page.html",
+    "data.json?download=1",
+    "report.csv#section",
+  ]) {
+    const url = `https://example.com/${suffix}`;
+    const result = projectArtifacts(model, () => ({
+      id: `link:${url}`,
+      title: "Reference",
+      url,
+      kind: "link",
+    }));
+    expect(result[0].kind).toBe("link");
+    expect(result[0].url).toBe(url);
+  }
+});

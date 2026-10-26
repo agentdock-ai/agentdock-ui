@@ -23,10 +23,17 @@ export function ChatShell({
       <div className={empty ? "hidden" : "contents"}>{children}</div>
       <div
         className={cn(
-          "z-10 shrink-0 bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
-          empty ? "my-auto w-full py-8" : "pt-2 sm:pb-5",
+          "relative z-10 shrink-0 bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
+          empty ? "my-auto w-full py-10" : "pt-1 sm:pb-5",
         )}
       >
+        {!empty && (
+          // Lets the transcript fade out under the composer instead of being cut.
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 -top-6 h-6 bg-linear-to-t from-background to-transparent"
+          />
+        )}
         <div className="mx-auto w-full max-w-[42rem]">{footer}</div>
       </div>
     </section>

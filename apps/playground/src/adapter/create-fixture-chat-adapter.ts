@@ -1,3 +1,4 @@
+import { fixtureTranscription } from "./fixture-transcription.js";
 import type { ChatAdapter, AgentStore } from "@agentdock-ai/react";
 import {
   scenarios,
@@ -12,6 +13,7 @@ export function createFixtureChatAdapter(
   scenario: Scenario = "markdown",
 ): ChatAdapter {
   return {
+    transcribe: fixtureTranscription,
     async *sendMessage({ signal }) {
       const runId = `demo-${crypto.randomUUID()}`;
       const selected = scenario === "empty" ? "markdown" : scenario;

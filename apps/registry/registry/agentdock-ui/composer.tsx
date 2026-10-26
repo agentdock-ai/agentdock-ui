@@ -1,4 +1,6 @@
 "use client";
+import { insertDraftText } from "@agentdock-ai/ui-core";
+import { VoiceInput, type VoiceInputProps } from "./voice-input.js";
 import { useId, useLayoutEffect, useRef } from "react";
 import { ArrowUp, Square } from "lucide-react";
 import { ChatIcon } from "./icon.js";
@@ -23,6 +25,7 @@ export function Composer({
   onFiles,
   onRemoveAttachment,
   onRetryAttachment,
+  voice,
   placeholder = "Send a message…",
 }: {
   value: string;
@@ -40,13 +43,20 @@ export function Composer({
   onFiles?: (files: readonly File[]) => void;
   onRemoveAttachment?: (id: string) => void;
   onRetryAttachment?: (id: string) => void;
+  voice?: Omit<VoiceInputProps, "onTranscript" | "disabled">;
   placeholder?: string;
 }) {
   const input = useRef<HTMLTextAreaElement>(null);
+  const cursor = useRef<number | null>(null);
   const composing = useRef(false);
   const hint = useId();
   useLayoutEffect(() => {
     if (input.current) {
+      if (cursor.current !== null) {
+        input.current.focus();
+        input.current.setSelectionRange(cursor.current, cursor.current);
+        cursor.current = null;
+      }
       input.current.style.height = "auto";
       input.current.style.height = `${Math.min(input.current.scrollHeight, 192)}px`;
     }
@@ -73,7 +83,7 @@ export function Composer({
         event.preventDefault();
         if (canSend) onSubmit();
       }}
-      className="rounded-2xl border border-border bg-background p-2 transition-colors focus-within:border-ring motion-reduce:transition-none"
+      className="rounded-3xl border border-border bg-card p-2 shadow-[0_1px_2px_0_rgb(0_0_0/0.04),0_8px_24px_-12px_rgb(0_0_0/0.12)] transition-[border-color,box-shadow] duration-150 ease-out focus-within:border-ring/60 focus-within:ring-4 focus-within:ring-ring/10 motion-reduce:transition-none"
     >
       {attachments.length > 0 && (
         <ComposerAttachments
@@ -83,7 +93,10 @@ export function Composer({
         />
       )}
       {attachmentError && (
-        <p role="alert" className="px-2 pb-2 text-xs text-destructive">
+        <p
+          role="alert"
+          className="px-2.5 pb-2 text-xs leading-5 text-destructive"
+        >
           {attachmentError}
         </p>
       )}
@@ -121,12 +134,32 @@ export function Composer({
           }
         }}
       />
-      <div className="flex min-h-7 items-center justify-end gap-2 pt-1">
+      <div className="flex min-h-8 flex-wrap items-center justify-end gap-2 pt-1">
         {onFiles && (
           <ComposerAttachmentPicker
             accept={attachmentAccept}
             disabled={disabled}
             onFiles={onFiles}
+          />
+        )}
+        {voice?.transcribe && (
+          <VoiceInput
+            {...voice}
+            onCancelTranscription={() => {
+              voice.onCancelTranscription?.();
+              input.current?.focus();
+            }}
+            disabled={disabled}
+            onTranscript={(text) => {
+              const inserted = insertDraftText(
+                value,
+                text,
+                input.current?.selectionStart,
+                input.current?.selectionEnd,
+              );
+              cursor.current = inserted.cursor;
+              onChange(inserted.text);
+            }}
           />
         )}
         <p id={hint} className="sr-only">
@@ -148,7 +181,8 @@ export function Composer({
             variant="primary"
             disabled={cancelling || disabled}
             onClick={onStop}
-            className="size-7 min-h-7 rounded-lg px-0 [@media(pointer:coarse)]:size-9"
+            size="icon"
+            className="size-8 [@media(pointer:coarse)]:size-9"
           >
             <ChatIcon
               icon={Square}
@@ -165,7 +199,8 @@ export function Composer({
             disabled={!canSend}
             aria-label="Send message"
             title="Send message"
-            className="size-7 min-h-7 rounded-lg px-0 [@media(pointer:coarse)]:size-9"
+            size="icon"
+            className="size-8 [@media(pointer:coarse)]:size-9"
           >
             <ChatIcon
               icon={ArrowUp}

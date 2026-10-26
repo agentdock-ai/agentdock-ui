@@ -6,11 +6,6 @@ import { ChatPage } from "./pages/chat-page";
 import { ComponentsPage } from "./pages/components-page";
 import "./style.css";
 
-const agentdockLogo = new URL(
-  "../../../assets/agentdock-logo.png",
-  import.meta.url,
-).href;
-
 type Page = "chat" | "components";
 const currentPage = (): Page =>
   window.location.pathname.replace(/\/$/, "") === "/components"
@@ -65,11 +60,13 @@ function Playground() {
     <div className={`${dark ? "dark " : ""}playground-app`}>
       <header className="playground-header">
         <span className="playground-brand">
-          <span
+          <svg
             aria-hidden="true"
             className="playground-brand-mark"
-            style={{ maskImage: `url(${agentdockLogo})` }}
-          />
+            viewBox="0 0 210 237"
+          >
+            <path d="M0 0h210v48H0zM0 75h55v108h103V75h52v162H0z" />
+          </svg>
           <span>
             Agentdock <span className="playground-brand-label">Playground</span>
           </span>

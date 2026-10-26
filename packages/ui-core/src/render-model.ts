@@ -1,5 +1,6 @@
 import type {
   AgentEvent,
+  AgentToolApprovalInterruptAction,
   AgentReducerMessage,
   AgentReducerState,
   ContentPart,
@@ -24,6 +25,8 @@ export type RenderStreamStatus =
 export interface RenderApprovalAction {
   id: string;
   label: string;
+  allowedDecisions?: AgentToolApprovalInterruptAction["allowedDecisions"];
+  description?: string;
   input: JsonValue;
   toolCallId?: string;
 }
@@ -37,6 +40,10 @@ export interface RenderApproval {
   state: RenderApprovalState;
   decisions: readonly JsonValue[];
   payload?: JsonValue;
+  /** JSON Schema for a custom interrupt's answer, when the graph supplies one. */
+  responseSchema?: JsonValue;
+  /** When the interrupt was raised; absent for approvals restored from a checkpoint. */
+  requestedAt?: string;
 }
 
 export interface RenderError {
@@ -147,6 +154,8 @@ export interface RenderTransportError {
   detail: string;
   retryable: boolean;
   scope: "transport";
+  /** Safe server code from the stream error, such as `thread_busy`. */
+  code?: string;
 }
 
 export interface RenderModel {

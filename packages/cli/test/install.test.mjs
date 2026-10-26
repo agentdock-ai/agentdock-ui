@@ -15,8 +15,8 @@ import { addChat } from "../dist/commands/add.js";
 const dependencies = {
   react: "^19.0.0",
   tailwindcss: "^4.0.0",
-  "@agentdock-ai/react": "^0.1.0",
-  "@agentdock-ai/ui-core": "^0.1.0",
+  "@agentdock-ai/react": "^0.1.2",
+  "@agentdock-ai/ui-core": "^0.1.2",
   "@agentdock-ai/contracts": "^0.2.0",
   "react-markdown": "^10.1.0",
   "remark-gfm": "^4.0.1",
@@ -168,7 +168,7 @@ test("compatible versions and verified local dependencies are preserved", async 
   });
   await writeFile(
     join(cwd, "node_modules/@agentdock-ai/react/package.json"),
-    JSON.stringify({ name: "@agentdock-ai/react", version: "0.1.0" }),
+    JSON.stringify({ name: "@agentdock-ai/react", version: "0.1.2" }),
   );
   assert.deepEqual(
     (await addChat({ cwd, yes: true, dryRun: true })).dependencies,
@@ -234,4 +234,19 @@ test("inherits Yarn workspace lockfiles and honors explicit app package managers
     JSON.stringify({ dependencies, packageManager: "bun@1.0.0" }),
   );
   assert.equal((await addChat({ cwd, dryRun: true })).manager, "bun");
+});
+
+test("requires headless packages that provide the current artifact exports", async (t) => {
+  for (const name of ["@agentdock-ai/react", "@agentdock-ai/ui-core"]) {
+    const cwd = await fixture(t);
+    const path = join(cwd, "package.json");
+    const original = JSON.stringify({
+      dependencies: { ...dependencies, [name]: "0.1.1" },
+    });
+    await writeFile(path, original);
+    const before = await readdir(cwd);
+    await assert.rejects(addChat({ cwd, yes: true }), /requires \^0\.1\.2/);
+    assert.deepEqual(await readdir(cwd), before);
+    assert.equal(await readFile(path, "utf8"), original);
+  }
 });

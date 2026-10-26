@@ -29,6 +29,13 @@ export type AgentEventStream = AsyncIterable<AgentEvent>;
  * fields because those concerns belong in the application.
  */
 export interface ChatAdapter {
+  /** The app owns its STT provider, credentials and recorded-audio request. */
+  transcribe?(input: {
+    audio: Blob;
+    mimeType: string;
+    signal: AbortSignal;
+  }): Promise<{ text: string }>;
+
   sendMessage(input: {
     text: string;
     attachments?: readonly ChatAttachment[];
@@ -51,6 +58,14 @@ export interface ChatAdapter {
     runId: string | null;
     interruptId: string;
     decisions: readonly JsonValue[];
+    signal: AbortSignal;
+  }): AgentEventStream;
+
+  /** Answer a custom (non-approval) interrupt with the value its graph expects. */
+  answerInterrupt?(input: {
+    runId: string | null;
+    interruptId: string;
+    value: JsonValue;
     signal: AbortSignal;
   }): AgentEventStream;
 }

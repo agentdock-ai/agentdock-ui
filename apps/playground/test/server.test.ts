@@ -403,3 +403,15 @@ describe("playground API boundaries", () => {
     expect(response.listenerCount("drain")).toBe(0);
   });
 });
+
+it("routes speech requests before the JSON-only agent request guard", async () => {
+  const get = await server()("/api/transcribe");
+  expect(get.status).toBe(405);
+  const invalid = await server()(
+    "/api/transcribe",
+    {},
+    { "content-type": "multipart/form-data; boundary=missing" },
+  );
+  expect(invalid.status).toBe(400);
+  expect(invalid.json()).toMatchObject({ code: "invalid_audio" });
+});

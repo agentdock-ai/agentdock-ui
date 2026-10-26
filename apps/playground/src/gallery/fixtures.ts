@@ -1,5 +1,9 @@
 import { AgentStore, type ChatAttachmentAdapter } from "@agentdock-ai/react";
-import type { RenderMessageItem, RenderModel } from "@agentdock-ai/ui-core";
+import type {
+  RenderApproval,
+  RenderMessageItem,
+  RenderModel,
+} from "@agentdock-ai/ui-core";
 import { scenarios, type Scenario } from "../../../../scripts/fixtures/events";
 
 export function createPreviewStore(
@@ -104,3 +108,166 @@ export const localAttachments: ChatAttachmentAdapter = {
     };
   },
 };
+
+const pendingApproval = {
+  kind: "tool-approval",
+  title: "Your approval is needed",
+  detail: "The agent wants to run a command.",
+  state: "pending",
+  decisions: [],
+} as const;
+export const singleApproval: RenderApproval = {
+  ...pendingApproval,
+  interruptId: "single",
+  actions: [
+    {
+      id: "single:command",
+      label: "run_command",
+      description: "Run a shell command",
+      allowedDecisions: ["approve", "reject"],
+      input: { command: "npm run build && npm test", cwd: "/workspace" },
+    },
+  ],
+};
+export const batchApproval: RenderApproval = {
+  ...pendingApproval,
+  interruptId: "batch",
+  detail: "The agent wants to change two files.",
+  actions: [
+    {
+      id: "batch:write",
+      label: "write_file",
+      description: "Writes a file in the workspace",
+      input: { path: "src/config.ts", content: "export const retries = 3;\n" },
+    },
+    {
+      id: "batch:delete",
+      label: "delete_file",
+      description: "Deletes a path",
+      allowedDecisions: ["approve", "reject"],
+      input: { path: "build/cache" },
+    },
+  ],
+};
+export const toolRisk = (name: string) =>
+  name === "run_command" || name === "delete_file"
+    ? ("high" as const)
+    : name === "write_file" || name === "edit_file"
+      ? ("medium" as const)
+      : name === "read_file"
+        ? ("low" as const)
+        : undefined;
+
+const customInterrupt = (
+  interruptId: string,
+  detail: string,
+  responseSchema?: RenderApproval["responseSchema"],
+  payload?: RenderApproval["payload"],
+): RenderApproval => ({
+  interruptId,
+  kind: "custom",
+  title: "Your input is needed",
+  detail,
+  state: "pending",
+  decisions: [],
+  actions: [],
+  ...(responseSchema === undefined ? {} : { responseSchema }),
+  ...(payload === undefined ? {} : { payload }),
+});
+export const interrupts = {
+  choice: customInterrupt("choice", "Which environment should I deploy to?", {
+    oneOf: [
+      {
+        const: "staging",
+        title: "Staging",
+        description: "Safe to test. Rebuilt every night.",
+      },
+      {
+        const: "production",
+        title: "Production",
+        description: "Live for customers.",
+      },
+      {
+        const: "preview",
+        title: "Preview",
+        description: "A temporary link for this branch.",
+      },
+    ],
+  }),
+  confirm: customInterrupt(
+    "confirm",
+    "Migrate the orders table to the new schema?",
+    { type: "boolean" },
+  ),
+  text: customInterrupt(
+    "text",
+    "What should the release notes say about this change?",
+    { type: "string", maxLength: 500 },
+  ),
+  form: customInterrupt("form", "Who should review this pull request?", {
+    type: "object",
+    required: ["reviewer"],
+    properties: {
+      reviewer: { type: "string", format: "email", title: "Reviewer email" },
+      priority: { title: "Priority", enum: ["Normal", "High", "Low"] },
+      notify: { type: "boolean", title: "Notify the team channel" },
+    },
+  }),
+  fallback: customInterrupt(
+    "fallback",
+    "The agent asked for a PDF upload.",
+    undefined,
+    { type: "file_upload", accept: ["application/pdf"], maxBytes: 10485760 },
+  ),
+};
+
+export const chartFixtures: import("@agentdock-ai/ui-core").TaggedBlock[] = [
+  ...(["bar", "bar", "line", "area", "pie"] as const).map((type, i) => ({
+    kind: "block" as const,
+    tag: "chart",
+    state: "complete" as const,
+    raw: "Chart source",
+    attributes: {
+      type,
+      title: i === 1 ? "Stacked bars" : type,
+      stacked: String(i === 1),
+      unit: "$k",
+    },
+    body: JSON.stringify(
+      type === "pie"
+        ? {
+            slices: [
+              { label: "Direct", value: 24 },
+              { label: "Partner", value: 18 },
+              { label: "Other", value: 8 },
+            ],
+          }
+        : {
+            x: ["Q1", "Q2", "Q3", "Q4"],
+            series: [
+              { name: "2025", data: [10, 14, 12, 16] },
+              {
+                name: "2026",
+                data: type === "line" ? [12, 18, null, 21] : [12, 18, 15, 21],
+              },
+            ],
+          },
+    ),
+  })),
+  {
+    kind: "block",
+    tag: "chart",
+    state: "streaming",
+    attributes: { title: "Streaming" },
+    body: "{",
+    raw: "<chart>\n{",
+  },
+  {
+    kind: "block",
+    tag: "chart",
+    state: "complete",
+    attributes: { title: "Invalid" },
+    body: "bad JSON",
+    raw: "<chart>\nbad JSON\n</chart>",
+  },
+];

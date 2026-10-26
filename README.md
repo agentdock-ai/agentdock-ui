@@ -146,8 +146,20 @@ The playground keeps provider setup and transport in the consuming app. It suppo
 
 The local playground API requires its own loopback Host and Origin for mutations. Its file tools operate inside `.sandbox`; `run_command` requires `checkOnly: true` and only checks JavaScript syntax. Running generated code requires a separately isolated execution service supplied by the consuming app.
 
-[Registry](apps/registry/README.md) · [Installer](packages/cli/README.md)
+[Registry](apps/registry/README.md) · [Installer](packages/cli/README.md) · [Design system](DESIGN_SYSTEM.md)
 
 ## License
 
 MIT.
+
+## Charts, artifacts and voice
+
+Assistant answers can contain line-delimited `<chart type="bar|line|area|pie" title="…">` blocks with a JSON body. Cartesian data uses `{ "x": ["Jan", "Feb"], "series": [{ "name": "Sales", "data": [12, 18] }] }`; pie data uses `{ "slices": [{ "label": "Direct", "value": 12 }] }`. Close with `</chart>` on its own line. Code-fenced examples stay code. Invalid and unfinished charts keep their source in a fallback view.
+
+Enable file previews with `artifacts={{ mapTool, links: "panel" }}` on `Chat`. Omit the option to retain existing behavior. The app maps normalized successful tools to artifact drafts; repeated ids create versions. HTML is sandboxed with scripts off by default, and remote links offer an external-tab fallback. The registry source map documents all viewer overrides and limits.
+
+Supply `ChatAdapter.transcribe({ audio, mimeType, signal })` to enable speech-to-text drafts. The app owns the speech provider and keys. The optional conversation client setting `transcription: true` posts multipart audio to `/transcribe`; recording is never sent as a chat message automatically.
+
+The playground starts in **Fixtures** mode. Choose `chart`, `chartInvalid`, `artifacts`, or `artifactLink` in the scenario picker, then click **Run … scenario** or send any message. Switch the connection mode to **Live model** to use a configured provider. Fixture speech returns a fixed sentence after 600 ms; it still uses the browser microphone controls.
+
+For live speech, set `PLAYGROUND_STT_API_KEY` (or `OPENAI_API_KEY`) in the playground environment. `PLAYGROUND_STT_MODEL` optionally overrides the default `gpt-transcribe` model, following the [official file-transcription API](https://developers.openai.com/api/docs/guides/speech-to-text). The server accepts one multipart `audio` file up to 10 MB. Missing configuration returns `501` with `transcription_unavailable`.

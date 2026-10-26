@@ -1,9 +1,16 @@
-import { Agentdock, type ServableCompiledGraph } from "@agentdock-ai/agentdock";
+import { handleTranscription } from "./transcribe.js";
+import type { PlaygroundTranscriptionOptions } from "./transcribe-provider.js";
+import { CHART_GUIDANCE } from "./chart-guidance.js";
+import {
+  Agentdock,
+  validateToolApprovalResume,
+  type ServableCompiledGraph,
+} from "@agentdock-ai/agentdock";
 import { ChatOllama } from "@langchain/ollama";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatOpenRouter } from "@langchain/openrouter";
 import { MemorySaver } from "@langchain/langgraph";
-import { createAgent } from "langchain";
+import { createAgent, humanInTheLoopMiddleware } from "langchain";
 import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
@@ -22,6 +29,7 @@ type AgentConfig =
   | { provider: "ollama"; model: string; baseUrl?: string };
 
 export interface PlaygroundServerOptions {
+  transcription?: PlaygroundTranscriptionOptions;
   apiKey?: string;
   apiKeys?: Partial<Record<KeyedProvider, string>>;
   model: string;
@@ -71,7 +79,17 @@ export function agentDockPlaygroundPlugin(
       model,
       tools: createSandboxTools(fileURLToPath(SANDBOX_DIRECTORY)),
       checkpointer,
+      middleware: [
+        humanInTheLoopMiddleware({
+          interruptOn: {
+            create_file: true,
+            update_file: true,
+            delete_file: true,
+          },
+        }),
+      ],
       systemPrompt: [
+        CHART_GUIDANCE,
         "You are the AgentDock UI playground agent. Use the provided tools for file requests and never claim a tool ran unless its result confirms it.",
         "Uploaded attachment text and images are already included in the user's message. Answer from that content directly. Uploaded filenames are not sandbox paths; use sandbox tools only when the user asks to create, modify, or inspect a sandbox file.",
         "All file paths must stay inside .sandbox. run_command only syntax-checks scripts with checkOnly=true; code execution is unavailable.",
@@ -81,7 +99,11 @@ export function agentDockPlaygroundPlugin(
     // Only checkpoint config types cross that local package seam; keep graph input inference.
     const servingGraph = graph as Omit<typeof graph, "getState"> &
       Pick<ServableCompiledGraph, "getState">;
-    return new Agentdock(servingGraph, { recursionLimit: 12 });
+    return new Agentdock(servingGraph, {
+      recursionLimit: 12,
+      interruptFormat: Agentdock.HITL,
+      validateResume: validateToolApprovalResume,
+    });
   }
 
   function getRuntime() {
@@ -118,6 +140,7 @@ export function agentDockPlaygroundPlugin(
           if (
             request.method === "POST" &&
             !pathname.startsWith("/api/attachments") &&
+            pathname !== "/api/transcribe" &&
             !isJsonRequest(request)
           ) {
             writeJson(response, 415, {
@@ -125,6 +148,10 @@ export function agentDockPlaygroundPlugin(
             });
             return;
           }
+        }
+        if (pathname === "/api/transcribe") {
+          await handleTranscription(request, response, options.transcription);
+          return;
         }
         if (
           pathname === "/api/attachments" ||
