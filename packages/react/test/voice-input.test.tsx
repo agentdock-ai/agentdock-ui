@@ -127,7 +127,8 @@ it("shows safe provider errors, permits retry and cancels transcription without 
   await act(async () => root.render(render(async () => undefined)));
   await click("Start voice input");
   await click("Stop recording");
-  expect(host.textContent).toContain("transcription_unavailable");
+  expect(host.textContent).toContain("Voice input isn’t set up yet.");
+  expect(host.textContent).not.toContain("transcription_unavailable");
   await act(async () =>
     root.render(
       render(

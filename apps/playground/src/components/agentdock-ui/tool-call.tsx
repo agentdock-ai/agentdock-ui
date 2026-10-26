@@ -1,5 +1,5 @@
 "use client";
-import { ArtifactOpenButton } from "./artifact-open-button";
+import { ArtifactCards } from "./artifact-card";
 import { useState } from "react";
 import { Check, ChevronRight, LoaderCircle, Square, X } from "lucide-react";
 import { ChatIcon } from "./icon";
@@ -105,7 +105,9 @@ export function ToolCall({ item }: { item: RenderToolCallItem }) {
             className={`ml-auto shrink-0 transition-[transform,opacity] duration-200 motion-reduce:transition-none ${open ? "rotate-90 opacity-100" : "opacity-0 group-hover/tool:opacity-100 group-focus-visible/tool:opacity-100 [@media(hover:none)]:opacity-50"}`}
           />
         </CollapsibleTrigger>
-        <ArtifactOpenButton toolCallId={tool.toolCallId} />
+      </div>
+      <div className="ml-[1.375rem]">
+        <ArtifactCards toolCallId={tool.toolCallId} />
       </div>
       {progress && (
         <p

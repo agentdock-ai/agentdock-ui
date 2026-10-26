@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
 import type { Artifact } from "@agentdock-ai/ui-core";
 import { ArtifactViewJson } from "../../../apps/registry/registry/agentdock-ui/artifact-view-json.js";
-import { ArtifactToolbar } from "../../../apps/registry/registry/agentdock-ui/artifact-toolbar.js";
+import { ArtifactHeader } from "../../../apps/registry/registry/agentdock-ui/artifact-header.js";
 import type { ArtifactMode } from "../../../apps/registry/registry/agentdock-ui/artifact-types.js";
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const json = (content: string): Artifact => ({
@@ -23,7 +23,7 @@ it("renders Raw for deep valid JSON without recursive formatting failure", () =>
     ),
   ).not.toThrow();
 });
-it("round trips Show raw through the actual toolbar and resets standalone mode changes", async () => {
+it("round trips Show raw through the actual header and resets standalone mode changes", async () => {
   const artifact = json(
     JSON.stringify(Array.from({ length: 5001 }, (_, i) => i)),
   );
@@ -31,7 +31,7 @@ it("round trips Show raw through the actual toolbar and resets standalone mode c
     const [mode, setMode] = useState<ArtifactMode>("tree");
     return (
       <>
-        <ArtifactToolbar
+        <ArtifactHeader
           artifact={artifact}
           mode={mode}
           setMode={setMode}
@@ -58,9 +58,9 @@ it("round trips Show raw through the actual toolbar and resets standalone mode c
     await act(async () => root.render(<Viewer />));
     await click("Show raw");
     expect(host.querySelector('button[aria-pressed="true"]')?.textContent).toBe(
-      "raw",
+      "Raw",
     );
-    await click("tree");
+    await click("Tree");
     expect(host.querySelector('[aria-label="JSON tree"]')).not.toBeNull();
     await act(async () =>
       root.render(<ArtifactViewJson artifact={artifact} mode="tree" />),

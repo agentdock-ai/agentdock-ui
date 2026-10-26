@@ -2,8 +2,8 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
-import { useAudioLevel } from "../../../apps/registry/registry/agentdock-ui/use-audio-level.js";
-import { VoiceLevel } from "../../../apps/registry/registry/agentdock-ui/voice-level.js";
+import { useAudioLevel } from "../../../apps/registry/registry/agentdock-ui/use-voice-input.js";
+import { VoiceLevel } from "../../../apps/registry/registry/agentdock-ui/voice-input.js";
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 it("measures RMS, tears down Web Audio and stays usable when the context fails", async () => {
   const disconnect = vi.fn(),

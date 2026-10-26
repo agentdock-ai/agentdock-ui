@@ -109,3 +109,7 @@ export {
 export { insertDraftText, type DraftInsertion } from "./composer-text.js";
 
 export { formatArtifactJson } from "./artifacts/format-artifact-json.js";
+export {
+  htmlPreviewDocument,
+  htmlPreviewSandbox,
+} from "./artifacts/artifact-html.js";

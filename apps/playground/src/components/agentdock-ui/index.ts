@@ -21,6 +21,8 @@ export { ChartPie } from "./chart-pie";
 export { ChartTable } from "./chart-table";
 export { ArtifactProvider, useArtifacts } from "./artifact-context";
 export { ArtifactPanel } from "./artifact-panel";
+export { ArtifactHeader } from "./artifact-header";
+export { ArtifactCard, ArtifactCards } from "./artifact-card";
 export { ArtifactView } from "./artifact-view";
 export { ArtifactViewHtml } from "./artifact-view-html";
 export { ArtifactViewMarkdown } from "./artifact-view-markdown";
@@ -32,10 +34,8 @@ export { ArtifactViewImage } from "./artifact-view-image";
 export { ArtifactViewPdf } from "./artifact-view-pdf";
 export { ArtifactViewLink } from "./artifact-view-link";
 export { ArtifactViewFile } from "./artifact-view-file";
-export { VoiceInput, type VoiceInputProps } from "./voice-input";
-export { VoiceLevel } from "./voice-level";
-export { useVoiceRecorder } from "./use-voice-recorder";
-export { useAudioLevel } from "./use-audio-level";
+export { VoiceInput, VoiceLevel, type VoiceInputProps } from "./voice-input";
+export { useVoiceRecorder, useAudioLevel } from "./use-voice-input";
 export type {
   ArtifactOptions,
   ArtifactViewer,

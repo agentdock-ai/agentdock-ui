@@ -2,7 +2,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
-import { useVoiceRecorder } from "../../../apps/registry/registry/agentdock-ui/use-voice-recorder.js";
+import { useVoiceRecorder } from "../../../apps/registry/registry/agentdock-ui/use-voice-input.js";
 import { FakeRecorder, mockVoice } from "./voice-test-support.js";
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 let root: Root,
@@ -130,5 +130,37 @@ it("reports denied permissions and recorder errors and handles Escape", async ()
   await act(async () =>
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })),
   );
+  expect(recorder.status).toBe("idle");
+});
+it("ignores Escape and tab hides while idle, so an error message stays visible", async () => {
+  const mock = mockVoice();
+  mock.getUserMedia.mockRejectedValueOnce(
+    new DOMException("Denied", "NotAllowedError"),
+  );
+  await act(async () => root.render(<Probe />));
+  await act(async () => {
+    await recorder.start();
+  });
+  expect(host.textContent).toContain("Microphone access is blocked");
+  await act(async () =>
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })),
+  );
+  Object.defineProperty(document, "hidden", {
+    configurable: true,
+    value: true,
+  });
+  await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+  delete (document as { hidden?: boolean }).hidden;
+  expect(host.textContent).toContain("Microphone access is blocked");
+});
+
+it("returns to idle when the browser stops the recorder on its own", async () => {
+  mockVoice();
+  await act(async () => root.render(<Probe />));
+  await act(async () => {
+    await recorder.start();
+  });
+  expect(recorder.status).toBe("recording");
+  await act(async () => FakeRecorder.instances.at(-1)?.onstop?.());
   expect(recorder.status).toBe("idle");
 });

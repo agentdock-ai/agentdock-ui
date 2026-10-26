@@ -79,7 +79,10 @@ it("sandboxes HTML, renders safe media URLs, and revokes viewer blobs", async ()
     '<script>window.bad=true</script><a href="https://example.com">Link</a>',
   );
   await act(async () => root.render(<ArtifactView artifact={html} />));
-  expect(host.querySelector("iframe")?.getAttribute("sandbox")).toBe("");
+  // Links may open in a new tab; scripts and same-origin access stay off.
+  expect(host.querySelector("iframe")?.getAttribute("sandbox")).toBe(
+    "allow-popups allow-popups-to-escape-sandbox",
+  );
   expect(host.querySelector("iframe")?.getAttribute("srcdoc")).toContain(
     '<base target="_blank">',
   );
@@ -87,7 +90,7 @@ it("sandboxes HTML, renders safe media URLs, and revokes viewer blobs", async ()
     root.render(<ArtifactView artifact={html} allowHtmlScripts />),
   );
   expect(host.querySelector("iframe")?.getAttribute("sandbox")).toBe(
-    "allow-scripts",
+    "allow-scripts allow-popups allow-popups-to-escape-sandbox",
   );
   await act(async () =>
     root.render(<ArtifactView artifact={html} mode="code" />),
@@ -100,7 +103,8 @@ it("sandboxes HTML, renders safe media URLs, and revokes viewer blobs", async ()
   };
   await act(async () => root.render(<ArtifactView artifact={image} />));
   expect(host.querySelector("img")?.getAttribute("src")).toBe("blob:owned");
-  expect(host.querySelector("svg")).toBeNull();
+  // Agent SVG is shown through <img>, never inlined (icons are ours).
+  expect(host.querySelector("svg:not(.lucide)")).toBeNull();
   await act(async () =>
     root.render(
       <ArtifactView

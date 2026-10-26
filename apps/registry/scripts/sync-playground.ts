@@ -1,10 +1,16 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { createRegistry, registryRoot } from "./registry-source.ts";
 
 // The playground exercises the same editable source shipped to consumer apps.
 const registry = await createRegistry("radix");
+const playground = resolve(registryRoot, "../playground");
+const manifest = resolve(playground, ".agentdock-ui.json");
+const previous = await readFile(manifest, "utf8").then(
+  (text) => Object.keys((JSON.parse(text) as { files: object }).files),
+  () => [],
+);
 const hashes: Record<string, string> = {};
 for (const file of registry.files) {
   const target = resolve(registryRoot, "../playground/src", file.target);
@@ -14,8 +20,11 @@ for (const file of registry.files) {
     .update(file.content)
     .digest("hex");
 }
+// Remove files an earlier sync wrote that the registry no longer ships.
+for (const path of previous)
+  if (!(path in hashes)) await rm(resolve(playground, path), { force: true });
 await writeFile(
-  resolve(registryRoot, "../playground/.agentdock-ui.json"),
+  manifest,
   JSON.stringify(
     {
       flavor: "radix",

@@ -14,6 +14,9 @@ export function ChartBar({ spec }: { spec: CartesianChartSpec }) {
         <ChartTooltip
           key={`${bar.series}:${bar.index}`}
           label={`${spec.series[bar.series].name}, ${spec.x[bar.index]}: ${formatValue(bar.value, spec.unit)}`}
+          x={bar.x + bar.width / 2}
+          y={bar.y}
+          width={600}
         >
           <rect
             x={bar.x}

@@ -134,7 +134,7 @@ export function Composer({
           }
         }}
       />
-      <div className="flex min-h-8 items-center justify-end gap-2 pt-1">
+      <div className="flex min-h-8 flex-wrap items-center justify-end gap-2 pt-1">
         {onFiles && (
           <ComposerAttachmentPicker
             accept={attachmentAccept}

@@ -22,6 +22,9 @@ export function ChartLine({ spec }: { spec: CartesianChartSpec }) {
                 <ChartTooltip
                   key={point.index}
                   label={`${series.name}, ${spec.x[point.index]}: ${formatValue(point.value, spec.unit)}`}
+                  x={point.x}
+                  y={point.y}
+                  width={600}
                 >
                   <circle cx={point.x} cy={point.y} r={4} />
                 </ChartTooltip>

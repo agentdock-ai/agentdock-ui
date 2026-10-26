@@ -71,6 +71,13 @@ function persistConfig(config: PersistedPlaygroundConfig): void {
   }
 }
 
+// fetch rejects with a TypeError only when the request never reached the server.
+function connectionError(cause: unknown, fallback: string) {
+  if (cause instanceof TypeError)
+    return "Can’t reach the playground server. Make sure `yarn dev` is running, then try again.";
+  return cause instanceof Error ? cause.message : fallback;
+}
+
 export function ChatPage({
   settingsOpen,
   onCloseSettings,
@@ -155,11 +162,7 @@ export function ChatPage({
       } catch (cause) {
         if (live) {
           setConfigured(false);
-          setError(
-            cause instanceof Error
-              ? cause.message
-              : "Could not reach the local agent.",
-          );
+          setError(connectionError(cause, "Could not reach the local agent."));
         }
       } finally {
         if (live) setConnecting(false);
@@ -217,11 +220,7 @@ export function ChatPage({
       onCloseSettings();
     } catch (cause) {
       setConfigured(false);
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Could not connect this provider.",
-      );
+      setError(connectionError(cause, "Could not connect this provider."));
     } finally {
       setConnecting(false);
     }

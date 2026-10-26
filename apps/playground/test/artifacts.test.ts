@@ -35,10 +35,14 @@ it("keeps artifacts opt in and opens file versions from collapsed tool groups", 
   expect(open).not.toBeNull();
   expect(host.querySelector("dialog")).toBeNull();
   await act(async () => open?.click());
-  expect(host.querySelector("iframe")?.getAttribute("sandbox")).toBe("");
+  expect(host.querySelector("iframe")?.getAttribute("sandbox")).toBe(
+    "allow-popups allow-popups-to-escape-sandbox",
+  );
   expect(
-    host.querySelector('select[aria-label="Artifact version"]')?.textContent,
-  ).toContain("v2");
+    host
+      .querySelector<HTMLSelectElement>('select[aria-label="Artifact version"]')
+      ?.selectedOptions[0]?.getAttribute("aria-label"),
+  ).toBe("Version 1 of 2");
   const link = host.querySelector<HTMLAnchorElement>(
     'a[href="https://example.com"]',
   );
@@ -51,7 +55,8 @@ it("keeps artifacts opt in and opens file versions from collapsed tool groups", 
       }),
     ),
   );
-  expect(host.querySelectorAll('[role="tab"]')).toHaveLength(1);
+  // Modifier clicks keep browser behaviour, so still one file open and no tab strip.
+  expect(host.querySelectorAll('[role="tab"]')).toHaveLength(0);
   await act(async () =>
     link?.dispatchEvent(
       new MouseEvent("click", { bubbles: true, cancelable: true }),

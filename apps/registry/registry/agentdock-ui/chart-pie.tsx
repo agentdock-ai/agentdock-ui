@@ -17,6 +17,10 @@ export function ChartPie({ spec }: { spec: PieChartSpec }) {
         <ChartTooltip
           key={slice.index}
           label={`${slice.label}: ${formatValue(slice.value, spec.unit)} (${slice.percent}%)`}
+          x={slice.x}
+          y={slice.y}
+          width={200}
+          fontSize={8}
         >
           <path d={slice.path} className={chartColor(slice.index)} />
           {slice.percent >= 5 && (
